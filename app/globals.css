@@ -3,6 +3,23 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@layer base {
+  button:not(:disabled),
+  a,
+  label:where([for]),
+  [role="button"]:not(:disabled),
+  [role="checkbox"]:not(:disabled),
+  [role="switch"]:not(:disabled),
+  [role="radio"]:not(:disabled),
+  [role="tab"]:not(:disabled),
+  [role="option"]:not(:disabled),
+  [role="combobox"]:not(:disabled),
+  [role="menuitem"]:not(:disabled),
+  [role="menuitemcheckbox"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 @theme inline {
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-geist-mono);

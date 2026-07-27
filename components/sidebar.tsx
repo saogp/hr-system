@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, Settings, LogOut, Building2, ChevronsUpDown } from 'lucide-react'
+import { LayoutDashboard, LogOut, Building2, ChevronsUpDown, FileText, Network, Users } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import {
   Sidebar as SidebarPrimitive,
@@ -28,7 +28,9 @@ import {
 
 const navigation = [
   { name: 'Dashbord', href: '/', icon: LayoutDashboard },
-  { name: 'Innstillinger', href: '/settings', icon: Settings },
+  { name: 'Ansatte', href: '/people', icon: Users },
+  { name: 'Kontrakter', href: '/contracts', icon: FileText },
+  { name: 'Organisasjonskart', href: '/org-chart', icon: Network },
 ]
 
 function getInitials(name: string) {
@@ -70,10 +72,6 @@ export function Sidebar() {
     loadCurrentUser()
   }, [pathname, router])
 
-  const visibleNavigation = navigation.filter(
-    (item) => item.href !== '/settings' || currentUser?.role === 'admin'
-  )
-
   // Skjul sidebaren på innloggings- og onboardingsiden
   if (pathname === '/login' || pathname === '/onboarding') return null
 
@@ -100,7 +98,7 @@ export function Sidebar() {
           <SidebarGroupLabel>Meny</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {visibleNavigation.map((item) => (
+              {navigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton
                     render={<Link href={item.href} />}
