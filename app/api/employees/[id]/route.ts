@@ -2,25 +2,22 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminRequest } from '@/lib/verify-admin'
 
-export async function POST(request: Request) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const verified = await verifyAdminRequest(request)
   if ('error' in verified) {
     return NextResponse.json({ error: verified.error }, { status: verified.status })
   }
 
-  const { email, full_name, redirectTo } = await request.json()
-  if (!email) {
-    return NextResponse.json({ error: 'E-post er påkrevd.' }, { status: 400 })
+  const { id } = await params
+
+  if (id === verified.user.id) {
+    return NextResponse.json({ error: 'Du kan ikke slette din egen konto.' }, { status: 400 })
   }
 
-  const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-    data: full_name ? { full_name } : undefined,
-    redirectTo,
-  })
-
+  const { error } = await supabaseAdmin.auth.admin.deleteUser(id)
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
-  return NextResponse.json({ user: data.user })
+  return NextResponse.json({ ok: true })
 }

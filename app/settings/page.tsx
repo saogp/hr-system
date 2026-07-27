@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
 import {
@@ -33,13 +34,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { MoreHorizontal } from "lucide-react"
 
 type Company = {
   id: string
@@ -65,10 +72,34 @@ export default function SettingsPage() {
   const [newEmail, setNewEmail] = useState('')
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const router = useRouter()
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    async function checkAccessAndLoad() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.replace('/login')
+        return
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (profile?.role !== 'admin') {
+        router.replace('/')
+        return
+      }
+
+      fetchData()
+    }
+
+    checkAccessAndLoad()
+  }, [router])
 
   const fetchData = async () => {
     // Hent bedrifter
@@ -184,7 +215,11 @@ export default function SettingsPage() {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session?.access_token ?? ''}`,
       },
-      body: JSON.stringify({ email: newEmail, full_name: newName }),
+      body: JSON.stringify({
+        email: newEmail,
+        full_name: newName,
+        redirectTo: `${window.location.origin}/onboarding`,
+      }),
     })
     const result = await res.json()
 
@@ -197,6 +232,31 @@ export default function SettingsPage() {
       fetchData()
     }
     setInviting(false)
+  }
+
+  const handleDelete = async (userId: string) => {
+    if (!window.confirm('Er du sikker på at du vil slette denne ansatte? Dette kan ikke angres.')) {
+      return
+    }
+
+    setDeletingId(userId)
+
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(`/api/employees/${userId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${session?.access_token ?? ''}`,
+      },
+    })
+
+    if (res.ok) {
+      setProfiles(prev => prev.filter(p => p.id !== userId))
+    } else {
+      const result = await res.json().catch(() => ({}))
+      alert(result.error || 'Kunne ikke slette ansatt.')
+    }
+
+    setDeletingId(null)
   }
 
   const getRoleBadge = (role: string) => {
@@ -225,59 +285,80 @@ export default function SettingsPage() {
 
   const editingUser = profiles.find(p => p.id === editingUserId) ?? null
 
+  const filteredProfiles = profiles.filter((user) => {
+    const query = search.toLowerCase()
+    return (
+      (user.full_name ?? '').toLowerCase().includes(query) ||
+      (user.email ?? '').toLowerCase().includes(query)
+    )
+  })
+
   return (
     <div className="container mx-auto py-10 px-4">
-      <Card className="shadow-none border-border">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-2xl font-bold">Innstillinger</CardTitle>
-            <CardDescription>
-              Administrer ansatte, roller og hvilken bedrift de er knyttet til.
-            </CardDescription>
-          </div>
-          <Button onClick={() => setAddOpen(true)}>Legg til ansatt</Button>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>E-post</TableHead>
-                <TableHead>Navn</TableHead>
-                <TableHead>Rolle</TableHead>
-                <TableHead>Bedrift</TableHead>
-                <TableHead className="text-right">Handling</TableHead>
+      <div className="flex flex-row items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Innstillinger</h1>
+          <p className="text-muted-foreground text-sm">
+            Administrer ansatte, roller og hvilken bedrift de er knyttet til.
+          </p>
+        </div>
+        <Button onClick={() => setAddOpen(true)}>Legg til ansatt</Button>
+      </div>
+
+      <Input
+        placeholder="Søk etter navn eller e-post..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="max-w-sm mb-4"
+      />
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>E-post</TableHead>
+            <TableHead>Navn</TableHead>
+            <TableHead>Rolle</TableHead>
+            <TableHead>Bedrift</TableHead>
+            <TableHead className="text-right">Handling</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredProfiles.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                {profiles.length === 0 ? 'Ingen ansatte registrert enda.' : 'Ingen treff.'}
+              </TableCell>
+            </TableRow>
+          ) : (
+            filteredProfiles.map((user) => (
+              <TableRow key={user.id}>
+                <TableCell className="font-medium">{user.email || '—'}</TableCell>
+                <TableCell>{user.full_name || '—'}</TableCell>
+                <TableCell>{getRoleBadge(user.role)}</TableCell>
+                <TableCell>{getCompanyNames(user.id)}</TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingUserId(user.id)}
+                  >
+                    Rediger
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    disabled={deletingId === user.id}
+                    onClick={() => handleDelete(user.id)}
+                  >
+                    {deletingId === user.id ? 'Sletter...' : 'Slett'}
+                  </Button>
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {profiles.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    Ingen ansatte registrert enda.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                profiles.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.email || '—'}</TableCell>
-                    <TableCell>{user.full_name || '—'}</TableCell>
-                    <TableCell>{getRoleBadge(user.role)}</TableCell>
-                    <TableCell>{getCompanyNames(user.id)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditingUserId(user.id)}
-                      >
-                        Rediger
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            ))
+          )}
+        </TableBody>
+      </Table>
 
       <Sheet
         open={editingUser !== null}

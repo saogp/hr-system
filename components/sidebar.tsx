@@ -43,7 +43,7 @@ function getInitials(name: string) {
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null)
+  const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string } | null>(null)
 
   useEffect(() => {
     async function loadCurrentUser() {
@@ -52,21 +52,30 @@ export function Sidebar() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, email')
+        .select('full_name, email, birth_date, role')
         .eq('id', user.id)
         .single()
 
       setCurrentUser({
         name: profile?.full_name || user.email || 'Bruker',
         email: profile?.email || user.email || '',
+        role: profile?.role ?? 'employee',
       })
+
+      if (!profile?.birth_date && pathname !== '/onboarding') {
+        router.push('/onboarding')
+      }
     }
 
     loadCurrentUser()
-  }, [])
+  }, [pathname, router])
 
-  // Skjul sidebaren på innloggingssiden
-  if (pathname === '/login') return null
+  const visibleNavigation = navigation.filter(
+    (item) => item.href !== '/settings' || currentUser?.role === 'admin'
+  )
+
+  // Skjul sidebaren på innloggings- og onboardingsiden
+  if (pathname === '/login' || pathname === '/onboarding') return null
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -91,7 +100,7 @@ export function Sidebar() {
           <SidebarGroupLabel>Meny</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navigation.map((item) => (
+              {visibleNavigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton
                     render={<Link href={item.href} />}
