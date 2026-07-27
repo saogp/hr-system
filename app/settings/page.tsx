@@ -133,7 +133,7 @@ export default function SettingsPage() {
                         {getRoleBadge(user.role)}
                         <Select
                           value={user.role}
-                          onValueChange={(val) => handleRoleChange(user.id, val)}
+                          onValueChange={(val) => val && handleRoleChange(user.id, val)}
                         >
                           <SelectTrigger className="w-[120px] h-8">
                             <SelectValue />
@@ -149,7 +149,7 @@ export default function SettingsPage() {
                     <TableCell>
                       <Select
                         value={user.company_id || ''}
-                        onValueChange={(val) => handleCompanyChange(user.id, val)}
+                        onValueChange={(val) => val && handleCompanyChange(user.id, val)}
                       >
                         <SelectTrigger className="w-[200px] h-8">
                           <SelectValue placeholder="Velg bedrift" />
