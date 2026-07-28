@@ -21,3 +21,10 @@ export function setRoleOverride(role: Role | null) {
 export function applyRoleOverride(realRole: string): string {
   return getRoleOverride() ?? realRole
 }
+
+// Managers get the same view/create/edit access as admin everywhere;
+// only destructive (delete) actions remain admin-only. Use this for
+// general access gates, and check `role === 'admin'` directly for deletes.
+export function isAdminLike(role: string | null | undefined): boolean {
+  return role === 'admin' || role === 'manager'
+}

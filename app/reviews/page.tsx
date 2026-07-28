@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ChevronRight, MessageSquare } from 'lucide-react'
 import { IconBadge } from '@/components/ui/icon-badge'
-import { applyRoleOverride } from '@/lib/role-override'
+import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 
 type PersonOption = {
   id: string
@@ -89,7 +89,7 @@ export default function ReviewsPage() {
     const currentRole = applyRoleOverride(viewerProfile?.role ?? 'employee') as 'admin' | 'manager' | 'employee'
     setRole(currentRole)
 
-    if (currentRole === 'admin') {
+    if (isAdminLike(currentRole)) {
       const { data: peopleData } = await supabase
         .from('profiles')
         .select('id, full_name, email')
@@ -189,11 +189,11 @@ export default function ReviewsPage() {
           Medarbeidersamtaler
         </h1>
         <p className="text-muted-foreground text-sm">
-          {role === 'admin' ? 'Alle medarbeidersamtaler.' : 'Dine medarbeidersamtaler.'}
+          {isAdminLike(role) ? 'Alle medarbeidersamtaler.' : 'Dine medarbeidersamtaler.'}
         </p>
       </div>
 
-      {role === 'admin' && (
+      {isAdminLike(role) && (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <Input

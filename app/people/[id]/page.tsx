@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { EditableAvatar } from '@/components/editable-avatar'
 import { IconBadge } from '@/components/ui/icon-badge'
-import { applyRoleOverride } from '@/lib/role-override'
+import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
-import { OrganicBlob } from '@/components/decorative/organic-blobs'
+import { PhoneInput } from '@/components/phone-input'
 
 type Company = { id: string; name: string }
 
@@ -63,6 +63,8 @@ type PersonProfile = {
   manager_id: string | null
   phone: string | null
   address: string | null
+  postal_code: string | null
+  postal_place: string | null
   emergency_contact_name: string | null
   emergency_contact_phone: string | null
   employee_number: number | null
@@ -94,10 +96,14 @@ const SELF_EDITABLE_FIELDS: (keyof PersonProfile)[] = [
   'email',
   'phone',
   'address',
+  'postal_code',
+  'postal_place',
   'birth_date',
   'emergency_contact_name',
   'emergency_contact_phone',
 ]
+
+const POSITION_OPTIONS = ['Daglig leder', 'Kokk', 'Servitør', 'Sjåfør']
 
 function getInitials(name: string) {
   return name
@@ -123,6 +129,7 @@ function PersonDetailPageInner() {
 
   const [viewerId, setViewerId] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isRealAdmin, setIsRealAdmin] = useState(false)
   const [person, setPerson] = useState<PersonProfile | null>(null)
   const [directoryPerson, setDirectoryPerson] = useState<DirectoryProfile | null>(null)
   const [allProfiles, setAllProfiles] = useState<{ id: string; full_name: string | null; email: string | null; role: string }[]>([])
@@ -154,8 +161,10 @@ function PersonDetailPageInner() {
         .select('role')
         .eq('id', user.id)
         .single()
-      const admin = applyRoleOverride(viewerProfile?.role ?? 'employee') === 'admin'
+      const viewerRole = applyRoleOverride(viewerProfile?.role ?? 'employee')
+      const admin = isAdminLike(viewerRole)
       setIsAdmin(admin)
+      setIsRealAdmin(viewerRole === 'admin')
 
       const viewingSelf = user.id === id
 
@@ -328,14 +337,15 @@ function PersonDetailPageInner() {
     rawValue: string | number | null,
     display: string,
     inputType: 'text' | 'email' | 'number' | 'date' = 'text',
-    numberRange?: { min: number; max: number }
+    numberRange?: { min: number; max: number },
+    noPadding?: boolean
   ) => {
     const editable = editing && canEditField(field)
     const commit = (raw: string) =>
       handleFieldChange(field, inputType === 'number' ? (raw ? Number(raw) : null) : (raw || null))
 
     return (
-      <div className="py-3" key={field}>
+      <div className={noPadding ? '' : 'py-3'} key={field}>
         <Label htmlFor={field} className="text-xs text-muted-foreground mb-1">{label}</Label>
         {editable ? (
           <Input
@@ -412,10 +422,7 @@ function PersonDetailPageInner() {
   const canEditSomething = isAdmin || isSelf
 
   return (
-    <div className="relative isolate py-6 px-4 max-w-2xl overflow-hidden">
-      <OrganicBlob className="pointer-events-none absolute -right-28 -top-24 -z-10 h-60 w-60 opacity-80" />
-      <OrganicBlob className="pointer-events-none absolute -left-24 bottom-0 -z-10 h-48 w-48 opacity-40 rotate-45" />
-
+    <div className="py-6 px-4 max-w-2xl">
       <div className="flex items-center justify-between mb-6">
         <Link
           href="/people"
@@ -441,9 +448,11 @@ function PersonDetailPageInner() {
                   {resending ? 'Sender...' : 'Send invitasjon på nytt'}
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
-                Slett
-              </DropdownMenuItem>
+              {isRealAdmin && (
+                <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
+                  Slett
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
@@ -489,6 +498,7 @@ function PersonDetailPageInner() {
       )}
 
       <div className="flex flex-col gap-6">
+        <div className={isAdmin ? 'grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 items-start' : ''}>
         <Card className="shadow-none border-border py-0 rounded-2xl">
           <CardHeader className="border-b border-border py-4">
             <CardTitle className="text-sm font-semibold">Generell info</CardTitle>
@@ -497,8 +507,46 @@ function PersonDetailPageInner() {
             <div className="divide-y divide-border">
               {renderRow('Navn', 'full_name', person.full_name, person.full_name || '—', 'text')}
               {renderRow('E-post', 'email', person.email, person.email || '—', 'email')}
-              {renderRow('Telefonnummer', 'phone', person.phone, person.phone || '—', 'text')}
+
+              <div className="py-3">
+                <Label className="text-xs text-muted-foreground mb-1">Telefonnummer</Label>
+                {editing && canEditField('phone') ? (
+                  <PhoneInput
+                    value={person.phone}
+                    onCommit={(val) => handleFieldChange('phone', val)}
+                  />
+                ) : (
+                  <p className="text-sm">{person.phone || '—'}</p>
+                )}
+              </div>
+
               {renderRow('Adresse', 'address', person.address, person.address || '—', 'text')}
+
+              <div className="py-3">
+                <Label className="text-xs text-muted-foreground mb-1">Postnummer / poststed</Label>
+                {editing && canEditField('postal_code') ? (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Postnr."
+                      className="w-24 shrink-0"
+                      defaultValue={person.postal_code ?? ''}
+                      onBlur={(e) => handleFieldChange('postal_code', e.target.value || null)}
+                    />
+                    <Input
+                      placeholder="Poststed"
+                      defaultValue={person.postal_place ?? ''}
+                      onBlur={(e) => handleFieldChange('postal_place', e.target.value || null)}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-sm">
+                    {person.postal_code || person.postal_place
+                      ? `${person.postal_code || ''} ${person.postal_place || ''}`.trim()
+                      : '—'}
+                  </p>
+                )}
+              </div>
+
               {renderRow('Bursdag', 'birth_date', person.birth_date, person.birth_date ? formatDate(person.birth_date) : '—', 'date')}
 
               <div className="py-3">
@@ -528,6 +576,68 @@ function PersonDetailPageInner() {
           </CardContent>
         </Card>
 
+        {isAdmin && (
+          <Card className="shadow-none border-border py-0 rounded-2xl">
+            <CardHeader className="border-b border-border py-4 flex-row items-center justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <IconBadge icon={<FileText className="size-4" />} />
+                Dokumenter
+              </CardTitle>
+              <Button size="sm" variant="outline" render={<Link href="/contracts" />}>
+                Send kontrakt
+              </Button>
+            </CardHeader>
+            <CardContent className="px-4">
+              {contracts.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-3">Ingen kontrakter enda.</p>
+              ) : (
+                <div className="flex flex-col divide-y divide-border">
+                  {contracts.map((c) => {
+                    const signedCount = [c.employee_signed_at, c.admin_signed_at].filter(Boolean).length
+                    const isUnsigned = signedCount === 0
+                    return (
+                      <div key={c.id} className="flex items-center justify-between gap-2 py-1">
+                        <Link
+                          href={`/contracts/${c.id}`}
+                          className="min-w-0 flex-1 py-2 rounded-md hover:bg-muted/50"
+                        >
+                          <p className="text-sm font-medium truncate">{c.contract_templates?.name || '—'}</p>
+                          <p className="text-xs text-muted-foreground">Sendt {formatDate(c.sent_at)}</p>
+                        </Link>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {signedCount === 2 ? (
+                            <Badge className="bg-green-600 hover:bg-green-700">2 av 2 signert</Badge>
+                          ) : (
+                            <Badge variant="secondary">{signedCount} av 2 signert</Badge>
+                          )}
+                          {isUnsigned && isRealAdmin && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger
+                                render={
+                                  <Button variant="ghost" size="icon-sm">
+                                    <MoreHorizontal />
+                                    <span className="sr-only">Handlinger</span>
+                                  </Button>
+                                }
+                              />
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem variant="destructive" onClick={() => setContractDeleteId(c.id)}>
+                                  Slett
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+        </div>
+
         <Card className="shadow-none border-border py-0 rounded-2xl">
           <CardHeader className="border-b border-border py-4">
             <CardTitle className="text-sm font-semibold">Arbeid</CardTitle>
@@ -535,7 +645,36 @@ function PersonDetailPageInner() {
           <CardContent className="px-4">
             <div className="divide-y divide-border">
               {renderRow('Ansattnummer', 'employee_number', person.employee_number, person.employee_number != null ? String(person.employee_number) : '—', 'number')}
-              {renderRow('Stilling', 'title', person.title, person.title || '—', 'text')}
+
+              <div className="py-3">
+                <p className="text-xs text-muted-foreground mb-1">Stilling</p>
+                {editing && isAdmin ? (
+                  <div className="flex flex-col gap-2 rounded-md border border-input p-3">
+                    {POSITION_OPTIONS.map((option) => {
+                      const selected = (person.title ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+                      const checked = selected.includes(option)
+                      const checkboxId = `title-${option}`
+                      return (
+                        <div key={option} className="flex items-center gap-2 text-sm">
+                          <Checkbox
+                            id={checkboxId}
+                            checked={checked}
+                            onCheckedChange={(val) => {
+                              const next = val === true
+                                ? [...selected, option]
+                                : selected.filter((s) => s !== option)
+                              handleFieldChange('title', next.length > 0 ? next.join(', ') : null)
+                            }}
+                          />
+                          <Label htmlFor={checkboxId} className="font-normal">{option}</Label>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm">{person.title || '—'}</p>
+                )}
+              </div>
 
               <div className="py-3">
                 <p className="text-xs text-muted-foreground mb-1">Rolle</p>
@@ -622,8 +761,10 @@ function PersonDetailPageInner() {
                 'number',
                 { min: 0, max: 100 }
               )}
-              {renderRow('Tiltredelse', 'start_date', person.start_date, person.start_date ? formatDate(person.start_date) : '—', 'date')}
-              {renderRow('Sluttdato', 'end_date', person.end_date, person.end_date ? formatDate(person.end_date) : '—', 'date')}
+              <div className="py-3 grid grid-cols-2 gap-4">
+                {renderRow('Tiltredelse', 'start_date', person.start_date, person.start_date ? formatDate(person.start_date) : '—', 'date', undefined, true)}
+                {renderRow('Sluttdato', 'end_date', person.end_date, person.end_date ? formatDate(person.end_date) : '—', 'date', undefined, true)}
+              </div>
               {renderRow(
                 'Neste medarbeidersamtale',
                 'next_review_date',
@@ -667,65 +808,6 @@ function PersonDetailPageInner() {
           </CardContent>
         </Card>
       </div>
-
-      {isAdmin && (
-        <div className="space-y-2 border-t border-border pt-4 mt-6">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium flex items-center gap-2">
-              <IconBadge icon={<FileText className="size-4" />} />
-              Kontrakter
-            </p>
-            <Button size="sm" variant="outline" render={<Link href="/contracts" />}>
-              Send kontrakt
-            </Button>
-          </div>
-          {contracts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Ingen kontrakter enda.</p>
-          ) : (
-            <div className="flex flex-col divide-y divide-border rounded-md border border-input">
-              {contracts.map((c) => {
-                const signedCount = [c.employee_signed_at, c.admin_signed_at].filter(Boolean).length
-                const isUnsigned = signedCount === 0
-                return (
-                  <div key={c.id} className="flex items-center justify-between gap-2 p-1 pl-3">
-                    <Link
-                      href={`/contracts/${c.id}`}
-                      className="min-w-0 flex-1 py-2 rounded-md hover:bg-muted/50"
-                    >
-                      <p className="text-sm font-medium truncate">{c.contract_templates?.name || '—'}</p>
-                      <p className="text-xs text-muted-foreground">Sendt {formatDate(c.sent_at)}</p>
-                    </Link>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {signedCount === 2 ? (
-                        <Badge className="bg-green-600 hover:bg-green-700">2 av 2 signert</Badge>
-                      ) : (
-                        <Badge variant="secondary">{signedCount} av 2 signert</Badge>
-                      )}
-                      {isUnsigned && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            render={
-                              <Button variant="ghost" size="icon-sm">
-                                <MoreHorizontal />
-                                <span className="sr-only">Handlinger</span>
-                              </Button>
-                            }
-                          />
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem variant="destructive" onClick={() => setContractDeleteId(c.id)}>
-                              Slett
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>

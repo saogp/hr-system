@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
-export async function verifyAdminRequest(request: Request) {
+async function verifyRequest(request: Request, allowedRoles: string[]) {
   const authHeader = request.headers.get('authorization')
   const token = authHeader?.replace('Bearer ', '')
 
@@ -19,9 +19,17 @@ export async function verifyAdminRequest(request: Request) {
     .eq('id', user.id)
     .single()
 
-  if (caller?.role !== 'admin') {
-    return { error: 'Kun admin har tilgang.', status: 403 } as const
+  if (!caller?.role || !allowedRoles.includes(caller.role)) {
+    return { error: 'Du har ikke tilgang til dette.', status: 403 } as const
   }
 
   return { user }
+}
+
+export async function verifyAdminRequest(request: Request) {
+  return verifyRequest(request, ['admin'])
+}
+
+export async function verifyAdminOrManagerRequest(request: Request) {
+  return verifyRequest(request, ['admin', 'manager'])
 }

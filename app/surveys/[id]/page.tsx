@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { OrganicBlob } from '@/components/decorative/organic-blobs'
 import { ScaleInput } from '@/components/survey-scale-input'
-import { applyRoleOverride } from '@/lib/role-override'
+import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { computeResponseScore } from '@/lib/survey-score'
 import type { SurveyCategory } from '@/lib/survey-categories'
 
@@ -58,7 +58,7 @@ export default function SurveyDetailPage() {
         .select('role')
         .eq('id', user.id)
         .single()
-      const admin = applyRoleOverride(viewerProfile?.role ?? 'employee') === 'admin'
+      const admin = isAdminLike(applyRoleOverride(viewerProfile?.role ?? 'employee'))
       setIsAdmin(admin)
 
       const { data: surveyData } = await supabase

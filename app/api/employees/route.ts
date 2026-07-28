@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
-import { verifyAdminRequest } from '@/lib/verify-admin'
+import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
 
 export async function GET(request: Request) {
-  const verified = await verifyAdminRequest(request)
+  const verified = await verifyAdminOrManagerRequest(request)
   if ('error' in verified) {
     return NextResponse.json({ error: verified.error }, { status: verified.status })
   }
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const verified = await verifyAdminRequest(request)
+  const verified = await verifyAdminOrManagerRequest(request)
   if ('error' in verified) {
     return NextResponse.json({ error: verified.error }, { status: verified.status })
   }

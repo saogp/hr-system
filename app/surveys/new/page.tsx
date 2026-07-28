@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { sendPushNotification } from '@/lib/push-client'
-import { applyRoleOverride } from '@/lib/role-override'
+import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { SURVEY_TEMPLATES } from '@/lib/survey-templates'
 import { SURVEY_CATEGORIES, type SurveyCategory } from '@/lib/survey-categories'
 
@@ -74,7 +74,7 @@ function NewSurveyPageInner() {
         .eq('id', user.id)
         .single()
 
-      if (applyRoleOverride(viewerProfile?.role ?? 'employee') !== 'admin') {
+      if (!isAdminLike(applyRoleOverride(viewerProfile?.role ?? 'employee'))) {
         router.replace('/surveys')
         return
       }

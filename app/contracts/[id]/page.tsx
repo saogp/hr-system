@@ -14,7 +14,7 @@ import {
 import { downloadContractPdf } from '@/lib/contract-pdf'
 import { RenderedContractText } from '@/components/rendered-contract-text'
 import { SignaturePad } from '@/components/signature-pad'
-import { applyRoleOverride } from '@/lib/role-override'
+import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -77,6 +77,7 @@ export default function ContractDetailPage() {
   const [adminSignerInfo, setAdminSignerInfo] = useState<PersonInfo | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isRealAdmin, setIsRealAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [signing, setSigning] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -101,7 +102,9 @@ export default function ContractDetailPage() {
         .select('role')
         .eq('id', user.id)
         .single()
-      setIsAdmin(applyRoleOverride(viewerProfile?.role ?? 'employee') === 'admin')
+      const viewerRole = applyRoleOverride(viewerProfile?.role ?? 'employee')
+      setIsAdmin(isAdminLike(viewerRole))
+      setIsRealAdmin(viewerRole === 'admin')
 
       const { data: contractData } = await supabase
         .from('contracts')
@@ -312,7 +315,7 @@ export default function ContractDetailPage() {
                     {sendingToAccountant ? 'Sender...' : 'Send til regnskapsfører'}
                   </DropdownMenuItem>
                 )}
-                {isAdmin && (
+                {isRealAdmin && (
                   <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
                     <Trash2 />
                     Slett kontrakt

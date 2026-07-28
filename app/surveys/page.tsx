@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { applyRoleOverride } from '@/lib/role-override'
+import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { computeResponseScore } from '@/lib/survey-score'
 import type { SurveyCategory } from '@/lib/survey-categories'
 
@@ -67,7 +67,7 @@ export default function SurveysPage() {
       .select('role')
       .eq('id', user.id)
       .single()
-    const admin = applyRoleOverride(viewerProfile?.role ?? 'employee') === 'admin'
+    const admin = isAdminLike(applyRoleOverride(viewerProfile?.role ?? 'employee'))
     setIsAdmin(admin)
 
     if (admin) {

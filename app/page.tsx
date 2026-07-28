@@ -12,8 +12,8 @@ import { IconBadge } from '@/components/ui/icon-badge'
 import { GreetingIllustration } from '@/components/decorative/greeting-illustration'
 import { AllDoneIllustration } from '@/components/decorative/all-done-illustration'
 import { ClipboardCheck, FileText, MessageSquare, ShieldAlert, ChevronRight, Sparkles, UserCheck, type LucideIcon } from 'lucide-react'
-import { applyRoleOverride } from '@/lib/role-override'
-import { computeCategoryScores } from '@/lib/survey-score'
+import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+import { computeCategoryScores, computeResponseScore, type ScoredQuestion } from '@/lib/survey-score'
 import type { SurveyCategory } from '@/lib/survey-categories'
 import { computeProfileCompletion } from '@/lib/profile-completion'
 import { ProfileCompletionBar } from '@/components/profile-completion-bar'
@@ -51,6 +51,14 @@ type MyReview = {
   status: 'open' | 'completed'
 }
 
+type MySurvey = {
+  id: string
+  survey_id: string
+  submitted_at: string | null
+  responses: Record<string, string> | null
+  surveys: { title: string; questions: ScoredQuestion[] } | null
+}
+
 type MyTask = {
   id: string
   description: string
@@ -82,6 +90,7 @@ export default function DashboardPage() {
   const [myContracts, setMyContracts] = useState<MyContract[]>([])
   const [nextReviewDate, setNextReviewDate] = useState<string | null>(null)
   const [myReviews, setMyReviews] = useState<MyReview[]>([])
+  const [mySurveys, setMySurveys] = useState<MySurvey[]>([])
   const [myTasks, setMyTasks] = useState<MyTask[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [unsignedContracts, setUnsignedContracts] = useState<UnsignedContract[]>([])
@@ -90,6 +99,8 @@ export default function DashboardPage() {
   const [engagementCategories, setEngagementCategories] = useState<{ category: SurveyCategory; label: string; score: number | null }[]>([])
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [profileCompletionPercent, setProfileCompletionPercent] = useState(100)
+  const [birthdaysToday, setBirthdaysToday] = useState<string[]>([])
+  const [myBirthdayToday, setMyBirthdayToday] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -112,10 +123,26 @@ export default function DashboardPage() {
 
       setUserName(profile?.full_name || user.email || 'Ansatt')
       setNextReviewDate(profile?.next_review_date ?? null)
-      const admin = applyRoleOverride(profile?.role ?? 'employee') === 'admin'
+      const admin = isAdminLike(applyRoleOverride(profile?.role ?? 'employee'))
       setIsAdmin(admin)
 
+      const todayMonthDay = new Date().toISOString().slice(5, 10)
+      if (profile?.birth_date && profile.birth_date.slice(5, 10) === todayMonthDay) {
+        setMyBirthdayToday(true)
+      }
+
       if (admin) {
+        const { data: allBirthdays } = await supabase
+          .from('profiles')
+          .select('full_name, birth_date')
+          .neq('id', user.id)
+        if (allBirthdays) {
+          const names = allBirthdays
+            .filter((p) => p.birth_date && p.birth_date.slice(5, 10) === todayMonthDay)
+            .map((p) => p.full_name || 'Ukjent')
+          setBirthdaysToday(names)
+        }
+
         const { data: unsignedData } = await supabase
           .from('contracts')
           .select('id, sent_at, employee_signed_at, admin_signed_at, profiles!contracts_profile_id_fkey(full_name, email)')
@@ -147,6 +174,21 @@ export default function DashboardPage() {
           setEngagementOverall(overall)
           setEngagementCategories(categories)
         }
+      } else {
+        const { data: mySurveysData } = await supabase
+          .from('survey_recipients')
+          .select('survey_id, responses, surveys!survey_recipients_survey_id_fkey(questions)')
+          .eq('profile_id', user.id)
+          .not('submitted_at', 'is', null)
+
+        if (mySurveysData) {
+          const entries = (mySurveysData as unknown as { surveys: { questions: ScoredQuestion[] } | null; responses: Record<string, string> }[])
+            .map((r) => ({ questions: r.surveys?.questions ?? [], responses: r.responses }))
+            .filter((e) => e.questions.length > 0)
+          const { overall, categories } = computeCategoryScores(entries)
+          setEngagementOverall(overall)
+          setEngagementCategories(categories)
+        }
       }
 
       const { data: contractsData } = await supabase
@@ -164,6 +206,14 @@ export default function DashboardPage() {
         .order('scheduled_date', { ascending: false })
 
       if (reviewsData) setMyReviews(reviewsData)
+
+      const { data: myFullSurveysData } = await supabase
+        .from('survey_recipients')
+        .select('id, survey_id, submitted_at, responses, surveys!survey_recipients_survey_id_fkey(title, questions)')
+        .eq('profile_id', user.id)
+        .order('id')
+
+      if (myFullSurveysData) setMySurveys(myFullSurveysData as unknown as MySurvey[])
 
       const { data: tasksData } = await supabase
         .from('review_tasks')
@@ -358,49 +408,64 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {isAdmin && (
-        <Card className="shadow-none border-border">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <IconBadge icon={<Sparkles className="size-4" />} />
-              Trivselspuls
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {engagementOverall === null ? (
-              <p className="text-sm text-muted-foreground">
-                Ingen skala-baserte undersøkelser er besvart enda. Send en undersøkelse med
-                skala-spørsmål (f.eks. Trivselsundersøkelse) for å se en samlet score her.
-              </p>
-            ) : (
-              <div className="flex flex-col sm:flex-row gap-6">
-                <div className="flex flex-row sm:flex-col items-baseline sm:items-start gap-2 sm:gap-1 shrink-0 sm:w-28">
-                  <p className="text-4xl font-bold text-brand-navy dark:text-white">{engagementOverall}</p>
-                  <p className="text-xs text-muted-foreground">av alle besvarte undersøkelser</p>
-                </div>
-                <div className="flex-1 space-y-3">
-                  {engagementCategories.map((c) => (
-                    <div key={c.category} className="flex items-center gap-3">
-                      <span className="w-28 text-sm shrink-0 truncate">{c.label}</span>
-                      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                        {c.score !== null && (
-                          <div className="h-full bg-brand-orange rounded-full" style={{ width: `${c.score}%` }} />
-                        )}
-                      </div>
-                      <span className={`w-8 text-sm text-right shrink-0 ${c.score === null ? 'text-muted-foreground' : ''}`}>
-                        {c.score !== null ? c.score : '–'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+      {(myBirthdayToday || birthdaysToday.length > 0) && (
+        <Card className="shadow-none border-brand-navy/10 bg-brand-cream dark:bg-white/5">
+          <CardContent className="py-4">
+            <p className="text-sm font-medium">
+              {myBirthdayToday && birthdaysToday.length > 0
+                ? `🎉 Gratulerer med dagen! I dag er det også bursdag til ${birthdaysToday.join(', ')}.`
+                : myBirthdayToday
+                ? '🎉 Gratulerer med dagen!'
+                : `🎉 I dag er det bursdag til ${birthdaysToday.join(', ')}!`}
+            </p>
           </CardContent>
         </Card>
       )}
 
+      <Card className="shadow-none border-border">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <IconBadge icon={<Sparkles className="size-4" />} />
+            Trivselspuls
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {engagementOverall === null ? (
+            <p className="text-sm text-muted-foreground">
+              {isAdmin
+                ? 'Ingen skala-baserte undersøkelser er besvart enda. Send en undersøkelse med skala-spørsmål (f.eks. Trivselsundersøkelse) for å se en samlet score her.'
+                : 'Du har ikke besvart noen skala-baserte undersøkelser enda. Svar på en undersøkelse (f.eks. Trivselsundersøkelse) for å se din egen score her.'}
+            </p>
+          ) : (
+            <div className="flex flex-col sm:flex-row gap-6">
+              <div className="flex flex-row sm:flex-col items-baseline sm:items-start gap-2 sm:gap-1 shrink-0 sm:w-28">
+                <p className="text-4xl font-bold text-brand-navy dark:text-white">{engagementOverall}</p>
+                <p className="text-xs text-muted-foreground">
+                  {isAdmin ? 'av alle besvarte undersøkelser' : 'basert på dine svar'}
+                </p>
+              </div>
+              <div className="flex-1 space-y-3">
+                {engagementCategories.map((c) => (
+                  <div key={c.category} className="flex items-center gap-3">
+                    <span className="w-28 text-sm shrink-0 truncate">{c.label}</span>
+                    <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                      {c.score !== null && (
+                        <div className="h-full bg-brand-orange rounded-full" style={{ width: `${c.score}%` }} />
+                      )}
+                    </div>
+                    <span className={`w-8 text-sm text-right shrink-0 ${c.score === null ? 'text-muted-foreground' : ''}`}>
+                      {c.score !== null ? c.score : '–'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {!isAdmin && (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="shadow-none border-border">
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -468,6 +533,41 @@ export default function DashboardPage() {
                   </div>
                 </Link>
               ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-none border-border">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <IconBadge icon={<ClipboardCheck className="size-4" />} />
+              Mine undersøkelser
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {mySurveys.length === 0 ? (
+              <p className="text-muted-foreground text-sm">Du har ingen undersøkelser enda.</p>
+            ) : (
+              mySurveys.map((s) => {
+                const score = s.submitted_at ? computeResponseScore(s.surveys?.questions ?? [], s.responses) : null
+                return (
+                  <Link
+                    key={s.id}
+                    href={`/surveys/${s.survey_id}`}
+                    className="flex items-center justify-between gap-2 border-b border-border pb-3 last:border-0 last:pb-0"
+                  >
+                    <p className="font-medium text-sm truncate">{s.surveys?.title || '—'}</p>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {s.submitted_at ? (
+                        <Badge className="bg-green-600 hover:bg-green-700">{score !== null ? `${score} poeng` : 'Besvart'}</Badge>
+                      ) : (
+                        <Badge variant="secondary">Venter</Badge>
+                      )}
+                      <ChevronRight className="size-4 text-muted-foreground" />
+                    </div>
+                  </Link>
+                )
+              })
             )}
           </CardContent>
         </Card>

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Plus, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { applyRoleOverride } from '@/lib/role-override'
+import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,7 +38,7 @@ export default function ReviewTemplateEditorPage() {
         .eq('id', user.id)
         .single()
 
-      if (applyRoleOverride(viewerProfile?.role ?? 'employee') !== 'admin') {
+      if (!isAdminLike(applyRoleOverride(viewerProfile?.role ?? 'employee'))) {
         router.replace('/settings')
         return
       }

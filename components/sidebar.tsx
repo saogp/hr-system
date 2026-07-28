@@ -18,6 +18,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from '@/components/ui/sidebar'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Switch } from '@/components/ui/switch'
@@ -53,8 +54,13 @@ function getInitials(name: string) {
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
+  const { isMobile, setOpenMobile } = useSidebar()
   const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string; avatarUrl: string | null } | null>(null)
   const [theme, setTheme] = useState<Theme>('light')
+
+  const closeMobileSidebar = () => {
+    if (isMobile) setOpenMobile(false)
+  }
 
   useEffect(() => {
     setTheme(getStoredTheme())
@@ -120,7 +126,7 @@ export function Sidebar() {
               {navigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton
-                    render={<Link href={item.href} />}
+                    render={<Link href={item.href} onClick={closeMobileSidebar} />}
                     isActive={pathname === item.href}
                     tooltip={item.name}
                   >
@@ -139,7 +145,7 @@ export function Sidebar() {
               {secondaryNavigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton
-                    render={<Link href={item.href} />}
+                    render={<Link href={item.href} onClick={closeMobileSidebar} />}
                     isActive={pathname === item.href}
                     tooltip={item.name}
                   >

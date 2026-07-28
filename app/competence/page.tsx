@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { RadarChart } from '@/components/radar-chart'
-import { applyRoleOverride } from '@/lib/role-override'
+import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 
 import {
   Table,
@@ -43,6 +43,7 @@ export default function CompetencePage() {
   const router = useRouter()
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isRealAdmin, setIsRealAdmin] = useState(false)
   const [people, setPeople] = useState<Person[]>([])
   const [competences, setCompetences] = useState<Competence[]>([])
   const [levels, setLevels] = useState<Record<string, Record<string, number>>>({})
@@ -65,7 +66,9 @@ export default function CompetencePage() {
       .select('role')
       .eq('id', user.id)
       .single()
-    setIsAdmin(applyRoleOverride(viewerProfile?.role ?? 'employee') === 'admin')
+    const viewerRole = applyRoleOverride(viewerProfile?.role ?? 'employee')
+    setIsAdmin(isAdminLike(viewerRole))
+    setIsRealAdmin(viewerRole === 'admin')
 
     const { data: peopleData } = await supabase
       .from('profiles')
@@ -280,9 +283,11 @@ export default function CompetencePage() {
                     </Select>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setCompetenceDeleteId(c.id)}>
-                      Slett
-                    </Button>
+                    {isRealAdmin && (
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setCompetenceDeleteId(c.id)}>
+                        Slett
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

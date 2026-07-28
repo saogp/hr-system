@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { extractTokens, extractChoiceFields, renderContract, RESERVED_TOKENS, COMPANY_TOKENS, type ProfileFields, type CompanyFields } from '@/lib/contract-tokens'
 import { RichTextEditor } from '@/components/template-editor/rich-text-editor'
 import { RenderedContractText } from '@/components/rendered-contract-text'
-import { applyRoleOverride } from '@/lib/role-override'
+import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -65,7 +65,7 @@ export default function TemplateEditorPage() {
         .eq('id', user.id)
         .single()
 
-      if (applyRoleOverride(viewerProfile?.role ?? 'employee') !== 'admin') {
+      if (!isAdminLike(applyRoleOverride(viewerProfile?.role ?? 'employee'))) {
         router.replace('/contracts')
         return
       }

@@ -64,7 +64,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-brand-cream dark:bg-brand-cream-dark px-4">
+    <div className="min-h-dvh flex items-center justify-center bg-brand-cream dark:bg-brand-cream-dark px-4">
       <Card className="w-full max-w-sm shadow-none border-brand-navy/10 py-8">
         <CardHeader className="space-y-1 items-center text-center px-8">
           <GreetingIllustration className="size-24 mb-1" />

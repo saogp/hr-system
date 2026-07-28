@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { getAdminTokens, extractChoiceFields, usesCompanyTokens } from '@/lib/contract-tokens'
-import { applyRoleOverride } from '@/lib/role-override'
+import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 
 import {
   Select,
@@ -120,7 +120,7 @@ export default function ContractsPage() {
       const currentRole = applyRoleOverride(profile?.role ?? 'employee') as 'admin' | 'manager' | 'employee'
       setRole(currentRole)
 
-      if (currentRole === 'admin') {
+      if (isAdminLike(currentRole)) {
         const { data: templatesData } = await supabase
           .from('contract_templates')
           .select('*')
@@ -160,7 +160,7 @@ export default function ContractsPage() {
   }, [router])
 
   const refetchContracts = async () => {
-    if (role === 'admin') {
+    if (isAdminLike(role)) {
       const { data } = await supabase
         .from('contracts')
         .select('*, contract_templates!contracts_template_id_fkey(name), profiles!contracts_profile_id_fkey(full_name, email)')
@@ -262,14 +262,14 @@ export default function ContractsPage() {
           Kontrakter
         </h1>
         <p className="text-muted-foreground text-sm">
-          {role === 'admin'
+          {isAdminLike(role)
             ? 'Send kontrakter til ansatte.'
             : 'Dine kontrakter.'}
         </p>
       </div>
 
       <div>
-        {role === 'admin' && (
+        {isAdminLike(role) && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <Input
@@ -314,12 +314,12 @@ export default function ContractsPage() {
               const rowContent = (
                 <>
                   <div className="min-w-0 flex-1">
-                    {role === 'admin' && (
+                    {isAdminLike(role) && (
                       <p className="font-medium text-sm truncate">
                         {c.profiles?.full_name || c.profiles?.email || '—'}
                       </p>
                     )}
-                    <p className={role === 'admin' ? 'text-xs text-muted-foreground truncate' : 'font-medium text-sm truncate'}>
+                    <p className={isAdminLike(role) ? 'text-xs text-muted-foreground truncate' : 'font-medium text-sm truncate'}>
                       {c.contract_templates?.name || '—'}
                     </p>
                     <p className="text-xs text-muted-foreground">Sendt {formatDate(c.sent_at)}</p>
@@ -341,7 +341,7 @@ export default function ContractsPage() {
                             <Download />
                             Last ned som PDF
                           </DropdownMenuItem>
-                          {role === 'admin' && (
+                          {isAdminLike(role) && (
                             <DropdownMenuItem onClick={() => handleSendToAccountant(c.id)}>
                               <Send />
                               Send til regnskapsfører
@@ -355,12 +355,12 @@ export default function ContractsPage() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
-                    {role !== 'admin' && <ChevronRight className="size-4 text-muted-foreground" />}
+                    {!isAdminLike(role) && <ChevronRight className="size-4 text-muted-foreground" />}
                   </div>
                 </>
               )
 
-              return role === 'admin' ? (
+              return isAdminLike(role) ? (
                 <div
                   key={c.id}
                   onClick={() => router.push(`/contracts/${c.id}`)}
@@ -481,6 +481,7 @@ export default function ContractsPage() {
                 <Label htmlFor={`field-${token}`} className="capitalize">{token}</Label>
                 <Input
                   id={`field-${token}`}
+                  type={token === 'tiltredelsesdato' ? 'date' : 'text'}
                   value={adminFieldValues[token] ?? ''}
                   onChange={(e) =>
                     setAdminFieldValues(prev => ({ ...prev, [token]: e.target.value }))

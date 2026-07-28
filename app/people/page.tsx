@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ArrowUpAZ, ArrowDownAZ, Users } from 'lucide-react'
 import { IconBadge } from '@/components/ui/icon-badge'
-import { applyRoleOverride } from '@/lib/role-override'
+import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Dialog,
@@ -24,7 +24,6 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { StatTile } from '@/components/ui/stat-tile'
 import { ChevronRight } from 'lucide-react'
-import { OrganicBlob } from '@/components/decorative/organic-blobs'
 
 type Person = {
   id: string
@@ -72,7 +71,7 @@ export default function PeoplePage() {
       .select('role')
       .eq('id', user.id)
       .single()
-    const admin = applyRoleOverride(viewerProfile?.role ?? 'employee') === 'admin'
+    const admin = isAdminLike(applyRoleOverride(viewerProfile?.role ?? 'employee'))
     setIsAdmin(admin)
 
     if (admin) {
@@ -156,10 +155,7 @@ export default function PeoplePage() {
   const activeCount = people.filter((p) => !p.end_date || p.end_date >= today).length
 
   return (
-    <div className="relative isolate max-w-4xl py-10 px-4 overflow-hidden">
-      <OrganicBlob className="pointer-events-none absolute -right-24 -top-20 -z-10 h-64 w-64 opacity-90" />
-      <OrganicBlob className="pointer-events-none absolute -left-28 top-96 -z-10 h-52 w-52 opacity-50 rotate-45" />
-
+    <div className="max-w-4xl py-10 px-4">
       <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
