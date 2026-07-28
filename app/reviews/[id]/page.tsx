@@ -21,6 +21,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 type Question = { id: string; text: string }
 
@@ -63,6 +73,7 @@ export default function ReviewDetailPage() {
   const [addingTaskFor, setAddingTaskFor] = useState<string | null>(null)
   const [newTaskDescription, setNewTaskDescription] = useState('')
   const [newTaskAssignee, setNewTaskAssignee] = useState('')
+  const [taskDeleteId, setTaskDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -163,11 +174,13 @@ export default function ReviewDetailPage() {
     }
   }
 
-  const handleRemoveTask = async (taskId: string) => {
-    const { error } = await supabase.from('review_tasks').delete().eq('id', taskId)
+  const handleRemoveTask = async () => {
+    if (!taskDeleteId) return
+    const { error } = await supabase.from('review_tasks').delete().eq('id', taskDeleteId)
     if (!error) {
-      setTasks(prev => prev.filter(t => t.id !== taskId))
+      setTasks(prev => prev.filter(t => t.id !== taskDeleteId))
     }
+    setTaskDeleteId(null)
   }
 
   const handleCompleteMeeting = async () => {
@@ -277,7 +290,7 @@ export default function ReviewDetailPage() {
                       )}
                     </div>
                     {isParticipant && (
-                      <Button variant="ghost" size="icon-sm" onClick={() => handleRemoveTask(t.id)}>
+                      <Button variant="ghost" size="icon-sm" onClick={() => setTaskDeleteId(t.id)}>
                         <X className="size-3.5" />
                         <span className="sr-only">Fjern oppgave</span>
                       </Button>
@@ -341,6 +354,26 @@ export default function ReviewDetailPage() {
           {completing ? 'Fullfører...' : 'Fullfør møte'}
         </Button>
       )}
+
+      <AlertDialog open={taskDeleteId !== null} onOpenChange={(open) => !open && setTaskDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dette vil fjerne oppgaven permanent. Handlingen kan ikke angres.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={handleRemoveTask}
+            >
+              Fjern
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -277,7 +277,6 @@ export default function ContractDetailPage() {
 
   const signedCount = [contract.employee_signed_at, contract.admin_signed_at].filter(Boolean).length
   const allSigned = signedCount === 2
-  const isUnsigned = signedCount === 0
 
   const handleDownloadPdf = () => {
     if (!contract) return
@@ -313,7 +312,7 @@ export default function ContractDetailPage() {
                     {sendingToAccountant ? 'Sender...' : 'Send til regnskapsfører'}
                   </DropdownMenuItem>
                 )}
-                {isAdmin && isUnsigned && (
+                {isAdmin && (
                   <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
                     <Trash2 />
                     Slett kontrakt

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -37,6 +37,14 @@ type Company = { id: string; name: string }
 type Question = { id: string; text: string; type: 'text' | 'scale'; category?: SurveyCategory }
 
 export default function NewSurveyPage() {
+  return (
+    <Suspense fallback={<div className="p-8">Laster...</div>}>
+      <NewSurveyPageInner />
+    </Suspense>
+  )
+}
+
+function NewSurveyPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)

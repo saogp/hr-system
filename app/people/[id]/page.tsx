@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, MoreHorizontal, FileText } from 'lucide-react'
@@ -109,6 +109,14 @@ function getInitials(name: string) {
 }
 
 export default function PersonDetailPage() {
+  return (
+    <Suspense fallback={<div className="p-8">Laster profil...</div>}>
+      <PersonDetailPageInner />
+    </Suspense>
+  )
+}
+
+function PersonDetailPageInner() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()

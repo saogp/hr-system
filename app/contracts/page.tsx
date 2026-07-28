@@ -347,7 +347,7 @@ export default function ContractsPage() {
                               Send til regnskapsfører
                             </DropdownMenuItem>
                           )}
-                          {role === 'admin' && !c.employee_signed_at && !c.admin_signed_at && (
+                          {role === 'admin' && (
                             <DropdownMenuItem variant="destructive" onClick={() => setDeleteTargetId(c.id)}>
                               Slett
                             </DropdownMenuItem>

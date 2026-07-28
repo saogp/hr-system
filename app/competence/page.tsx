@@ -25,6 +25,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { GraduationCap } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 type Person = { id: string; full_name: string | null; email: string | null }
 type Competence = { id: string; name: string; target_level: number }
@@ -39,6 +49,7 @@ export default function CompetencePage() {
   const [selectedPersonId, setSelectedPersonId] = useState('')
   const [loading, setLoading] = useState(true)
   const [newCompetenceName, setNewCompetenceName] = useState('')
+  const [competenceDeleteId, setCompetenceDeleteId] = useState<string | null>(null)
 
   const load = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -127,11 +138,13 @@ export default function CompetencePage() {
     }
   }
 
-  const handleDeleteCompetence = async (competenceId: string) => {
-    const { error } = await supabase.from('competences').delete().eq('id', competenceId)
+  const handleDeleteCompetence = async () => {
+    if (!competenceDeleteId) return
+    const { error } = await supabase.from('competences').delete().eq('id', competenceDeleteId)
     if (!error) {
-      setCompetences(prev => prev.filter(c => c.id !== competenceId))
+      setCompetences(prev => prev.filter(c => c.id !== competenceDeleteId))
     }
+    setCompetenceDeleteId(null)
   }
 
   if (loading) {
@@ -267,7 +280,7 @@ export default function CompetencePage() {
                     </Select>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => handleDeleteCompetence(c.id)}>
+                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setCompetenceDeleteId(c.id)}>
                       Slett
                     </Button>
                   </TableCell>
@@ -277,6 +290,27 @@ export default function CompetencePage() {
           </Table>
         </div>
       )}
+
+      <AlertDialog open={competenceDeleteId !== null} onOpenChange={(open) => !open && setCompetenceDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dette vil slette kompetansen permanent, inkludert registrerte nivåer for alle ansatte.
+              Handlingen kan ikke angres.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={handleDeleteCompetence}
+            >
+              Slett
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
