@@ -1,0 +1,15 @@
+type Props = {
+  className?: string
+}
+
+export function ZestLogo({ className }: Props) {
+  return (
+    <svg viewBox="0 0 32 32" className={className} aria-hidden focusable="false">
+      <rect width="32" height="32" rx="9" fill="#001f3c" />
+      <path
+        d="M9.5 10.2C9.5 9.5 10.07 8.9 10.8 8.9H21.1C22.24 8.9 22.85 10.25 22.08 11.09L14.3 19.7H21.1C21.83 19.7 22.4 20.3 22.4 21C22.4 21.7 21.83 22.3 21.1 22.3H10.8C9.66 22.3 9.05 20.95 9.82 20.11L17.6 11.5H10.8C10.07 11.5 9.5 10.9 9.5 10.2Z"
+        fill="#f2a152"
+      />
+    </svg>
+  )
+}

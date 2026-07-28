@@ -31,9 +31,9 @@ export function generateReviewIcs({
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//HR Portal//Medarbeidersamtale//NO',
+    'PRODID:-//Zest//Medarbeidersamtale//NO',
     'BEGIN:VEVENT',
-    `UID:review-${id}@hr-system`,
+    `UID:review-${id}@zest-app`,
     `DTSTAMP:${toIcsTimestamp(new Date())}`,
     `DTSTART;VALUE=DATE:${toIcsDate(scheduledDate)}`,
     `SUMMARY:${summary}`,

@@ -2,7 +2,7 @@ self.addEventListener('push', (event) => {
   if (!event.data) return
 
   const data = event.data.json()
-  const title = data.title || 'HR Portal'
+  const title = data.title || 'Zest'
   const options = {
     body: data.body || '',
     data: { url: data.url || '/' },

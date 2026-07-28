@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, LogOut, Building2, FileText, Users, Settings, MessageSquare, ShieldAlert, ClipboardList, Moon, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, LogOut, FileText, Users, Settings, MessageSquare, ShieldAlert, ClipboardList, Moon, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getStoredTheme, applyTheme, type Theme } from '@/lib/theme'
+import { ZestLogo } from '@/components/zest-logo'
 import {
   Sidebar as SidebarPrimitive,
   SidebarContent,
@@ -105,8 +106,8 @@ export function Sidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/" />}>
-              <Building2 className="text-brand-orange" />
-              <span className="font-semibold">HR Portal</span>
+              <ZestLogo className="size-6 rounded-md shrink-0" />
+              <span className="font-semibold tracking-wide">ZEST</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

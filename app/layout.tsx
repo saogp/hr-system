@@ -6,8 +6,8 @@ import { TestRoleSwitcher } from '@/components/test-role-switcher'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 
 export const metadata: Metadata = {
-  title: 'HR Portal',
-  description: 'Internportal for ansatte',
+  title: 'Zest',
+  description: 'Zest – internportal for ansatte',
 }
 
 export default function RootLayout({
