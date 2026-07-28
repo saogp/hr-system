@@ -7,6 +7,12 @@ export const RESERVED_TOKENS = {
   kontonummer: 'bank_account',
 } as const
 
+export const COMPANY_TOKENS = {
+  firma_navn: 'name',
+  org_nummer: 'org_number',
+  firma_adresse: 'billing_address',
+} as const
+
 export type ProfileFields = {
   full_name: string | null
   email: string | null
@@ -16,7 +22,20 @@ export type ProfileFields = {
   bank_account: string | null
 }
 
+export type CompanyFields = {
+  name: string | null
+  org_number: string | null
+  billing_address: string | null
+}
+
+export type ChoiceField = {
+  key: string
+  optionA: string
+  optionB: string
+}
+
 const TOKEN_PATTERN = /\{\{\s*([a-zA-ZæøåÆØÅ0-9_]+)\s*\}\}/g
+const CHOICE_PATTERN = /\{\{choice:([a-zA-ZæøåÆØÅ0-9_]+):([^|{}]+)\|([^{}]+)\}\}/g
 
 export function extractTokens(content: string): string[] {
   const tokens = new Set<string>()
@@ -26,8 +45,27 @@ export function extractTokens(content: string): string[] {
   return Array.from(tokens)
 }
 
+export function extractChoiceFields(content: string): ChoiceField[] {
+  const fields: ChoiceField[] = []
+  const seen = new Set<string>()
+  for (const match of content.matchAll(CHOICE_PATTERN)) {
+    const [, key, optionA, optionB] = match
+    if (!seen.has(key)) {
+      seen.add(key)
+      fields.push({ key, optionA: optionA.trim(), optionB: optionB.trim() })
+    }
+  }
+  return fields
+}
+
 export function getAdminTokens(content: string): string[] {
-  return extractTokens(content).filter((t) => !(t in RESERVED_TOKENS))
+  return extractTokens(content).filter(
+    (t) => !(t in RESERVED_TOKENS) && !(t in COMPANY_TOKENS)
+  )
+}
+
+export function usesCompanyTokens(content: string): boolean {
+  return extractTokens(content).some((t) => t in COMPANY_TOKENS)
 }
 
 export function getMissingProfileFields(content: string, profile: ProfileFields): string[] {
@@ -39,13 +77,24 @@ export function getMissingProfileFields(content: string, profile: ProfileFields)
 export function renderContract(
   content: string,
   profile: ProfileFields,
-  adminFields: Record<string, string>
+  adminFields: Record<string, string>,
+  company?: CompanyFields | null
 ): string {
-  return content.replace(TOKEN_PATTERN, (_match, token: string) => {
+  let result = content.replace(CHOICE_PATTERN, (_match, key: string, optionA: string, optionB: string) => {
+    return adminFields[key] || optionA.trim() || `[${key}]`
+  })
+
+  result = result.replace(TOKEN_PATTERN, (_match, token: string) => {
     if (token in RESERVED_TOKENS) {
       const value = profile[RESERVED_TOKENS[token as keyof typeof RESERVED_TOKENS]]
       return value || `[${token}]`
     }
+    if (token in COMPANY_TOKENS) {
+      const value = company?.[COMPANY_TOKENS[token as keyof typeof COMPANY_TOKENS]]
+      return value || `[${token}]`
+    }
     return adminFields[token] || `[${token}]`
   })
+
+  return result
 }

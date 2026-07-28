@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, LogOut, Building2, ChevronsUpDown, FileText, Network, Users } from 'lucide-react'
+import { LayoutDashboard, LogOut, Building2, FileText, Users, Settings, MessageSquare, ShieldAlert, GraduationCap, ClipboardList } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import {
   Sidebar as SidebarPrimitive,
@@ -30,7 +30,11 @@ const navigation = [
   { name: 'Dashbord', href: '/', icon: LayoutDashboard },
   { name: 'Ansatte', href: '/people', icon: Users },
   { name: 'Kontrakter', href: '/contracts', icon: FileText },
-  { name: 'Organisasjonskart', href: '/org-chart', icon: Network },
+  { name: 'Medarbeidersamtaler', href: '/reviews', icon: MessageSquare },
+  { name: 'Kompetanse', href: '/competence', icon: GraduationCap },
+  { name: 'Undersøkelser', href: '/surveys', icon: ClipboardList },
+  { name: 'Si fra', href: '/si-fra', icon: ShieldAlert },
+  { name: 'Innstillinger', href: '/settings', icon: Settings },
 ]
 
 function getInitials(name: string) {
@@ -138,7 +142,6 @@ export function Sidebar() {
                         {currentUser?.email ?? ''}
                       </span>
                     </div>
-                    <ChevronsUpDown className="ml-auto size-4" />
                   </SidebarMenuButton>
                 }
               />

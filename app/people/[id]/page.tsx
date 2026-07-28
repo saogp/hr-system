@@ -39,6 +39,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 type Company = { id: string; name: string }
 
+type PersonContract = {
+  id: string
+  sent_at: string
+  employee_signed_at: string | null
+  admin_signed_at: string | null
+  contract_templates: { name: string } | null
+}
+
 type PersonProfile = {
   id: string
   email: string | null
@@ -50,6 +58,7 @@ type PersonProfile = {
   phone: string | null
   interests: string | null
   fun_fact: string | null
+  next_review_date: string | null
 }
 
 type InviteStatus = {
@@ -78,9 +87,11 @@ export default function PersonDetailPage() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [companyIds, setCompanyIds] = useState<string[]>([])
   const [inviteStatus, setInviteStatus] = useState<InviteStatus | null>(null)
+  const [contracts, setContracts] = useState<PersonContract[]>([])
   const [loading, setLoading] = useState(true)
 
   const [editingSelf, setEditingSelf] = useState(false)
+  const [editingAdmin, setEditingAdmin] = useState(false)
   const [phone, setPhone] = useState('')
   const [interests, setInterests] = useState('')
   const [funFact, setFunFact] = useState('')
@@ -89,6 +100,8 @@ export default function PersonDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [resending, setResending] = useState(false)
+  const [contractDeleteId, setContractDeleteId] = useState<string | null>(null)
+  const [deletingContract, setDeletingContract] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -137,6 +150,13 @@ export default function PersonDetailPage() {
           .select('company_id')
           .eq('profile_id', id)
         if (pcData) setCompanyIds(pcData.map((r) => r.company_id))
+
+        const { data: contractsData } = await supabase
+          .from('contracts')
+          .select('id, sent_at, employee_signed_at, admin_signed_at, contract_templates!contracts_template_id_fkey(name)')
+          .eq('profile_id', id)
+          .order('sent_at', { ascending: false })
+        if (contractsData) setContracts(contractsData as unknown as PersonContract[])
 
         const { data: { session } } = await supabase.auth.getSession()
         const statusRes = await fetch('/api/employees', {
@@ -242,9 +262,33 @@ export default function PersonDetailPage() {
     }
   }
 
+  const handleDeleteContract = async () => {
+    if (!contractDeleteId) return
+    setDeletingContract(true)
+
+    const { error } = await supabase.from('contracts').delete().eq('id', contractDeleteId)
+
+    if (!error) {
+      setContracts(prev => prev.filter(c => c.id !== contractDeleteId))
+      setContractDeleteId(null)
+    }
+    setDeletingContract(false)
+  }
+
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return ''
     return new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return <Badge className="bg-red-500 hover:bg-red-600">Admin</Badge>
+      case 'manager':
+        return <Badge className="bg-blue-500 hover:bg-blue-600">Leder</Badge>
+      default:
+        return <Badge variant="secondary">Ansatt</Badge>
+    }
   }
 
   if (loading || !person) {
@@ -364,110 +408,221 @@ export default function PersonDetailPage() {
 
         {isAdmin && (
           <div className="space-y-4 border-t border-border pt-6">
-            <h2 className="font-medium">Administrer</h2>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="full_name">Navn</Label>
-              <Input
-                id="full_name"
-                defaultValue={person.full_name ?? ''}
-                onBlur={(e) => handleFieldChange('full_name', e.target.value)}
-              />
+            <div className="flex items-center justify-between">
+              <h2 className="font-medium">Administrer</h2>
+              {editingAdmin ? (
+                <Button size="sm" variant="outline" onClick={() => setEditingAdmin(false)}>
+                  Ferdig
+                </Button>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setEditingAdmin(true)}>
+                  Rediger
+                </Button>
+              )}
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email">E-post</Label>
-              <Input
-                id="email"
-                type="email"
-                defaultValue={person.email ?? ''}
-                onBlur={(e) => handleFieldChange('email', e.target.value)}
-              />
-            </div>
+            {editingAdmin ? (
+              <>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="full_name">Navn</Label>
+                  <Input
+                    id="full_name"
+                    defaultValue={person.full_name ?? ''}
+                    onBlur={(e) => handleFieldChange('full_name', e.target.value)}
+                  />
+                </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="title">Stilling</Label>
-              <Input
-                id="title"
-                placeholder="F.eks. Designer, CTO, Prosjektleder"
-                defaultValue={person.title ?? ''}
-                onBlur={(e) => handleFieldChange('title', e.target.value)}
-              />
-            </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="email">E-post</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    defaultValue={person.email ?? ''}
+                    onBlur={(e) => handleFieldChange('email', e.target.value)}
+                  />
+                </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label>Rolle</Label>
-              <Select
-                value={person.role}
-                onValueChange={(val) => val && handleFieldChange('role', val)}
-              >
-                <SelectTrigger className="w-full h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="manager">Leder</SelectItem>
-                  <SelectItem value="employee">Ansatt</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="title">Stilling</Label>
+                  <Input
+                    id="title"
+                    placeholder="F.eks. Designer, CTO, Prosjektleder"
+                    defaultValue={person.title ?? ''}
+                    onBlur={(e) => handleFieldChange('title', e.target.value)}
+                  />
+                </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label>Nærmeste leder</Label>
-              <Select
-                value={person.manager_id ?? 'none'}
-                onValueChange={(val) => val && handleFieldChange('manager_id', val === 'none' ? null : val)}
-              >
-                <SelectTrigger className="w-full h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Ingen</SelectItem>
-                  {allProfiles
-                    .filter((p) => p.id !== id)
-                    .map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.full_name || p.email}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>Rolle</Label>
+                  <Select
+                    value={person.role}
+                    onValueChange={(val) => val && handleFieldChange('role', val)}
+                  >
+                    <SelectTrigger className="w-full h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="manager">Leder</SelectItem>
+                      <SelectItem value="employee">Ansatt</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label>Bedrifter</Label>
-              <div className="flex flex-col gap-2 rounded-md border border-input p-3">
-                {companies.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Ingen bedrifter registrert enda.</p>
-                ) : (
-                  companies.map((c) => {
-                    const checked = companyIds.includes(c.id)
-                    const checkboxId = `company-${c.id}`
+                <div className="flex flex-col gap-1.5">
+                  <Label>Nærmeste leder</Label>
+                  <Select
+                    value={person.manager_id ?? 'none'}
+                    onValueChange={(val) => val && handleFieldChange('manager_id', val === 'none' ? null : val)}
+                  >
+                    <SelectTrigger className="w-full h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Ingen</SelectItem>
+                      {allProfiles
+                        .filter((p) => p.id !== id)
+                        .map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.full_name || p.email}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label>Bedrifter</Label>
+                  <div className="flex flex-col gap-2 rounded-md border border-input p-3">
+                    {companies.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Ingen bedrifter registrert enda.</p>
+                    ) : (
+                      companies.map((c) => {
+                        const checked = companyIds.includes(c.id)
+                        const checkboxId = `company-${c.id}`
+                        return (
+                          <div key={c.id} className="flex items-center gap-2 text-sm">
+                            <Checkbox
+                              id={checkboxId}
+                              checked={checked}
+                              onCheckedChange={(val) => handleToggleCompany(c.id, val === true)}
+                            />
+                            <Label htmlFor={checkboxId} className="font-normal">
+                              {c.name}
+                            </Label>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="birth_date">Bursdag</Label>
+                  <Input
+                    id="birth_date"
+                    type="date"
+                    defaultValue={person.birth_date ?? ''}
+                    onChange={(e) => handleFieldChange('birth_date', e.target.value || null)}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="next_review_date">Neste medarbeidersamtale</Label>
+                  <Input
+                    id="next_review_date"
+                    type="date"
+                    defaultValue={person.next_review_date ?? ''}
+                    onChange={(e) => handleFieldChange('next_review_date', e.target.value || null)}
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Navn</p>
+                  <p className="text-sm">{person.full_name || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">E-post</p>
+                  <p className="text-sm">{person.email || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Stilling</p>
+                  <p className="text-sm">{person.title || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Rolle</p>
+                  {getRoleBadge(person.role)}
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Nærmeste leder</p>
+                  <p className="text-sm">
+                    {allProfiles.find((p) => p.id === person.manager_id)?.full_name || 'Ingen'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Bedrifter</p>
+                  <p className="text-sm">
+                    {companies.filter((c) => companyIds.includes(c.id)).map((c) => c.name).join(', ') || '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Bursdag</p>
+                  <p className="text-sm">{person.birth_date ? formatDate(person.birth_date) : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Neste medarbeidersamtale</p>
+                  <p className="text-sm">{person.next_review_date ? formatDate(person.next_review_date) : '—'}</p>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2 border-t border-border pt-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Kontrakter</p>
+                <Button size="sm" variant="outline" render={<Link href="/contracts" />}>
+                  Send kontrakt
+                </Button>
+              </div>
+              {contracts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Ingen kontrakter enda.</p>
+              ) : (
+                <div className="flex flex-col divide-y divide-border rounded-md border border-input">
+                  {contracts.map((c) => {
+                    const signedCount = [c.employee_signed_at, c.admin_signed_at].filter(Boolean).length
+                    const isUnsigned = signedCount === 0
                     return (
-                      <div key={c.id} className="flex items-center gap-2 text-sm">
-                        <Checkbox
-                          id={checkboxId}
-                          checked={checked}
-                          onCheckedChange={(val) => handleToggleCompany(c.id, val === true)}
-                        />
-                        <Label htmlFor={checkboxId} className="font-normal">
-                          {c.name}
-                        </Label>
+                      <div key={c.id} className="flex items-center justify-between gap-2 p-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{c.contract_templates?.name || '—'}</p>
+                          <p className="text-xs text-muted-foreground">Sendt {formatDate(c.sent_at)}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {signedCount === 2 ? (
+                            <Badge className="bg-green-600 hover:bg-green-700">2 av 2 signert</Badge>
+                          ) : (
+                            <Badge variant="secondary">{signedCount} av 2 signert</Badge>
+                          )}
+                          <Button size="sm" variant="ghost" render={<Link href={`/contracts/${c.id}`} />}>
+                            Åpne
+                          </Button>
+                          {isUnsigned && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setContractDeleteId(c.id)}
+                            >
+                              Slett
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     )
-                  })
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="birth_date">Bursdag</Label>
-              <Input
-                id="birth_date"
-                type="date"
-                defaultValue={person.birth_date ?? ''}
-                onChange={(e) => handleFieldChange('birth_date', e.target.value || null)}
-              />
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -490,6 +645,27 @@ export default function PersonDetailPage() {
               onClick={handleDelete}
             >
               {deleting ? 'Sletter...' : 'Slett'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={contractDeleteId !== null} onOpenChange={(open) => !open && setContractDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dette vil slette kontrakten permanent. Handlingen kan ikke angres.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={deletingContract}
+              onClick={handleDeleteContract}
+            >
+              {deletingContract ? 'Sletter...' : 'Slett'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
