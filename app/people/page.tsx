@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ArrowUpAZ, ArrowDownAZ, Users } from 'lucide-react'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride } from '@/lib/role-override'
@@ -33,6 +33,7 @@ type Person = {
   email: string | null
   end_date: string | null
   contractStatus: 'signed' | 'pending' | 'none'
+  avatar_url: string | null
 }
 
 function getInitials(name: string) {
@@ -76,7 +77,7 @@ export default function PeoplePage() {
     if (admin) {
       const { data: profilesData } = await supabase
         .from('profiles')
-        .select('id, full_name, title, role, email, end_date')
+        .select('id, full_name, title, role, email, end_date, avatar_url')
       const { data: contractsData } = await supabase
         .from('contracts')
         .select('profile_id, employee_signed_at, admin_signed_at')
@@ -214,6 +215,7 @@ export default function PeoplePage() {
               className="flex items-center gap-3 rounded-xl border border-border p-3 hover:bg-muted/50"
             >
               <Avatar className="size-10">
+                {p.avatar_url && <AvatarImage src={p.avatar_url} alt={p.full_name ?? ''} />}
                 <AvatarFallback className="bg-brand-navy text-brand-orange">{getInitials(p.full_name || '?')}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">

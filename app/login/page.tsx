@@ -65,8 +65,8 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-brand-cream dark:bg-brand-cream-dark px-4">
-      <Card className="w-full max-w-sm shadow-none border-brand-navy/10">
-        <CardHeader className="space-y-1 items-center text-center">
+      <Card className="w-full max-w-sm shadow-none border-brand-navy/10 py-8">
+        <CardHeader className="space-y-1 items-center text-center px-8">
           <GreetingIllustration className="size-24 mb-1" />
           <CardTitle className="text-xl font-bold text-brand-navy dark:text-white">Logg inn</CardTitle>
           <CardDescription>
@@ -75,7 +75,7 @@ export default function LoginPage() {
         </CardHeader>
 
         <form onSubmit={handleLogin}>
-          <CardContent className="grid gap-4">
+          <CardContent className="grid gap-4 px-8">
             {errorMsg && (
               <Alert variant="destructive">
                 <AlertDescription>{errorMsg}</AlertDescription>

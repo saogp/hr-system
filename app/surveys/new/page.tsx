@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { sendPushNotification } from '@/lib/push-client'
 import { applyRoleOverride } from '@/lib/role-override'
 import { SURVEY_TEMPLATES } from '@/lib/survey-templates'
+import { SURVEY_CATEGORIES, type SurveyCategory } from '@/lib/survey-categories'
 
 import {
   Dialog,
@@ -33,7 +34,7 @@ import { ArrowLeft } from 'lucide-react'
 
 type Person = { id: string; full_name: string | null; email: string | null }
 type Company = { id: string; name: string }
-type Question = { id: string; text: string; type: 'text' | 'scale' }
+type Question = { id: string; text: string; type: 'text' | 'scale'; category?: SurveyCategory }
 
 export default function NewSurveyPage() {
   const router = useRouter()
@@ -94,7 +95,7 @@ export default function NewSurveyPage() {
     const template = SURVEY_TEMPLATES.find((t) => t.id === templateId)
     if (!template) return
     setTitle(template.title)
-    setQuestions(template.questions.map((q, i) => ({ id: `q${i + 1}`, text: q.text, type: q.type })))
+    setQuestions(template.questions.map((q, i) => ({ id: `q${i + 1}`, text: q.text, type: q.type, category: q.category })))
     setAnonymous(template.anonymous ?? false)
   }
 
@@ -108,6 +109,10 @@ export default function NewSurveyPage() {
 
   const updateQuestionType = (index: number, type: 'text' | 'scale') => {
     setQuestions(prev => prev.map((q, i) => (i === index ? { ...q, type } : q)))
+  }
+
+  const updateQuestionCategory = (index: number, category: SurveyCategory) => {
+    setQuestions(prev => prev.map((q, i) => (i === index ? { ...q, category } : q)))
   }
 
   const removeQuestion = (index: number) => {
@@ -200,11 +205,12 @@ export default function NewSurveyPage() {
         <div className="flex flex-col gap-2">
           <Label>Spørsmål</Label>
           {questions.map((q, i) => (
-            <div key={q.id} className="flex items-center gap-2">
+            <div key={q.id} className="flex items-center gap-2 flex-wrap">
               <Input
                 value={q.text}
                 onChange={(e) => updateQuestion(i, e.target.value)}
                 placeholder="Skriv et spørsmål..."
+                className="flex-1 min-w-40"
               />
               <Select value={q.type} onValueChange={(val) => val && updateQuestionType(i, val as 'text' | 'scale')}>
                 <SelectTrigger className="w-32 h-8 shrink-0">
@@ -215,6 +221,18 @@ export default function NewSurveyPage() {
                   <SelectItem value="scale">Skala 1-5</SelectItem>
                 </SelectContent>
               </Select>
+              {q.type === 'scale' && (
+                <Select value={q.category ?? ''} onValueChange={(val) => val && updateQuestionCategory(i, val as SurveyCategory)}>
+                  <SelectTrigger className="w-36 h-8 shrink-0">
+                    <SelectValue placeholder="Kategori" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SURVEY_CATEGORIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Button
                 type="button"
                 variant="ghost"

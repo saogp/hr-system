@@ -11,8 +11,10 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { GreetingIllustration } from '@/components/decorative/greeting-illustration'
 import { AllDoneIllustration } from '@/components/decorative/all-done-illustration'
-import { ClipboardCheck, FileText, MessageSquare, ShieldAlert, ChevronRight, type LucideIcon } from 'lucide-react'
+import { ClipboardCheck, FileText, MessageSquare, ShieldAlert, ChevronRight, Sparkles, type LucideIcon } from 'lucide-react'
 import { applyRoleOverride } from '@/lib/role-override'
+import { computeCategoryScores } from '@/lib/survey-score'
+import type { SurveyCategory } from '@/lib/survey-categories'
 
 function getTimeOfDayGreeting() {
   const hour = new Date().getHours()
@@ -82,6 +84,8 @@ export default function DashboardPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [unsignedContracts, setUnsignedContracts] = useState<UnsignedContract[]>([])
   const [unreadReports, setUnreadReports] = useState<UnreadReport[]>([])
+  const [engagementOverall, setEngagementOverall] = useState<number | null>(null)
+  const [engagementCategories, setEngagementCategories] = useState<{ category: SurveyCategory; label: string; score: number | null }[]>([])
   const router = useRouter()
 
   useEffect(() => {
@@ -118,6 +122,24 @@ export default function DashboardPage() {
           .eq('read', false)
           .order('created_at', { ascending: false })
         if (unreadData) setUnreadReports(unreadData as unknown as UnreadReport[])
+
+        const { data: allSurveysData } = await supabase
+          .from('surveys')
+          .select('id, questions')
+        const { data: submittedData } = await supabase
+          .from('survey_recipients')
+          .select('survey_id, responses')
+          .not('submitted_at', 'is', null)
+
+        if (allSurveysData && submittedData) {
+          const surveyById = new Map(allSurveysData.map((s) => [s.id, s.questions]))
+          const entries = submittedData
+            .map((r) => ({ questions: surveyById.get(r.survey_id) ?? [], responses: r.responses }))
+            .filter((e) => e.questions.length > 0)
+          const { overall, categories } = computeCategoryScores(entries)
+          setEngagementOverall(overall)
+          setEngagementCategories(categories)
+        }
       }
 
       const { data: contractsData } = await supabase
@@ -301,6 +323,47 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {isAdmin && (
+        <Card className="shadow-none border-border">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <IconBadge icon={<Sparkles className="size-4" />} />
+              Engasjement
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {engagementOverall === null ? (
+              <p className="text-sm text-muted-foreground">
+                Ingen skala-baserte undersøkelser er besvart enda. Send en undersøkelse med
+                skala-spørsmål (f.eks. Trivselsundersøkelse) for å se en samlet score her.
+              </p>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-6">
+                <div className="flex flex-row sm:flex-col items-baseline sm:items-start gap-2 sm:gap-1 shrink-0 sm:w-28">
+                  <p className="text-4xl font-bold text-brand-navy dark:text-white">{engagementOverall}</p>
+                  <p className="text-xs text-muted-foreground">av alle besvarte undersøkelser</p>
+                </div>
+                <div className="flex-1 space-y-3">
+                  {engagementCategories.map((c) => (
+                    <div key={c.category} className="flex items-center gap-3">
+                      <span className="w-28 text-sm shrink-0 truncate">{c.label}</span>
+                      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                        {c.score !== null && (
+                          <div className="h-full bg-brand-orange rounded-full" style={{ width: `${c.score}%` }} />
+                        )}
+                      </div>
+                      <span className={`w-8 text-sm text-right shrink-0 ${c.score === null ? 'text-muted-foreground' : ''}`}>
+                        {c.score !== null ? c.score : '–'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="shadow-none border-border">

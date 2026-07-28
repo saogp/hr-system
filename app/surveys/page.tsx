@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { applyRoleOverride } from '@/lib/role-override'
+import { computeResponseScore } from '@/lib/survey-score'
+import type { SurveyCategory } from '@/lib/survey-categories'
 
 import {
   Select,
@@ -35,7 +37,8 @@ type MySurveyRow = {
   id: string
   survey_id: string
   submitted_at: string | null
-  surveys: { title: string } | null
+  responses: Record<string, string> | null
+  surveys: { title: string; questions: { id: string; type?: 'text' | 'scale'; category?: SurveyCategory }[] } | null
 }
 
 export default function SurveysPage() {
@@ -103,7 +106,7 @@ export default function SurveysPage() {
     } else {
       const { data: mySurveysData } = await supabase
         .from('survey_recipients')
-        .select('id, survey_id, submitted_at, surveys!survey_recipients_survey_id_fkey(title)')
+        .select('id, survey_id, submitted_at, responses, surveys!survey_recipients_survey_id_fkey(title, questions)')
         .eq('profile_id', user.id)
         .order('id')
       if (mySurveysData) setMySurveys(mySurveysData as unknown as MySurveyRow[])
@@ -213,23 +216,26 @@ export default function SurveysPage() {
         ) : mySurveys.length === 0 ? (
           <p className="text-center text-muted-foreground text-sm py-8">Ingen undersøkelser enda.</p>
         ) : (
-          mySurveys.map((s) => (
-            <Link
-              key={s.id}
-              href={`/surveys/${s.survey_id}`}
-              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50"
-            >
-              <p className="font-medium text-sm truncate">{s.surveys?.title || '—'}</p>
-              <div className="flex items-center gap-3 shrink-0">
-                {s.submitted_at ? (
-                  <Badge className="bg-green-600 hover:bg-green-700">Besvart</Badge>
-                ) : (
-                  <Badge variant="secondary">Venter</Badge>
-                )}
-                <ChevronRight className="size-4 text-muted-foreground" />
-              </div>
-            </Link>
-          ))
+          mySurveys.map((s) => {
+            const score = s.submitted_at ? computeResponseScore(s.surveys?.questions ?? [], s.responses) : null
+            return (
+              <Link
+                key={s.id}
+                href={`/surveys/${s.survey_id}`}
+                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50"
+              >
+                <p className="font-medium text-sm truncate">{s.surveys?.title || '—'}</p>
+                <div className="flex items-center gap-3 shrink-0">
+                  {s.submitted_at ? (
+                    <Badge className="bg-green-600 hover:bg-green-700">{score !== null ? `${score} poeng` : 'Besvart'}</Badge>
+                  ) : (
+                    <Badge variant="secondary">Venter</Badge>
+                  )}
+                  <ChevronRight className="size-4 text-muted-foreground" />
+                </div>
+              </Link>
+            )
+          })
         )}
       </div>
     </div>

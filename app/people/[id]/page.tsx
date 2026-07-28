@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, MoreHorizontal, FileText } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { EditableAvatar } from '@/components/editable-avatar'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride } from '@/lib/role-override'
 import { Button } from '@/components/ui/button'
@@ -53,6 +54,7 @@ type PersonProfile = {
   id: string
   email: string | null
   full_name: string | null
+  avatar_url: string | null
   title: string | null
   role: 'admin' | 'manager' | 'employee'
   birth_date: string | null
@@ -77,6 +79,7 @@ type DirectoryProfile = {
   email: string | null
   phone: string | null
   employee_number: number | null
+  avatar_url: string | null
 }
 
 type InviteStatus = {
@@ -354,6 +357,7 @@ export default function PersonDetailPage() {
 
         <div className="flex items-center gap-4 mb-8">
           <Avatar className="size-16">
+            {directoryPerson.avatar_url && <AvatarImage src={directoryPerson.avatar_url} alt={directoryPerson.full_name ?? ''} />}
             <AvatarFallback className="text-lg bg-brand-navy text-brand-orange">{getInitials(directoryPerson.full_name || '?')}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
@@ -423,9 +427,13 @@ export default function PersonDetailPage() {
       </div>
 
       <div className="flex items-center gap-4 mb-8">
-        <Avatar className="size-16">
-          <AvatarFallback className="text-lg bg-brand-navy text-brand-orange">{getInitials(person.full_name || '?')}</AvatarFallback>
-        </Avatar>
+        <EditableAvatar
+          profileId={person.id}
+          avatarUrl={person.avatar_url}
+          initials={getInitials(person.full_name || '?')}
+          editable={isAdmin || isSelf}
+          onUploaded={(url) => setPerson(prev => prev ? { ...prev, avatar_url: url } : prev)}
+        />
         <div className="flex-1">
           <h1 className="text-xl font-bold text-brand-navy dark:text-white">{person.full_name || '—'}</h1>
           <p className="text-muted-foreground text-sm">{person.title || '—'}</p>

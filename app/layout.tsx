@@ -17,6 +17,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="no">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try {
+              var t = localStorage.getItem('hr_theme');
+              if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+              }
+            } catch (e) {}`,
+          }}
+        />
+      </head>
       <body className="min-h-screen bg-background antialiased">
         <SidebarProvider>
           <Sidebar />

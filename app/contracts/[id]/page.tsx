@@ -17,7 +17,7 @@ import { applyRoleOverride } from '@/lib/role-override'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,7 +51,7 @@ type Contract = {
   contract_templates: { name: string; content: string }
 }
 
-type PersonInfo = { id: string; full_name: string | null; email: string | null }
+type PersonInfo = { id: string; full_name: string | null; email: string | null; avatar_url: string | null }
 
 function getInitials(name: string) {
   return name
@@ -113,7 +113,7 @@ export default function ContractDetailPage() {
 
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('full_name, email, birth_date, address, phone, bank_account')
+        .select('full_name, email, birth_date, address, phone, bank_account, avatar_url')
         .eq('id', contractData.profile_id)
         .single()
 
@@ -126,13 +126,14 @@ export default function ContractDetailPage() {
           id: contractData.profile_id,
           full_name: profileData.full_name,
           email: profileData.email,
+          avatar_url: profileData.avatar_url,
         })
       }
 
       if (contractData.created_by) {
         const { data: creator } = await supabase
           .from('profiles')
-          .select('id, full_name, email')
+          .select('id, full_name, email, avatar_url')
           .eq('id', contractData.created_by)
           .single()
         if (creator) setCreatorInfo(creator)
@@ -150,7 +151,7 @@ export default function ContractDetailPage() {
       if (contractData.admin_signed_by) {
         const { data: signer } = await supabase
           .from('profiles')
-          .select('id, full_name, email')
+          .select('id, full_name, email, avatar_url')
           .eq('id', contractData.admin_signed_by)
           .single()
         if (signer) setAdminSignerInfo(signer)
@@ -211,7 +212,7 @@ export default function ContractDetailPage() {
 
       const { data: me } = await supabase
         .from('profiles')
-        .select('id, full_name, email')
+        .select('id, full_name, email, avatar_url')
         .eq('id', currentUserId)
         .single()
       if (me) setAdminSignerInfo(me)
@@ -332,6 +333,7 @@ export default function ContractDetailPage() {
             <p className="text-xs text-muted-foreground mb-1">Ansatt</p>
             <div className="flex items-center gap-2">
               <Avatar className="size-8">
+                {employeeInfo?.avatar_url && <AvatarImage src={employeeInfo.avatar_url} alt={employeeInfo.full_name ?? ''} />}
                 <AvatarFallback className="text-xs">{getInitials(employeeInfo?.full_name || '?')}</AvatarFallback>
               </Avatar>
               <div className="min-w-0">
@@ -346,6 +348,7 @@ export default function ContractDetailPage() {
               <p className="text-xs text-muted-foreground mb-1">Ansvarlig</p>
               <div className="flex items-center gap-2">
                 <Avatar className="size-8">
+                  {creatorInfo.avatar_url && <AvatarImage src={creatorInfo.avatar_url} alt={creatorInfo.full_name ?? ''} />}
                   <AvatarFallback className="text-xs">{getInitials(creatorInfo.full_name || '?')}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
@@ -367,6 +370,7 @@ export default function ContractDetailPage() {
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <Avatar className="size-7">
+                  {employeeInfo?.avatar_url && <AvatarImage src={employeeInfo.avatar_url} alt={employeeInfo.full_name ?? ''} />}
                   <AvatarFallback className="text-xs">{getInitials(employeeInfo?.full_name || '?')}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
@@ -382,6 +386,12 @@ export default function ContractDetailPage() {
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <Avatar className="size-7">
+                  {(adminSignerInfo?.avatar_url || creatorInfo?.avatar_url) && (
+                    <AvatarImage
+                      src={adminSignerInfo?.avatar_url || creatorInfo?.avatar_url || ''}
+                      alt={adminSignerInfo?.full_name || creatorInfo?.full_name || ''}
+                    />
+                  )}
                   <AvatarFallback className="text-xs">
                     {getInitials(adminSignerInfo?.full_name || creatorInfo?.full_name || '?')}
                   </AvatarFallback>

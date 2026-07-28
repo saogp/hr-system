@@ -183,52 +183,50 @@ export default function ReviewsPage() {
 
   return (
     <div className="container mx-auto py-10 px-4">
-      <div className="flex flex-row items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
-            <IconBadge icon={<MessageSquare className="size-4" />} />
-            Medarbeidersamtaler
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            {role === 'admin' ? 'Alle medarbeidersamtaler.' : 'Dine medarbeidersamtaler.'}
-          </p>
-        </div>
-        {role === 'admin' && (
-          <Button
-            onClick={() => setScheduleOpen(true)}
-            disabled={people.length === 0}
-            className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
-          >
-            Ny samtale
-          </Button>
-        )}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
+          <IconBadge icon={<MessageSquare className="size-4" />} />
+          Medarbeidersamtaler
+        </h1>
+        <p className="text-muted-foreground text-sm">
+          {role === 'admin' ? 'Alle medarbeidersamtaler.' : 'Dine medarbeidersamtaler.'}
+        </p>
       </div>
 
       {role === 'admin' && (
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
-          <Input
-            placeholder="Søk etter ansatt..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="sm:max-w-xs"
-          />
-          <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
-            <SelectTrigger className="w-full sm:w-48 h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Alle restauranter</SelectItem>
-              {companies.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            type="month"
-            value={monthFilter}
-            onChange={(e) => setMonthFilter(e.target.value)}
-            className="w-full sm:w-40"
-          />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Input
+              placeholder="Søk etter ansatt..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="sm:max-w-xs"
+            />
+            <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
+              <SelectTrigger className="w-full sm:w-48 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle restauranter</SelectItem>
+                {companies.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              type="month"
+              value={monthFilter}
+              onChange={(e) => setMonthFilter(e.target.value)}
+              className="w-full sm:w-40"
+            />
+          </div>
+          <Button
+            onClick={() => setScheduleOpen(true)}
+            disabled={people.length === 0}
+            className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium shrink-0"
+          >
+            Ny samtale
+          </Button>
         </div>
       )}
 

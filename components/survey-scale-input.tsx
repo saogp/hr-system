@@ -1,5 +1,7 @@
 import { cn } from '@/lib/utils'
 
+const FACES = ['😞', '🙁', '😐', '🙂', '😄']
+
 export function ScaleInput({
   value,
   onChange,
@@ -9,29 +11,30 @@ export function ScaleInput({
   onChange?: (value: string) => void
   disabled?: boolean
 }) {
+  const answered = Boolean(value)
+  const num = answered ? Number(value) : 3
+  const face = FACES[num - 1] ?? '😐'
+
   return (
-    <div>
-      <div className="flex gap-2">
-        {[1, 2, 3, 4, 5].map((n) => (
-          <button
-            key={n}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange?.(String(n))}
-            className={cn(
-              'flex-1 h-10 rounded-md border text-sm font-medium transition-colors',
-              value === String(n)
-                ? 'bg-brand-orange border-brand-orange text-brand-navy'
-                : 'border-input bg-white dark:bg-white/5 hover:bg-muted/50',
-              disabled && 'opacity-70'
-            )}
-          >
-            {n}
-          </button>
-        ))}
+    <div className={cn('rounded-xl border p-4 transition-colors', answered ? 'border-brand-orange/40 bg-brand-orange/5' : 'border-input bg-white dark:bg-white/5')}>
+      <div className="flex justify-center mb-3">
+        <span className={cn('text-4xl transition-transform', answered && 'scale-110')} aria-hidden>
+          {answered ? face : '🤔'}
+        </span>
       </div>
-      <div className="flex justify-between text-xs text-muted-foreground mt-1">
+      <input
+        type="range"
+        min={1}
+        max={5}
+        step={1}
+        value={num}
+        disabled={disabled}
+        onChange={(e) => onChange?.(e.target.value)}
+        className="w-full accent-brand-orange h-2 cursor-pointer disabled:cursor-not-allowed"
+      />
+      <div className="flex justify-between text-xs text-muted-foreground mt-1.5">
         <span>Helt uenig</span>
+        {!answered && !disabled && <span>Dra for å svare</span>}
         <span>Helt enig</span>
       </div>
     </div>

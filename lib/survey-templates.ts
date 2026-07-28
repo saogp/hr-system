@@ -1,8 +1,11 @@
+import type { SurveyCategory } from '@/lib/survey-categories'
+
 export type QuestionType = 'text' | 'scale'
 
 export type TemplateQuestion = {
   text: string
   type: QuestionType
+  category?: SurveyCategory
 }
 
 export type SurveyTemplate = {
@@ -17,8 +20,8 @@ function text(text: string): TemplateQuestion {
   return { text, type: 'text' }
 }
 
-function scale(text: string): TemplateQuestion {
-  return { text, type: 'scale' }
+function scale(text: string, category: SurveyCategory): TemplateQuestion {
+  return { text, type: 'scale', category }
 }
 
 export const SURVEY_TEMPLATES: SurveyTemplate[] = [
@@ -76,15 +79,15 @@ export const SURVEY_TEMPLATES: SurveyTemplate[] = [
     title: 'Trivselsundersøkelse',
     anonymous: true,
     questions: [
-      scale('Jeg trives på jobb totalt sett'),
-      scale('Jeg føler meg inkludert og respektert av kollegaene mine'),
-      scale('Jeg gleder meg som regel til å gå på jobb'),
-      scale('Jeg får tydelige beskjeder og vet hva som forventes av meg'),
-      scale('Jeg blir sett og får tilbakemelding fra lederen min'),
-      scale('Jeg opplever at ledelsen tar tak i ting når noe ikke fungerer'),
-      scale('Arbeidsmengden min er til å håndtere'),
-      scale('Jeg har utstyret og opplæringen jeg trenger for å gjøre jobben'),
-      scale('Vaktene og turnusen fungerer greit for meg'),
+      scale('Jeg trives på jobb totalt sett', 'trivsel'),
+      scale('Jeg føler meg inkludert og respektert av kollegaene mine', 'trivsel'),
+      scale('Jeg gleder meg som regel til å gå på jobb', 'trivsel'),
+      scale('Jeg får tydelige beskjeder og vet hva som forventes av meg', 'ledelse'),
+      scale('Jeg blir sett og får tilbakemelding fra lederen min', 'ledelse'),
+      scale('Jeg opplever at ledelsen tar tak i ting når noe ikke fungerer', 'ledelse'),
+      scale('Arbeidsmengden min er til å håndtere', 'arbeidsforhold'),
+      scale('Jeg har utstyret og opplæringen jeg trenger for å gjøre jobben', 'arbeidsforhold'),
+      scale('Vaktene og turnusen fungerer greit for meg', 'arbeidsforhold'),
       text('Hva fungerer bra hos oss akkurat nå?'),
       text('Hva bør vi bli bedre på?'),
       text('Er det noe annet du vil si til ledelsen? (valgfritt)'),

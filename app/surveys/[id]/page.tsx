@@ -12,8 +12,10 @@ import { Badge } from '@/components/ui/badge'
 import { OrganicBlob } from '@/components/decorative/organic-blobs'
 import { ScaleInput } from '@/components/survey-scale-input'
 import { applyRoleOverride } from '@/lib/role-override'
+import { computeResponseScore } from '@/lib/survey-score'
+import type { SurveyCategory } from '@/lib/survey-categories'
 
-type Question = { id: string; text: string; type?: 'text' | 'scale' }
+type Question = { id: string; text: string; type?: 'text' | 'scale'; category?: SurveyCategory }
 
 type Survey = {
   id: string
@@ -157,16 +159,21 @@ export default function SurveyDetailPage() {
               <p className="text-sm text-muted-foreground">Ingen mottakere enda.</p>
             ) : (
               <div className="flex flex-col divide-y divide-border rounded-md border border-border bg-white dark:bg-white/5">
-                {results.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between gap-2 p-3">
-                    <p className="text-sm">{r.profiles?.full_name || r.profiles?.email || '—'}</p>
-                    {r.submitted_at ? (
-                      <Badge className="bg-green-600 hover:bg-green-700">Besvart {formatDate(r.submitted_at)}</Badge>
-                    ) : (
-                      <Badge variant="secondary">Venter</Badge>
-                    )}
-                  </div>
-                ))}
+                {results.map((r) => {
+                  const score = r.submitted_at ? computeResponseScore(survey.questions, r.responses) : null
+                  return (
+                    <div key={r.id} className="flex items-center justify-between gap-2 p-3">
+                      <p className="text-sm">{r.profiles?.full_name || r.profiles?.email || '—'}</p>
+                      {r.submitted_at ? (
+                        <Badge className="bg-green-600 hover:bg-green-700">
+                          {score !== null ? `${score} poeng` : `Besvart ${formatDate(r.submitted_at)}`}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">Venter</Badge>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -249,7 +256,12 @@ export default function SurveyDetailPage() {
           ))}
 
           {mySubmittedAt ? (
-            <Badge className="bg-green-600 hover:bg-green-700">Besvart {formatDate(mySubmittedAt)}</Badge>
+            <Badge className="bg-green-600 hover:bg-green-700">
+              {(() => {
+                const score = computeResponseScore(survey.questions, myAnswers)
+                return score !== null ? `${score} poeng` : `Besvart ${formatDate(mySubmittedAt)}`
+              })()}
+            </Badge>
           ) : (
             <Button onClick={handleSubmit} disabled={submitting} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
               {submitting ? 'Sender...' : 'Send svar'}

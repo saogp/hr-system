@@ -3,22 +3,23 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, LogOut, Building2, FileText, Users, Settings, MessageSquare, ShieldAlert, GraduationCap, ClipboardList } from 'lucide-react'
+import { LayoutDashboard, LogOut, Building2, FileText, Users, Settings, MessageSquare, ShieldAlert, ClipboardList, Moon, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { getStoredTheme, applyTheme, type Theme } from '@/lib/theme'
 import {
   Sidebar as SidebarPrimitive,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Switch } from '@/components/ui/switch'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,9 +32,11 @@ const navigation = [
   { name: 'Ansatte', href: '/people', icon: Users },
   { name: 'Kontrakter', href: '/contracts', icon: FileText },
   { name: 'Medarbeidersamtaler', href: '/reviews', icon: MessageSquare },
-  { name: 'Kompetanse', href: '/competence', icon: GraduationCap },
   { name: 'Undersøkelser', href: '/surveys', icon: ClipboardList },
   { name: 'Si fra', href: '/si-fra', icon: ShieldAlert },
+]
+
+const secondaryNavigation = [
   { name: 'Innstillinger', href: '/settings', icon: Settings },
 ]
 
@@ -49,7 +52,12 @@ function getInitials(name: string) {
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string } | null>(null)
+  const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string; avatarUrl: string | null } | null>(null)
+  const [theme, setTheme] = useState<Theme>('light')
+
+  useEffect(() => {
+    setTheme(getStoredTheme())
+  }, [])
 
   useEffect(() => {
     async function loadCurrentUser() {
@@ -58,7 +66,7 @@ export function Sidebar() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, email, birth_date, role')
+        .select('full_name, email, birth_date, role, avatar_url')
         .eq('id', user.id)
         .single()
 
@@ -66,6 +74,7 @@ export function Sidebar() {
         name: profile?.full_name || user.email || 'Bruker',
         email: profile?.email || user.email || '',
         role: profile?.role ?? 'employee',
+        avatarUrl: profile?.avatar_url ?? null,
       })
 
       if (!profile?.birth_date && pathname !== '/onboarding') {
@@ -84,6 +93,12 @@ export function Sidebar() {
     router.push('/login')
   }
 
+  const handleThemeToggle = (checked: boolean) => {
+    const next: Theme = checked ? 'dark' : 'light'
+    setTheme(next)
+    applyTheme(next)
+  }
+
   return (
     <SidebarPrimitive collapsible="icon">
       <SidebarHeader>
@@ -99,7 +114,6 @@ export function Sidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Meny</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => (
@@ -117,43 +131,74 @@ export function Sidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        <SidebarGroup className="mt-4">
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {secondaryNavigation.map((item) => (
+                <SidebarMenuItem key={item.name}>
+                  <SidebarMenuButton
+                    render={<Link href={item.href} />}
+                    isActive={pathname === item.href}
+                    tooltip={item.name}
+                  >
+                    <item.icon />
+                    <span>{item.name}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <SidebarMenuButton
-                    size="lg"
-                    className="data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground"
-                  >
-                    <Avatar className="size-8 rounded-lg">
-                      <AvatarFallback className="rounded-lg">
-                        {getInitials(currentUser?.name ?? '?')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-medium">
-                        {currentUser?.name ?? 'Laster...'}
-                      </span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        {currentUser?.email ?? ''}
-                      </span>
-                    </div>
-                  </SidebarMenuButton>
-                }
-              />
-              <DropdownMenuContent side="top" align="end" className="w-(--anchor-width) min-w-56">
-                <DropdownMenuItem onClick={handleLogout} variant="destructive">
-                  <LogOut />
-                  Logg ut
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <div className="rounded-xl border border-sidebar-border overflow-hidden group-data-[collapsible=icon]:rounded-none group-data-[collapsible=icon]:border-none">
+          <div className="flex items-center justify-between gap-2 px-3 py-2.5 group-data-[collapsible=icon]:hidden">
+            <div className="flex items-center gap-2 text-sm">
+              <Moon className="size-4 text-muted-foreground" />
+              <span>Dark Mode</span>
+            </div>
+            <Switch checked={theme === 'dark'} onCheckedChange={handleThemeToggle} />
+          </div>
+
+          <SidebarMenu className="border-t border-sidebar-border group-data-[collapsible=icon]:border-t-0">
+            <SidebarMenuItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <SidebarMenuButton
+                      size="lg"
+                      className="rounded-none data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground"
+                    >
+                      <Avatar className="size-8 rounded-lg">
+                        {currentUser?.avatarUrl && <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />}
+                        <AvatarFallback className="rounded-lg">
+                          {getInitials(currentUser?.name ?? '?')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="grid flex-1 text-left text-sm leading-tight">
+                        <span className="truncate font-medium">
+                          {currentUser?.name ?? 'Laster...'}
+                        </span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {currentUser?.email ?? ''}
+                        </span>
+                      </div>
+                      <ChevronRight className="size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+                    </SidebarMenuButton>
+                  }
+                />
+                <DropdownMenuContent side="top" align="end" className="w-(--anchor-width) min-w-56">
+                  <DropdownMenuItem onClick={handleLogout} variant="destructive">
+                    <LogOut />
+                    Logg ut
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </div>
       </SidebarFooter>
 
       <SidebarRail />
