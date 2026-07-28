@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { sendPushNotification } from '@/lib/push-client'
 
 import {
   Table,
@@ -133,6 +134,8 @@ export default function ReviewsPage() {
 
     if (!error) {
       setScheduleOpen(false)
+      const dateLabel = new Date(scheduledDate).toLocaleDateString('no-NO', { day: 'numeric', month: 'long', year: 'numeric' })
+      sendPushNotification(selectedEmployeeId, 'Medarbeidersamtale planlagt', `Du har fått en medarbeidersamtale ${dateLabel}.`, '/reviews')
       setSelectedEmployeeId('')
       setSelectedLeaderId('')
       setSelectedTemplateId('')

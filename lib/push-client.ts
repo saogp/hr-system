@@ -65,3 +65,21 @@ export async function unsubscribeFromPush() {
   await supabase.from('push_subscriptions').delete().eq('endpoint', subscription.endpoint)
   await subscription.unsubscribe()
 }
+
+export async function sendPushNotification(profileId: string, title: string, body: string, url?: string) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return
+
+  try {
+    await fetch('/api/push/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ profileId, title, body, url }),
+    })
+  } catch {
+    // Push-varsling er best-effort — skal aldri blokkere hovedhandlingen.
+  }
+}

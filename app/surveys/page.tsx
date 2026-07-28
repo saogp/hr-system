@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { sendPushNotification } from '@/lib/push-client'
 
 import {
   Table,
@@ -147,6 +148,10 @@ export default function SurveysPage() {
       await supabase.from('survey_recipients').insert(
         selectedRecipients.map((profileId) => ({ survey_id: survey.id, profile_id: profileId }))
       )
+
+      for (const profileId of selectedRecipients) {
+        sendPushNotification(profileId, 'Ny undersøkelse', title, `/surveys/${survey.id}`)
+      }
 
       setCreateOpen(false)
       setTitle('')

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, CalendarPlus, Plus, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { generateReviewIcs, downloadIcs } from '@/lib/ics'
+import { sendPushNotification } from '@/lib/push-client'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -149,6 +150,9 @@ export default function ReviewDetailPage() {
       setAddingTaskFor(null)
       setNewTaskDescription('')
       setNewTaskAssignee('')
+      if (data.assigned_to) {
+        sendPushNotification(data.assigned_to, 'Ny oppgave', newTaskDescription, `/reviews/${review.id}`)
+      }
     }
   }
 

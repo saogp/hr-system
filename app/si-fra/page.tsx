@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { sendPushNotification } from '@/lib/push-client'
 
 import {
   Select,
@@ -79,6 +80,7 @@ export default function SiFraPage() {
     if (!error) {
       setMessage('')
       setSent(true)
+      sendPushNotification(recipientId, 'Ny melding i Si fra', 'Du har mottatt en anonym melding.', '/si-fra')
     }
     setSending(false)
   }
