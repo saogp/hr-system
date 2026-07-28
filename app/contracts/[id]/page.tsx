@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { CheckCircle2, MoreHorizontal } from 'lucide-react'
+import { CheckCircle2, MoreHorizontal, Download, Send, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import {
   extractTokens,
@@ -11,6 +11,8 @@ import {
   type ProfileFields,
   type CompanyFields,
 } from '@/lib/contract-tokens'
+import { downloadContractPdf } from '@/lib/contract-pdf'
+import { RenderedContractText } from '@/components/rendered-contract-text'
 import { SignaturePad } from '@/components/signature-pad'
 import { applyRoleOverride } from '@/lib/role-override'
 
@@ -45,6 +47,7 @@ type Contract = {
   admin_signed_by: string | null
   sent_at: string
   updated_at: string
+  sent_to_accountant_at: string | null
   profile_id: string
   company_id: string | null
   created_by: string | null
@@ -78,6 +81,7 @@ export default function ContractDetailPage() {
   const [signing, setSigning] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [sendingToAccountant, setSendingToAccountant] = useState(false)
 
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
@@ -234,6 +238,20 @@ export default function ContractDetailPage() {
     }
   }
 
+  const handleSendToAccountant = async () => {
+    if (!contract) return
+    setSendingToAccountant(true)
+    const nowIso = new Date().toISOString()
+    const { error } = await supabase
+      .from('contracts')
+      .update({ sent_to_accountant_at: nowIso })
+      .eq('id', contract.id)
+    if (!error) {
+      setContract(prev => prev ? { ...prev, sent_to_accountant_at: nowIso } : prev)
+    }
+    setSendingToAccountant(false)
+  }
+
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -261,15 +279,20 @@ export default function ContractDetailPage() {
   const allSigned = signedCount === 2
   const isUnsigned = signedCount === 0
 
+  const handleDownloadPdf = () => {
+    if (!contract) return
+    downloadContractPdf(contract.contract_templates.name, `Sendt ${formatDate(contract.sent_at)}`, renderedText)
+  }
+
   return (
-    <div className="container mx-auto py-10 px-4 grid gap-8 lg:grid-cols-[1fr_320px] max-w-4xl">
-      <div className="space-y-6 min-w-0">
+    <div className="py-10 px-4 max-w-4xl space-y-6">
+      <div className="grid gap-8 lg:grid-cols-[1fr_320px] items-start">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">{contract.contract_templates.name}</h1>
             <p className="text-muted-foreground text-sm">Sendt {formatDate(contract.sent_at)}</p>
           </div>
-          {isAdmin && isUnsigned && (
+          {(isAdmin || isEmployeeOwner) && (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -280,54 +303,27 @@ export default function ContractDetailPage() {
                 }
               />
               <DropdownMenuContent align="end">
-                <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
-                  Slett kontrakt
+                <DropdownMenuItem onClick={handleDownloadPdf}>
+                  <Download />
+                  Last ned som PDF
                 </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem onClick={handleSendToAccountant} disabled={sendingToAccountant}>
+                    <Send />
+                    {sendingToAccountant ? 'Sender...' : 'Send til regnskapsfører'}
+                  </DropdownMenuItem>
+                )}
+                {isAdmin && isUnsigned && (
+                  <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
+                    <Trash2 />
+                    Slett kontrakt
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
         </div>
 
-        {isEmployeeOwner && !contract.employee_signed_at && editableFields.length > 0 && (
-          <div className="rounded-md border border-input p-4 space-y-4">
-            <h2 className="font-medium">Fyll ut din informasjon</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {editableFields.map((f) => (
-                <div key={f.token} className="flex flex-col gap-1.5">
-                  <Label htmlFor={f.token}>{f.label}</Label>
-                  <Input id={f.token} value={f.value} onChange={(e) => f.setValue(e.target.value)} />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="rounded-md border border-input p-4 whitespace-pre-wrap text-sm">
-          {renderedText}
-        </div>
-
-        {isEmployeeOwner && !contract.employee_signed_at && (
-          <div className="space-y-2">
-            <h2 className="font-medium text-sm">Din signatur</h2>
-            {missingFields.length > 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Fyll ut informasjonen over før du kan signere.
-              </p>
-            ) : (
-              <SignaturePad onSave={handleEmployeeSign} saving={signing} />
-            )}
-          </div>
-        )}
-
-        {isAdmin && !contract.admin_signed_at && (
-          <div className="space-y-2">
-            <h2 className="font-medium text-sm">Signer som ansvarlig</h2>
-            <SignaturePad onSave={handleAdminSign} saving={signing} />
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-6">
         <div className="rounded-md border border-input p-4 space-y-4">
           <div>
             <p className="text-xs text-muted-foreground mb-1">Ansatt</p>
@@ -358,8 +354,57 @@ export default function ContractDetailPage() {
               </div>
             </div>
           )}
+
+          {isAdmin && contract.sent_to_accountant_at && (
+            <p className="text-xs text-muted-foreground pt-2 border-t border-border">
+              Sendt til regnskapsfører {formatDate(contract.sent_to_accountant_at)}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[1fr_320px] items-start">
+      <div className="space-y-6 min-w-0">
+        {isEmployeeOwner && !contract.employee_signed_at && editableFields.length > 0 && (
+          <div className="rounded-md border border-input p-4 space-y-4">
+            <h2 className="font-medium">Fyll ut din informasjon</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {editableFields.map((f) => (
+                <div key={f.token} className="flex flex-col gap-1.5">
+                  <Label htmlFor={f.token}>{f.label}</Label>
+                  <Input id={f.token} value={f.value} onChange={(e) => f.setValue(e.target.value)} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-md border border-input p-4 text-sm">
+          <RenderedContractText text={renderedText} />
         </div>
 
+        {isEmployeeOwner && !contract.employee_signed_at && (
+          <div className="space-y-2">
+            <h2 className="font-medium text-sm">Din signatur</h2>
+            {missingFields.length > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Fyll ut informasjonen over før du kan signere.
+              </p>
+            ) : (
+              <SignaturePad onSave={handleEmployeeSign} saving={signing} />
+            )}
+          </div>
+        )}
+
+        {isAdmin && !contract.admin_signed_at && (
+          <div className="space-y-2">
+            <h2 className="font-medium text-sm">Signer som ansvarlig</h2>
+            <SignaturePad onSave={handleAdminSign} saving={signing} />
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-6">
         <div className="rounded-md border border-input p-4 space-y-3">
           <div className="flex items-center gap-2">
             {allSigned && <CheckCircle2 className="size-4 text-green-600" />}
@@ -428,6 +473,7 @@ export default function ContractDetailPage() {
             Oppdatert {formatDateTime(contract.updated_at)}
           </p>
         </div>
+      </div>
       </div>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>

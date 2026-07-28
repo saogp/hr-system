@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { sendPushNotification } from '@/lib/push-client'
@@ -38,11 +38,13 @@ type Question = { id: string; text: string; type: 'text' | 'scale'; category?: S
 
 export default function NewSurveyPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [people, setPeople] = useState<Person[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
 
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [templateChoice, setTemplateChoice] = useState('blank')
   const [title, setTitle] = useState('')
   const [questions, setQuestions] = useState<Question[]>([{ id: 'q1', text: '', type: 'text' }])
   const [selectedRecipients, setSelectedRecipients] = useState<string[]>([])
@@ -86,6 +88,15 @@ export default function NewSurveyPage() {
 
     load()
   }, [router])
+
+  useEffect(() => {
+    const templateParam = searchParams.get('template')
+    if (templateParam && SURVEY_TEMPLATES.some((t) => t.id === templateParam)) {
+      setTemplateChoice(templateParam)
+      applyTemplate(templateParam)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const applyTemplate = (templateId: string) => {
     if (templateId === 'blank') {
@@ -155,7 +166,7 @@ export default function NewSurveyPage() {
   }
 
   return (
-    <div className="container mx-auto py-10 px-4 max-w-2xl">
+    <div className="py-10 px-4 max-w-2xl">
       <Link
         href="/surveys"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
@@ -169,7 +180,14 @@ export default function NewSurveyPage() {
       <form onSubmit={handleCreate} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <Label>Start fra mal</Label>
-          <Select defaultValue="blank" onValueChange={(val) => val && applyTemplate(val)}>
+          <Select
+            value={templateChoice}
+            onValueChange={(val) => {
+              if (!val) return
+              setTemplateChoice(val)
+              applyTemplate(val)
+            }}
+          >
             <SelectTrigger className="w-full h-8">
               <SelectValue />
             </SelectTrigger>
@@ -301,17 +319,17 @@ export default function NewSurveyPage() {
       </form>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Forhåndsvisning</DialogTitle>
             <DialogDescription>Slik ser undersøkelsen ut for mottakeren.</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 max-h-[60vh] overflow-y-auto">
+          <div className="flex-1 min-h-0 space-y-4 overflow-y-auto -mx-4 px-4">
             <h2 className="text-lg font-bold">{title || 'Uten tittel'}</h2>
             {questions.filter((q) => q.text.trim()).map((q, i) => (
-              <div key={q.id} className="space-y-2">
-                <p className="font-medium">{i + 1}. {q.text}</p>
+              <div key={q.id} className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
+                <p className="font-medium text-sm">{i + 1}. {q.text}</p>
                 {q.type === 'scale' ? (
                   <ScaleInput value="" disabled />
                 ) : (

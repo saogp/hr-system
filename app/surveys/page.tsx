@@ -134,57 +134,55 @@ export default function SurveysPage() {
   })
 
   return (
-    <div className="container relative mx-auto py-10 px-4 overflow-hidden">
+    <div className="relative max-w-4xl py-10 px-4 overflow-hidden">
       <OrganicBlob className="pointer-events-none absolute -right-20 -top-24 -z-10 h-72 w-72 opacity-90" />
       <OrganicBlob className="pointer-events-none absolute -left-24 top-72 -z-10 h-56 w-56 opacity-60 rotate-45" />
       <OrganicBlob className="pointer-events-none absolute right-10 bottom-0 -z-10 h-48 w-48 opacity-40 -rotate-12" />
 
-      <div className="flex flex-row items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-brand-navy dark:text-white mb-1 flex items-center gap-2">
-            <IconBadge icon={<ClipboardList className="size-4" />} />
-            Undersøkelser
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            {isAdmin ? 'Send undersøkelser til ansatte om hvordan de jobber.' : 'Dine undersøkelser.'}
-          </p>
-        </div>
-        {isAdmin && (
-          <Button
-            render={<Link href="/surveys/new" />}
-            disabled={people.length === 0}
-            className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
-          >
-            Ny undersøkelse
-          </Button>
-        )}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-brand-navy dark:text-white mb-1 flex items-center gap-2">
+          <IconBadge icon={<ClipboardList className="size-4" />} />
+          Undersøkelser
+        </h1>
+        <p className="text-muted-foreground text-sm">
+          {isAdmin ? 'Send undersøkelser til ansatte om hvordan de jobber.' : 'Dine undersøkelser.'}
+        </p>
       </div>
 
       {isAdmin && (
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
-          <Input
-            placeholder="Søk etter undersøkelse..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="sm:max-w-xs"
-          />
-          <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
-            <SelectTrigger className="w-full sm:w-48 h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Alle restauranter</SelectItem>
-              {companies.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            type="month"
-            value={monthFilter}
-            onChange={(e) => setMonthFilter(e.target.value)}
-            className="w-full sm:w-40"
-          />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Input
+              placeholder="Søk etter undersøkelse..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="sm:max-w-xs"
+            />
+            <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
+              <SelectTrigger className="w-full sm:w-48 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle restauranter</SelectItem>
+                {companies.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              type="month"
+              value={monthFilter}
+              onChange={(e) => setMonthFilter(e.target.value)}
+              className="w-full sm:w-40"
+            />
+          </div>
+          <Button
+            render={<Link href="/surveys/new" />}
+            disabled={people.length === 0}
+            className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium shrink-0"
+          >
+            Ny undersøkelse
+          </Button>
         </div>
       )}
 

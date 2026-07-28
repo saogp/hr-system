@@ -6,7 +6,46 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+// base-ui's <Select.Value> only shows the raw selected value unless the Root
+// is given an `items` lookup (see base-ui select docs). Rather than requiring
+// every call site to build that lookup by hand, derive it automatically from
+// the <SelectItem> elements already passed in as children.
+function collectSelectItems(node: React.ReactNode): { value: unknown; label: React.ReactNode }[] {
+  const results: { value: unknown; label: React.ReactNode }[] = []
+  React.Children.forEach(node, (child) => {
+    if (!React.isValidElement(child)) return
+    if (child.type === SelectItem) {
+      const props = child.props as SelectPrimitive.Item.Props
+      results.push({ value: props.value, label: props.children })
+      return
+    }
+    const childChildren = (child.props as { children?: React.ReactNode } | undefined)?.children
+    if (childChildren) {
+      results.push(...collectSelectItems(childChildren))
+    }
+  })
+  return results
+}
+
+function Select<Value = unknown, Multiple extends boolean | undefined = false>({
+  children,
+  items,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  const derivedItems = React.useMemo(() => {
+    if (items) return items
+    const collected = collectSelectItems(children)
+    return collected.length > 0
+      ? (collected as unknown as SelectPrimitive.Root.Props<Value, Multiple>["items"])
+      : undefined
+  }, [children, items])
+
+  return (
+    <SelectPrimitive.Root items={derivedItems} {...props}>
+      {children}
+    </SelectPrimitive.Root>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (

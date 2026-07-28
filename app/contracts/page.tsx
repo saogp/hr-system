@@ -44,8 +44,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { MoreHorizontal, ChevronRight, FileText } from 'lucide-react'
+import { MoreHorizontal, ChevronRight, FileText, Download, Send } from 'lucide-react'
 import { IconBadge } from '@/components/ui/icon-badge'
+import { fetchAndDownloadContractPdf } from '@/lib/contract-pdf'
 
 type Template = {
   id: string
@@ -76,6 +77,7 @@ type ContractRow = {
   template_id: string
   profile_id: string
   company_id: string | null
+  sent_to_accountant_at: string | null
   contract_templates: { name: string } | null
   profiles: { full_name: string | null; email: string | null } | null
 }
@@ -204,6 +206,17 @@ export default function ContractsPage() {
     setDeleting(false)
   }
 
+  const handleSendToAccountant = async (contractId: string) => {
+    const nowIso = new Date().toISOString()
+    const { error } = await supabase
+      .from('contracts')
+      .update({ sent_to_accountant_at: nowIso })
+      .eq('id', contractId)
+    if (!error) {
+      setContracts(prev => prev.map(c => c.id === contractId ? { ...c, sent_to_accountant_at: nowIso } : c))
+    }
+  }
+
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -242,7 +255,7 @@ export default function ContractsPage() {
   })
 
   return (
-    <div className="container mx-auto py-10 px-4 space-y-8">
+    <div className="max-w-4xl py-10 px-4 space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
           <IconBadge icon={<FileText className="size-4" />} />
@@ -256,43 +269,40 @@ export default function ContractsPage() {
       </div>
 
       <div>
-        <div className="flex flex-row items-center justify-end mb-4">
-          {role === 'admin' && (
+        {role === 'admin' && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Input
+                placeholder="Søk etter ansatt eller mal..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="sm:max-w-xs"
+              />
+              <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
+                <SelectTrigger className="w-full sm:w-48 h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle restauranter</SelectItem>
+                  {companies.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                type="month"
+                value={monthFilter}
+                onChange={(e) => setMonthFilter(e.target.value)}
+                className="w-full sm:w-40"
+              />
+            </div>
             <Button
               onClick={() => setSendOpen(true)}
               disabled={templates.length === 0}
-              className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+              className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium shrink-0"
             >
               Send kontrakt
             </Button>
-          )}
-        </div>
-
-        {role === 'admin' && (
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
-            <Input
-              placeholder="Søk etter ansatt eller mal..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="sm:max-w-xs"
-            />
-            <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
-              <SelectTrigger className="w-full sm:w-48 h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle restauranter</SelectItem>
-                {companies.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              type="month"
-              value={monthFilter}
-              onChange={(e) => setMonthFilter(e.target.value)}
-              className="w-full sm:w-40"
-            />
           </div>
         )}
 
@@ -316,29 +326,36 @@ export default function ContractsPage() {
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     {getStatusBadge(c)}
-                    {role === 'admin' ? (
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger
-                            render={
-                              <Button variant="ghost" size="icon-sm">
-                                <MoreHorizontal />
-                                <span className="sr-only">Handlinger</span>
-                              </Button>
-                            }
-                          />
-                          <DropdownMenuContent align="end">
-                            {!c.employee_signed_at && !c.admin_signed_at && (
-                              <DropdownMenuItem variant="destructive" onClick={() => setDeleteTargetId(c.id)}>
-                                Slett
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    ) : (
-                      <ChevronRight className="size-4 text-muted-foreground" />
-                    )}
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button variant="ghost" size="icon-sm">
+                              <MoreHorizontal />
+                              <span className="sr-only">Handlinger</span>
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => fetchAndDownloadContractPdf(c.id)}>
+                            <Download />
+                            Last ned som PDF
+                          </DropdownMenuItem>
+                          {role === 'admin' && (
+                            <DropdownMenuItem onClick={() => handleSendToAccountant(c.id)}>
+                              <Send />
+                              Send til regnskapsfører
+                            </DropdownMenuItem>
+                          )}
+                          {role === 'admin' && !c.employee_signed_at && !c.admin_signed_at && (
+                            <DropdownMenuItem variant="destructive" onClick={() => setDeleteTargetId(c.id)}>
+                              Slett
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    {role !== 'admin' && <ChevronRight className="size-4 text-muted-foreground" />}
                   </div>
                 </>
               )

@@ -155,7 +155,7 @@ export default function PeoplePage() {
   const activeCount = people.filter((p) => !p.end_date || p.end_date >= today).length
 
   return (
-    <div className="container mx-auto py-10 px-4">
+    <div className="max-w-4xl py-10 px-4">
       <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">

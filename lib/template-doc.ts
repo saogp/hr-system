@@ -52,13 +52,20 @@ function parseLineToInline(line: string): JSONContent[] {
   return nodes
 }
 
+const HEADING_PATTERN = /^(#{1,2})\s(.*)$/
+
 export function contentToDoc(content: string): JSONContent {
   const lines = content.length > 0 ? content.split('\n') : ['']
   return {
     type: 'doc',
     content: lines.map((line) => {
-      const inline = parseLineToInline(line)
-      return inline.length > 0 ? { type: 'paragraph', content: inline } : { type: 'paragraph' }
+      const headingMatch = line.match(HEADING_PATTERN)
+      const level = headingMatch ? headingMatch[1].length : null
+      const rest = headingMatch ? headingMatch[2] : line
+      const inline = parseLineToInline(rest)
+      const type = level ? 'heading' : 'paragraph'
+      const attrs = level ? { level } : undefined
+      return inline.length > 0 ? { type, attrs, content: inline } : { type, attrs }
     }),
   }
 }
@@ -67,7 +74,7 @@ export function docToContent(doc: JSONContent): string {
   const lines: string[] = []
 
   for (const node of doc.content ?? []) {
-    if (node.type !== 'paragraph') continue
+    if (node.type !== 'paragraph' && node.type !== 'heading') continue
     let line = ''
     for (const child of node.content ?? []) {
       if (child.type === 'text') {
@@ -77,6 +84,10 @@ export function docToContent(doc: JSONContent): string {
       } else if (child.type === 'choiceField') {
         line += `{{choice:${child.attrs?.key}:${child.attrs?.optionA}|${child.attrs?.optionB}}}`
       }
+    }
+    if (node.type === 'heading') {
+      const level = Number(node.attrs?.level) || 1
+      line = `${'#'.repeat(level)} ${line}`
     }
     lines.push(line)
   }

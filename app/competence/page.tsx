@@ -145,7 +145,7 @@ export default function CompetencePage() {
   }))
 
   return (
-    <div className="container mx-auto py-10 px-4 space-y-10">
+    <div className="max-w-4xl py-10 px-4 space-y-10">
       <div>
         <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
           <IconBadge icon={<GraduationCap className="size-4" />} />

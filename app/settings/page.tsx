@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { MoreHorizontal, FileText, MessageSquare, Settings } from 'lucide-react'
+import Link from 'next/link'
+import { MoreHorizontal, FileText, MessageSquare, ClipboardList, Settings } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride } from '@/lib/role-override'
+import { SURVEY_TEMPLATES } from '@/lib/survey-templates'
 
 import {
   Dialog,
@@ -308,7 +310,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container mx-auto py-10 px-4">
+    <div className="max-w-4xl py-10 px-4">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
           <IconBadge icon={<Settings className="size-4" />} />
@@ -416,7 +418,7 @@ export default function SettingsPage() {
             </Button>
           </div>
 
-          {templates.length === 0 && reviewTemplates.length === 0 ? (
+          {templates.length === 0 && reviewTemplates.length === 0 && SURVEY_TEMPLATES.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">Ingen maler registrert enda.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -426,7 +428,7 @@ export default function SettingsPage() {
                   className="shadow-none cursor-pointer hover:bg-muted/50"
                   onClick={() => router.push(`/contracts/templates/${t.id}`)}
                 >
-                  <CardContent className="pt-4 flex items-start justify-between gap-2">
+                  <CardContent className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-3 min-w-0">
                       <FileText className="size-5 text-muted-foreground shrink-0 mt-0.5" />
                       <div className="min-w-0">
@@ -464,7 +466,7 @@ export default function SettingsPage() {
                   className="shadow-none cursor-pointer hover:bg-muted/50"
                   onClick={() => router.push(`/reviews/templates/${t.id}`)}
                 >
-                  <CardContent className="pt-4 flex items-start justify-between gap-2">
+                  <CardContent className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-3 min-w-0">
                       <MessageSquare className="size-5 text-muted-foreground shrink-0 mt-0.5" />
                       <div className="min-w-0">
@@ -492,6 +494,32 @@ export default function SettingsPage() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {SURVEY_TEMPLATES.map((t) => (
+                <Card
+                  key={`survey-${t.id}`}
+                  className="shadow-none cursor-pointer hover:bg-muted/50"
+                  onClick={() => router.push(`/surveys/new?template=${t.id}`)}
+                >
+                  <CardContent className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <ClipboardList className="size-5 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{t.label}</p>
+                        <p className="text-xs text-muted-foreground">Undersøkelsesmal</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
+                      render={<Link href={`/surveys/new?template=${t.id}`} onClick={(e) => e.stopPropagation()} />}
+                    >
+                      Bruk mal
+                    </Button>
                   </CardContent>
                 </Card>
               ))}

@@ -101,7 +101,7 @@ export default function TemplateEditorPage() {
   const choiceFields = extractChoiceFields(content)
 
   return (
-    <div className="container mx-auto py-10 px-4 max-w-3xl">
+    <div className="py-10 px-4 max-w-3xl">
       <Link
         href="/contracts"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"

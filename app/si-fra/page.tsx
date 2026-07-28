@@ -13,6 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -39,6 +47,7 @@ export default function SiFraPage() {
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
+  const [sendOpen, setSendOpen] = useState(false)
   const [inbox, setInbox] = useState<ReceivedMessage[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -88,14 +97,20 @@ export default function SiFraPage() {
     e.preventDefault()
     setSending(true)
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('concern_reports')
       .insert({ recipient_id: recipientId, message })
+      .select('id, message, read, created_at, recipient_id, profiles!concern_reports_recipient_id_fkey(full_name, email)')
+      .single()
 
     if (!error) {
       setMessage('')
       setSent(true)
       sendPushNotification(recipientId, 'Ny melding i Si fra', 'Du har mottatt en anonym melding.', '/si-fra')
+      if (isAdmin && data) {
+        setInbox((prev) => [data as unknown as ReceivedMessage, ...prev])
+        setSendOpen(false)
+      }
     }
     setSending(false)
   }
@@ -114,54 +129,43 @@ export default function SiFraPage() {
     return <div className="p-8">Laster...</div>
   }
 
-  return (
-    <div className="container mx-auto py-10 px-4 max-w-lg space-y-10">
-      <div>
-        <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
-          <IconBadge icon={<ShieldAlert className="size-4" />} />
-          Si fra
-        </h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          Opplever du noe ubehagelig på jobb? Send en anonym melding til en leder. Meldingen lagres
-          uten avsenderinformasjon — ingen, heller ikke admin, kan se hvem som sendte den.
-        </p>
+  const sendForm = (
+    <form id="si-fra-form" onSubmit={handleSend} className="flex flex-col gap-4">
+      {sent && (
+        <Alert>
+          <AlertDescription>Meldingen er sendt anonymt.</AlertDescription>
+        </Alert>
+      )}
+
+      <div className="flex flex-col gap-1.5">
+        <Label>Send til</Label>
+        <Select value={recipientId} onValueChange={(val) => val && setRecipientId(val)}>
+          <SelectTrigger className="w-full h-8">
+            <SelectValue placeholder="Velg mottaker" />
+          </SelectTrigger>
+          <SelectContent>
+            {people.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.full_name || p.email}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <form onSubmit={handleSend} className="flex flex-col gap-4">
-        {sent && (
-          <Alert>
-            <AlertDescription>Meldingen er sendt anonymt.</AlertDescription>
-          </Alert>
-        )}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="message">Melding</Label>
+        <Textarea
+          id="message"
+          className="min-h-32"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Skriv det du vil si fra om..."
+          required
+        />
+      </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label>Send til</Label>
-          <Select value={recipientId} onValueChange={(val) => val && setRecipientId(val)}>
-            <SelectTrigger className="w-full h-8">
-              <SelectValue placeholder="Velg mottaker" />
-            </SelectTrigger>
-            <SelectContent>
-              {people.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.full_name || p.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="message">Melding</Label>
-          <Textarea
-            id="message"
-            className="min-h-32"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Skriv det du vil si fra om..."
-            required
-          />
-        </div>
-
+      {!isAdmin && (
         <Button
           type="submit"
           disabled={sending || !recipientId || !message.trim()}
@@ -169,37 +173,114 @@ export default function SiFraPage() {
         >
           {sending ? 'Sender...' : 'Send anonymt'}
         </Button>
-      </form>
+      )}
+    </form>
+  )
 
-      {inbox.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold mb-4">
-            {isAdmin ? 'Alle si fra-meldinger' : 'Mottatte meldinger'}
-          </h2>
-          <div className="flex flex-col divide-y divide-border rounded-xl border border-brand-navy/10">
-            {inbox.map((m) => (
-              <div key={m.id} className="p-4 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-muted-foreground">
-                    {formatDate(m.created_at)}
-                    {isAdmin && ` · Til ${m.profiles?.full_name || m.profiles?.email || '—'}`}
-                  </p>
-                  {m.read ? (
-                    <Badge variant="secondary">Lest</Badge>
-                  ) : (
-                    <Badge className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy">Ny</Badge>
+  return (
+    <div className={isAdmin ? 'py-10 px-4 max-w-4xl' : 'py-10 px-4 max-w-lg space-y-10'}>
+      <div className={isAdmin ? 'mb-6' : ''}>
+        <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
+          <IconBadge icon={<ShieldAlert className="size-4" />} />
+          Si fra
+        </h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          {isAdmin
+            ? 'Alle anonyme si fra-meldinger som er sendt til ledere. Avsender er alltid skjult.'
+            : 'Opplever du noe ubehagelig på jobb? Send en anonym melding til en leder. Meldingen lagres uten avsenderinformasjon — ingen, heller ikke admin, kan se hvem som sendte den.'}
+        </p>
+      </div>
+
+      {isAdmin ? (
+        <>
+          <div className="flex justify-end mb-4">
+            <Button
+              onClick={() => setSendOpen(true)}
+              className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+            >
+              Si fra
+            </Button>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {inbox.length === 0 ? (
+              <p className="text-center text-muted-foreground text-sm py-8">Ingen si fra-meldinger enda.</p>
+            ) : (
+              inbox.map((m) => (
+                <div key={m.id} className="rounded-xl border border-border p-4 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      {formatDate(m.created_at)} · Til {m.profiles?.full_name || m.profiles?.email || '—'}
+                    </p>
+                    {m.read ? (
+                      <Badge variant="secondary">Lest</Badge>
+                    ) : (
+                      <Badge className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy">Ny</Badge>
+                    )}
+                  </div>
+                  <p className="text-sm whitespace-pre-wrap">{m.message}</p>
+                  {!m.read && (
+                    <Button size="sm" variant="outline" onClick={() => handleMarkRead(m.id)}>
+                      Merk som lest
+                    </Button>
                   )}
                 </div>
-                <p className="text-sm whitespace-pre-wrap">{m.message}</p>
-                {!m.read && (
-                  <Button size="sm" variant="outline" onClick={() => handleMarkRead(m.id)}>
-                    Merk som lest
-                  </Button>
-                )}
-              </div>
-            ))}
+              ))
+            )}
           </div>
-        </div>
+
+          <Dialog open={sendOpen} onOpenChange={setSendOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Si fra</DialogTitle>
+                <DialogDescription>
+                  Send en anonym melding til en leder. Meldingen lagres uten avsenderinformasjon.
+                </DialogDescription>
+              </DialogHeader>
+              {sendForm}
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  form="si-fra-form"
+                  disabled={sending || !recipientId || !message.trim()}
+                  className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+                >
+                  {sending ? 'Sender...' : 'Send anonymt'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
+      ) : (
+        <>
+          {sendForm}
+
+          {inbox.length > 0 && (
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Mottatte meldinger</h2>
+              <div className="flex flex-col divide-y divide-border rounded-xl border border-brand-navy/10">
+                {inbox.map((m) => (
+                  <div key={m.id} className="p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">{formatDate(m.created_at)}</p>
+                      {m.read ? (
+                        <Badge variant="secondary">Lest</Badge>
+                      ) : (
+                        <Badge className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy">Ny</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap">{m.message}</p>
+                    {!m.read && (
+                      <Button size="sm" variant="outline" onClick={() => handleMarkRead(m.id)}>
+                        Merk som lest
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

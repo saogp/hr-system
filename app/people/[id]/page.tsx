@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, MoreHorizontal, FileText } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
@@ -109,6 +109,7 @@ function getInitials(name: string) {
 export default function PersonDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [viewerId, setViewerId] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -209,6 +210,14 @@ export default function PersonDetailPage() {
 
     load()
   }, [id, router])
+
+  useEffect(() => {
+    if (!person) return
+    const wantsEdit = searchParams.get('edit') === '1'
+    if (wantsEdit && (isAdmin || viewerId === id)) {
+      setEditing(true)
+    }
+  }, [person, isAdmin, viewerId, id, searchParams])
 
   const isSelf = viewerId === id
 
@@ -346,7 +355,7 @@ export default function PersonDetailPage() {
     }
 
     return (
-      <div className="container mx-auto py-6 px-4 max-w-2xl">
+      <div className="py-6 px-4 max-w-2xl">
         <Link
           href="/people"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
@@ -392,7 +401,7 @@ export default function PersonDetailPage() {
   const canEditSomething = isAdmin || isSelf
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-2xl">
+    <div className="py-6 px-4 max-w-2xl">
       <div className="flex items-center justify-between mb-6">
         <Link
           href="/people"

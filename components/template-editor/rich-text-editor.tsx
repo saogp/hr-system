@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
-import { Bold, Italic, List, ListOrdered, ChevronDown } from 'lucide-react'
+import { Bold, Italic, List, ListOrdered, ChevronDown, Heading1, Heading2, Pilcrow } from 'lucide-react'
 
 import { MergeField } from './merge-field-node'
 import { ChoiceField } from './choice-field-node'
@@ -50,7 +50,7 @@ export function RichTextEditor({ value, onChange }: Props) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: false,
+        heading: { levels: [1, 2] },
         codeBlock: false,
         blockquote: false,
         horizontalRule: false,
@@ -136,6 +136,39 @@ export function RichTextEditor({ value, onChange }: Props) {
         >
           <Italic className="size-4" />
         </Button>
+        <Button
+          type="button"
+          variant={editor.isActive('paragraph') ? 'secondary' : 'ghost'}
+          size="icon"
+          className="size-8"
+          title="Normal tekst"
+          onClick={() => editor.chain().focus().setParagraph().run()}
+        >
+          <Pilcrow className="size-4" />
+        </Button>
+        <Button
+          type="button"
+          variant={editor.isActive('heading', { level: 1 }) ? 'secondary' : 'ghost'}
+          size="icon"
+          className="size-8"
+          title="Overskrift 1"
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        >
+          <Heading1 className="size-4" />
+        </Button>
+        <Button
+          type="button"
+          variant={editor.isActive('heading', { level: 2 }) ? 'secondary' : 'ghost'}
+          size="icon"
+          className="size-8"
+          title="Overskrift 2"
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        >
+          <Heading2 className="size-4" />
+        </Button>
+
+        <div className="w-px h-6 bg-border mx-1" />
+
         <Button
           type="button"
           variant={editor.isActive('bulletList') ? 'secondary' : 'ghost'}
