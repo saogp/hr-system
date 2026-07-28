@@ -5,14 +5,39 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { extractTokens, extractChoiceFields } from '@/lib/contract-tokens'
+import { extractTokens, extractChoiceFields, renderContract, RESERVED_TOKENS, COMPANY_TOKENS, type ProfileFields, type CompanyFields } from '@/lib/contract-tokens'
 import { RichTextEditor } from '@/components/template-editor/rich-text-editor'
+import { RenderedContractText } from '@/components/rendered-contract-text'
 import { applyRoleOverride } from '@/lib/role-override'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+
+const PREVIEW_PROFILE: ProfileFields = {
+  full_name: 'Ola Nordmann',
+  email: 'ola.nordmann@example.com',
+  birth_date: '1990-01-01',
+  address: 'Eksempelveien 1, 0001 Oslo',
+  phone: '123 45 678',
+  bank_account: '1234.56.78903',
+  title: 'Servitør',
+}
+
+const PREVIEW_COMPANY: CompanyFields = {
+  name: 'Eksempel AS',
+  org_number: '123 456 789',
+  billing_address: 'Storgata 1, 0001 Oslo',
+}
 
 export default function TemplateEditorPage() {
   const { id } = useParams<{ id: string }>()
@@ -24,6 +49,7 @@ export default function TemplateEditorPage() {
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -100,6 +126,13 @@ export default function TemplateEditorPage() {
   )
   const choiceFields = extractChoiceFields(content)
 
+  const previewAdminFields: Record<string, string> = {}
+  for (const t of extractTokens(content)) {
+    if (t in RESERVED_TOKENS || t in COMPANY_TOKENS) continue
+    previewAdminFields[t] = 'Eksempel'
+  }
+  const previewText = renderContract(content, PREVIEW_PROFILE, previewAdminFields, PREVIEW_COMPANY)
+
   return (
     <div className="py-10 px-4 max-w-3xl">
       <Link
@@ -123,6 +156,9 @@ export default function TemplateEditorPage() {
               Lagret {savedAt.toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
+          <Button variant="outline" onClick={() => setPreviewOpen(true)} disabled={!content}>
+            Forhåndsvis
+          </Button>
           <Button
             onClick={handleSave}
             disabled={saving || !name || !content}
@@ -155,6 +191,25 @@ export default function TemplateEditorPage() {
           </div>
         )}
       </div>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-lg flex flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Forhåndsvisning</DialogTitle>
+            <DialogDescription>
+              Slik ser malen ut når den fylles ut, med eksempeldata i stedet for en ansatt.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 min-h-0 overflow-y-auto -mx-4 px-4 text-sm">
+            <RenderedContractText text={previewText} />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewOpen(false)}>Lukk</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -8,6 +8,7 @@ export const FIELD_LABELS: Record<string, string> = {
   adresse: 'Adresse',
   telefon: 'Telefon',
   kontonummer: 'Kontonummer',
+  stilling: 'Stilling',
   firma_navn: 'Firmanavn',
   org_nummer: 'Org.nummer',
   firma_adresse: 'Firmaadresse',

@@ -117,7 +117,7 @@ export default function ContractDetailPage() {
 
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('full_name, email, birth_date, address, phone, bank_account, avatar_url')
+        .select('full_name, email, birth_date, address, phone, bank_account, title, avatar_url')
         .eq('id', contractData.profile_id)
         .single()
 

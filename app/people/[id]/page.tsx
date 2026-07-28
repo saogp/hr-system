@@ -39,6 +39,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { OrganicBlob } from '@/components/decorative/organic-blobs'
 
 type Company = { id: string; name: string }
 
@@ -115,7 +117,7 @@ export default function PersonDetailPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [person, setPerson] = useState<PersonProfile | null>(null)
   const [directoryPerson, setDirectoryPerson] = useState<DirectoryProfile | null>(null)
-  const [allProfiles, setAllProfiles] = useState<{ id: string; full_name: string | null; email: string | null }[]>([])
+  const [allProfiles, setAllProfiles] = useState<{ id: string; full_name: string | null; email: string | null; role: string }[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [companyIds, setCompanyIds] = useState<string[]>([])
   const [inviteStatus, setInviteStatus] = useState<InviteStatus | null>(null)
@@ -164,7 +166,7 @@ export default function PersonDetailPage() {
 
         const { data: profilesData } = await supabase
           .from('profiles')
-          .select('id, full_name, email')
+          .select('id, full_name, email, role')
           .order('full_name')
         if (profilesData) setAllProfiles(profilesData)
 
@@ -317,7 +319,8 @@ export default function PersonDetailPage() {
     field: keyof PersonProfile,
     rawValue: string | number | null,
     display: string,
-    inputType: 'text' | 'email' | 'number' | 'date' = 'text'
+    inputType: 'text' | 'email' | 'number' | 'date' = 'text',
+    numberRange?: { min: number; max: number }
   ) => {
     const editable = editing && canEditField(field)
     const commit = (raw: string) =>
@@ -330,8 +333,8 @@ export default function PersonDetailPage() {
           <Input
             id={field}
             type={inputType}
-            min={inputType === 'number' ? 0 : undefined}
-            max={inputType === 'number' ? 100 : undefined}
+            min={inputType === 'number' ? numberRange?.min : undefined}
+            max={inputType === 'number' ? numberRange?.max : undefined}
             defaultValue={rawValue ?? ''}
             onBlur={inputType !== 'date' ? (e) => commit(e.target.value) : undefined}
             onChange={inputType === 'date' ? (e) => commit(e.target.value) : undefined}
@@ -401,7 +404,10 @@ export default function PersonDetailPage() {
   const canEditSomething = isAdmin || isSelf
 
   return (
-    <div className="py-6 px-4 max-w-2xl">
+    <div className="relative isolate py-6 px-4 max-w-2xl overflow-hidden">
+      <OrganicBlob className="pointer-events-none absolute -right-28 -top-24 -z-10 h-60 w-60 opacity-80" />
+      <OrganicBlob className="pointer-events-none absolute -left-24 bottom-0 -z-10 h-48 w-48 opacity-40 rotate-45" />
+
       <div className="flex items-center justify-between mb-6">
         <Link
           href="/people"
@@ -474,169 +480,184 @@ export default function PersonDetailPage() {
         </div>
       )}
 
-      <div className="divide-y divide-border border-t border-border">
-        {renderRow('Navn', 'full_name', person.full_name, person.full_name || '—', 'text')}
-        {renderRow('E-post', 'email', person.email, person.email || '—', 'email')}
-        {renderRow('Telefonnummer', 'phone', person.phone, person.phone || '—', 'text')}
-        {renderRow('Adresse', 'address', person.address, person.address || '—', 'text')}
+      <div className="flex flex-col gap-6">
+        <Card className="shadow-none border-border py-0 rounded-2xl">
+          <CardHeader className="border-b border-border py-4">
+            <CardTitle className="text-sm font-semibold">Generell info</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4">
+            <div className="divide-y divide-border">
+              {renderRow('Navn', 'full_name', person.full_name, person.full_name || '—', 'text')}
+              {renderRow('E-post', 'email', person.email, person.email || '—', 'email')}
+              {renderRow('Telefonnummer', 'phone', person.phone, person.phone || '—', 'text')}
+              {renderRow('Adresse', 'address', person.address, person.address || '—', 'text')}
+              {renderRow('Bursdag', 'birth_date', person.birth_date, person.birth_date ? formatDate(person.birth_date) : '—', 'date')}
 
-        <div className="py-3">
-          <p className="text-xs text-muted-foreground mb-1">Nærmeste pårørende</p>
-          {editing && canEditField('emergency_contact_name') ? (
-            <div className="flex gap-2">
-              <Input
-                placeholder="Navn"
-                defaultValue={person.emergency_contact_name ?? ''}
-                onBlur={(e) => handleFieldChange('emergency_contact_name', e.target.value || null)}
-              />
-              <Input
-                placeholder="Telefon"
-                defaultValue={person.emergency_contact_phone ?? ''}
-                onBlur={(e) => handleFieldChange('emergency_contact_phone', e.target.value || null)}
-              />
+              <div className="py-3">
+                <p className="text-xs text-muted-foreground mb-1">Nærmeste pårørende</p>
+                {editing && canEditField('emergency_contact_name') ? (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Navn"
+                      defaultValue={person.emergency_contact_name ?? ''}
+                      onBlur={(e) => handleFieldChange('emergency_contact_name', e.target.value || null)}
+                    />
+                    <Input
+                      placeholder="Telefon"
+                      defaultValue={person.emergency_contact_phone ?? ''}
+                      onBlur={(e) => handleFieldChange('emergency_contact_phone', e.target.value || null)}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-sm">
+                    {person.emergency_contact_name || person.emergency_contact_phone
+                      ? `${person.emergency_contact_name || '—'}${person.emergency_contact_phone ? ' · ' + person.emergency_contact_phone : ''}`
+                      : '—'}
+                  </p>
+                )}
+              </div>
             </div>
-          ) : (
-            <p className="text-sm">
-              {person.emergency_contact_name || person.emergency_contact_phone
-                ? `${person.emergency_contact_name || '—'}${person.emergency_contact_phone ? ' · ' + person.emergency_contact_phone : ''}`
-                : '—'}
-            </p>
-          )}
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="py-3">
-          <p className="text-xs text-muted-foreground">Ansattnummer</p>
-          <p className="text-sm">{person.employee_number ?? '—'}</p>
-        </div>
+        <Card className="shadow-none border-border py-0 rounded-2xl">
+          <CardHeader className="border-b border-border py-4">
+            <CardTitle className="text-sm font-semibold">Arbeid</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4">
+            <div className="divide-y divide-border">
+              {renderRow('Ansattnummer', 'employee_number', person.employee_number, person.employee_number != null ? String(person.employee_number) : '—', 'number')}
+              {renderRow('Stilling', 'title', person.title, person.title || '—', 'text')}
 
-        {renderRow('Stilling', 'title', person.title, person.title || '—', 'text')}
-
-        <div className="py-3">
-          <p className="text-xs text-muted-foreground mb-1">Rolle</p>
-          {editing && isAdmin ? (
-            <RadioGroup value={person.role} onValueChange={(val) => handleFieldChange('role', val)}>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="admin" id="role-admin" />
-                <Label htmlFor="role-admin" className="font-normal">Admin</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="manager" id="role-manager" />
-                <Label htmlFor="role-manager" className="font-normal">Leder</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="employee" id="role-employee" />
-                <Label htmlFor="role-employee" className="font-normal">Ansatt</Label>
-              </div>
-            </RadioGroup>
-          ) : (
-            getRoleBadge(person.role)
-          )}
-        </div>
-
-        <div className="py-3">
-          <p className="text-xs text-muted-foreground mb-1">Nærmeste leder</p>
-          {editing && isAdmin ? (
-            <Select
-              value={person.manager_id ?? 'none'}
-              onValueChange={(val) => val && handleFieldChange('manager_id', val === 'none' ? null : val)}
-            >
-              <SelectTrigger className="w-full h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Ingen</SelectItem>
-                {allProfiles
-                  .filter((p) => p.id !== id)
-                  .map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.full_name || p.email}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <p className="text-sm">
-              {allProfiles.find((p) => p.id === person.manager_id)?.full_name || 'Ingen'}
-            </p>
-          )}
-        </div>
-
-        <div className="py-3">
-          <p className="text-xs text-muted-foreground mb-1">Ansettelsesforhold</p>
-          {editing && isAdmin ? (
-            <RadioGroup
-              value={person.employment_type ?? 'none'}
-              onValueChange={(val) => handleFieldChange('employment_type', val === 'none' ? null : val)}
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="none" id="employment-none" />
-                <Label htmlFor="employment-none" className="font-normal">Ikke satt</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="fast" id="employment-fast" />
-                <Label htmlFor="employment-fast" className="font-normal">Fast</Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="tilkalling" id="employment-tilkalling" />
-                <Label htmlFor="employment-tilkalling" className="font-normal">Tilkalling</Label>
-              </div>
-            </RadioGroup>
-          ) : (
-            <p className="text-sm">
-              {person.employment_type === 'fast' ? 'Fast' : person.employment_type === 'tilkalling' ? 'Tilkalling' : '—'}
-            </p>
-          )}
-        </div>
-
-        {renderRow(
-          'Stillingsprosent',
-          'position_percentage',
-          person.position_percentage,
-          person.position_percentage != null ? `${person.position_percentage} %` : '—',
-          'number'
-        )}
-        {renderRow('Tiltredelse', 'start_date', person.start_date, person.start_date ? formatDate(person.start_date) : '—', 'date')}
-        {renderRow('Sluttdato', 'end_date', person.end_date, person.end_date ? formatDate(person.end_date) : '—', 'date')}
-        {renderRow('Bursdag', 'birth_date', person.birth_date, person.birth_date ? formatDate(person.birth_date) : '—', 'date')}
-        {renderRow(
-          'Neste medarbeidersamtale',
-          'next_review_date',
-          person.next_review_date,
-          person.next_review_date ? formatDate(person.next_review_date) : '—',
-          'date'
-        )}
-
-        <div className="py-3">
-          <p className="text-xs text-muted-foreground mb-1">Bedrifter</p>
-          {editing && isAdmin ? (
-            <div className="flex flex-col gap-2 rounded-md border border-input p-3">
-              {companies.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Ingen bedrifter registrert enda.</p>
-              ) : (
-                companies.map((c) => {
-                  const checked = companyIds.includes(c.id)
-                  const checkboxId = `company-${c.id}`
-                  return (
-                    <div key={c.id} className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        id={checkboxId}
-                        checked={checked}
-                        onCheckedChange={(val) => handleToggleCompany(c.id, val === true)}
-                      />
-                      <Label htmlFor={checkboxId} className="font-normal">
-                        {c.name}
-                      </Label>
+              <div className="py-3">
+                <p className="text-xs text-muted-foreground mb-1">Rolle</p>
+                {editing && isAdmin ? (
+                  <RadioGroup value={person.role} onValueChange={(val) => handleFieldChange('role', val)}>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="admin" id="role-admin" />
+                      <Label htmlFor="role-admin" className="font-normal">Admin</Label>
                     </div>
-                  )
-                })
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="manager" id="role-manager" />
+                      <Label htmlFor="role-manager" className="font-normal">Leder</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="employee" id="role-employee" />
+                      <Label htmlFor="role-employee" className="font-normal">Ansatt</Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
+                  getRoleBadge(person.role)
+                )}
+              </div>
+
+              <div className="py-3">
+                <p className="text-xs text-muted-foreground mb-1">Nærmeste leder</p>
+                {editing && isAdmin ? (
+                  <Select
+                    value={person.manager_id ?? 'none'}
+                    onValueChange={(val) => val && handleFieldChange('manager_id', val === 'none' ? null : val)}
+                  >
+                    <SelectTrigger className="w-full h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Ingen</SelectItem>
+                      {allProfiles
+                        .filter((p) => p.id !== id && (p.role === 'admin' || p.role === 'manager'))
+                        .map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.full_name || p.email}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-sm">
+                    {allProfiles.find((p) => p.id === person.manager_id)?.full_name || 'Ingen'}
+                  </p>
+                )}
+              </div>
+
+              <div className="py-3">
+                <p className="text-xs text-muted-foreground mb-1">Ansettelsesforhold</p>
+                {editing && isAdmin ? (
+                  <RadioGroup
+                    value={person.employment_type ?? 'none'}
+                    onValueChange={(val) => handleFieldChange('employment_type', val === 'none' ? null : val)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="none" id="employment-none" />
+                      <Label htmlFor="employment-none" className="font-normal">Ikke satt</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="fast" id="employment-fast" />
+                      <Label htmlFor="employment-fast" className="font-normal">Fast</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem value="tilkalling" id="employment-tilkalling" />
+                      <Label htmlFor="employment-tilkalling" className="font-normal">Tilkalling</Label>
+                    </div>
+                  </RadioGroup>
+                ) : (
+                  <p className="text-sm">
+                    {person.employment_type === 'fast' ? 'Fast' : person.employment_type === 'tilkalling' ? 'Tilkalling' : '—'}
+                  </p>
+                )}
+              </div>
+
+              {renderRow(
+                'Stillingsprosent',
+                'position_percentage',
+                person.position_percentage,
+                person.position_percentage != null ? `${person.position_percentage} %` : '—',
+                'number',
+                { min: 0, max: 100 }
               )}
+              {renderRow('Tiltredelse', 'start_date', person.start_date, person.start_date ? formatDate(person.start_date) : '—', 'date')}
+              {renderRow('Sluttdato', 'end_date', person.end_date, person.end_date ? formatDate(person.end_date) : '—', 'date')}
+              {renderRow(
+                'Neste medarbeidersamtale',
+                'next_review_date',
+                person.next_review_date,
+                person.next_review_date ? formatDate(person.next_review_date) : '—',
+                'date'
+              )}
+
+              <div className="py-3">
+                <p className="text-xs text-muted-foreground mb-1">Bedrifter</p>
+                {editing && isAdmin ? (
+                  <div className="flex flex-col gap-2 rounded-md border border-input p-3">
+                    {companies.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Ingen bedrifter registrert enda.</p>
+                    ) : (
+                      companies.map((c) => {
+                        const checked = companyIds.includes(c.id)
+                        const checkboxId = `company-${c.id}`
+                        return (
+                          <div key={c.id} className="flex items-center gap-2 text-sm">
+                            <Checkbox
+                              id={checkboxId}
+                              checked={checked}
+                              onCheckedChange={(val) => handleToggleCompany(c.id, val === true)}
+                            />
+                            <Label htmlFor={checkboxId} className="font-normal">
+                              {c.name}
+                            </Label>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm">
+                    {companies.filter((c) => companyIds.includes(c.id)).map((c) => c.name).join(', ') || '—'}
+                  </p>
+                )}
+              </div>
             </div>
-          ) : (
-            <p className="text-sm">
-              {companies.filter((c) => companyIds.includes(c.id)).map((c) => c.name).join(', ') || '—'}
-            </p>
-          )}
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       {isAdmin && (

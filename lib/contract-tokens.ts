@@ -5,6 +5,7 @@ export const RESERVED_TOKENS = {
   adresse: 'address',
   telefon: 'phone',
   kontonummer: 'bank_account',
+  stilling: 'title',
 } as const
 
 export const COMPANY_TOKENS = {
@@ -20,6 +21,7 @@ export type ProfileFields = {
   address: string | null
   phone: string | null
   bank_account: string | null
+  title: string | null
 }
 
 export type CompanyFields = {

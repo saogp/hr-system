@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { StatTile } from '@/components/ui/stat-tile'
 import { ChevronRight } from 'lucide-react'
+import { OrganicBlob } from '@/components/decorative/organic-blobs'
 
 type Person = {
   id: string
@@ -155,7 +156,10 @@ export default function PeoplePage() {
   const activeCount = people.filter((p) => !p.end_date || p.end_date >= today).length
 
   return (
-    <div className="max-w-4xl py-10 px-4">
+    <div className="relative isolate max-w-4xl py-10 px-4 overflow-hidden">
+      <OrganicBlob className="pointer-events-none absolute -right-24 -top-20 -z-10 h-64 w-64 opacity-90" />
+      <OrganicBlob className="pointer-events-none absolute -left-28 top-96 -z-10 h-52 w-52 opacity-50 rotate-45" />
+
       <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
@@ -212,9 +216,9 @@ export default function PeoplePage() {
             <Link
               key={p.id}
               href={`/people/${p.id}`}
-              className="flex items-center gap-3 rounded-xl border border-border p-3 hover:bg-muted/50"
+              className="group flex items-center gap-3 rounded-2xl border border-border bg-white dark:bg-white/5 p-3 transition-colors hover:bg-brand-cream/60 dark:hover:bg-white/10"
             >
-              <Avatar className="size-10">
+              <Avatar className="size-11 ring-2 ring-transparent transition-all group-hover:ring-brand-orange/40">
                 {p.avatar_url && <AvatarImage src={p.avatar_url} alt={p.full_name ?? ''} />}
                 <AvatarFallback className="bg-brand-navy text-brand-orange">{getInitials(p.full_name || '?')}</AvatarFallback>
               </Avatar>

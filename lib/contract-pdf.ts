@@ -74,7 +74,7 @@ export async function fetchAndDownloadContractPdf(contractId: string) {
 
   const { data: profileData } = await supabase
     .from('profiles')
-    .select('full_name, email, birth_date, address, phone, bank_account')
+    .select('full_name, email, birth_date, address, phone, bank_account, title')
     .eq('id', typedContract.profile_id)
     .single()
 
@@ -85,6 +85,7 @@ export async function fetchAndDownloadContractPdf(contractId: string) {
     address: null,
     phone: null,
     bank_account: null,
+    title: null,
   }
 
   let company: CompanyFields | null = null

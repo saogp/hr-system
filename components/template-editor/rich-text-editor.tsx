@@ -25,6 +25,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -200,19 +201,23 @@ export function RichTextEditor({ value, onChange }: Props) {
             }
           />
           <DropdownMenuContent>
-            <DropdownMenuLabel>Ansattfelter</DropdownMenuLabel>
-            {EMPLOYEE_FIELDS.map((token) => (
-              <DropdownMenuItem key={token} onClick={() => insertField(token)}>
-                {labelForToken(token)}
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Ansattfelter</DropdownMenuLabel>
+              {EMPLOYEE_FIELDS.map((token) => (
+                <DropdownMenuItem key={token} onClick={() => insertField(token)}>
+                  {labelForToken(token)}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Firmafelter</DropdownMenuLabel>
-            {COMPANY_FIELDS.map((token) => (
-              <DropdownMenuItem key={token} onClick={() => insertField(token)}>
-                {labelForToken(token)}
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Firmafelter</DropdownMenuLabel>
+              {COMPANY_FIELDS.map((token) => (
+                <DropdownMenuItem key={token} onClick={() => insertField(token)}>
+                  {labelForToken(token)}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => {

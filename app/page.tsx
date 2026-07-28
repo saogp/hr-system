@@ -11,10 +11,12 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { GreetingIllustration } from '@/components/decorative/greeting-illustration'
 import { AllDoneIllustration } from '@/components/decorative/all-done-illustration'
-import { ClipboardCheck, FileText, MessageSquare, ShieldAlert, ChevronRight, Sparkles, type LucideIcon } from 'lucide-react'
+import { ClipboardCheck, FileText, MessageSquare, ShieldAlert, ChevronRight, Sparkles, UserCheck, type LucideIcon } from 'lucide-react'
 import { applyRoleOverride } from '@/lib/role-override'
 import { computeCategoryScores } from '@/lib/survey-score'
 import type { SurveyCategory } from '@/lib/survey-categories'
+import { computeProfileCompletion } from '@/lib/profile-completion'
+import { ProfileCompletionBar } from '@/components/profile-completion-bar'
 
 function getTimeOfDayGreeting() {
   const hour = new Date().getHours()
@@ -86,6 +88,8 @@ export default function DashboardPage() {
   const [unreadReports, setUnreadReports] = useState<UnreadReport[]>([])
   const [engagementOverall, setEngagementOverall] = useState<number | null>(null)
   const [engagementCategories, setEngagementCategories] = useState<{ category: SurveyCategory; label: string; score: number | null }[]>([])
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [profileCompletionPercent, setProfileCompletionPercent] = useState(100)
   const router = useRouter()
 
   useEffect(() => {
@@ -96,12 +100,15 @@ export default function DashboardPage() {
         router.push('/login')
         return
       }
+      setCurrentUserId(user.id)
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, next_review_date, role')
+        .select('full_name, next_review_date, role, birth_date, phone, address, emergency_contact_name, emergency_contact_phone, avatar_url')
         .eq('id', user.id)
         .maybeSingle()
+
+      setProfileCompletionPercent(computeProfileCompletion(profile ?? {}).percent)
 
       setUserName(profile?.full_name || user.email || 'Ansatt')
       setNextReviewDate(profile?.next_review_date ?? null)
@@ -323,6 +330,33 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="shadow-none border-border">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold flex items-center gap-2">
+            <IconBadge icon={<UserCheck className="size-4" />} />
+            Profilutfylling
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ProfileCompletionBar percent={profileCompletionPercent} />
+          <p className="text-sm mt-3">
+            {profileCompletionPercent === 100
+              ? 'Profilen din er komplett!'
+              : profileCompletionPercent >= 70
+              ? 'Profilen din er sterk!'
+              : 'Fyll ut mer for en sterkere profil.'}
+            {profileCompletionPercent < 100 && currentUserId && (
+              <>
+                {' '}
+                <Link href={`/people/${currentUserId}?edit=1`} className="underline underline-offset-2 hover:text-brand-orange">
+                  Se hva som mangler
+                </Link>
+              </>
+            )}
+          </p>
+        </CardContent>
+      </Card>
 
       {isAdmin && (
         <Card className="shadow-none border-border">
