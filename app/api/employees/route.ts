@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
     data: full_name ? { full_name } : undefined,
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/onboarding`,
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '')}/onboarding`,
   })
 
   if (error) {

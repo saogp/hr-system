@@ -55,6 +55,9 @@ type PersonProfile = {
   birth_date: string | null
   manager_id: string | null
   phone: string | null
+  address: string | null
+  emergency_contact_name: string | null
+  emergency_contact_phone: string | null
   employee_number: number | null
   employment_type: 'fast' | 'tilkalling' | null
   position_percentage: number | null
@@ -63,11 +66,28 @@ type PersonProfile = {
   next_review_date: string | null
 }
 
+type DirectoryProfile = {
+  id: string
+  full_name: string | null
+  title: string | null
+  role: string
+  email: string | null
+  phone: string | null
+  employee_number: number | null
+}
+
 type InviteStatus = {
   invited_at?: string
   confirmed_at?: string
   last_sign_in_at?: string
 }
+
+const SELF_EDITABLE_FIELDS: (keyof PersonProfile)[] = [
+  'phone',
+  'address',
+  'emergency_contact_name',
+  'emergency_contact_phone',
+]
 
 function getInitials(name: string) {
   return name
@@ -85,6 +105,7 @@ export default function PersonDetailPage() {
   const [viewerId, setViewerId] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [person, setPerson] = useState<PersonProfile | null>(null)
+  const [directoryPerson, setDirectoryPerson] = useState<DirectoryProfile | null>(null)
   const [allProfiles, setAllProfiles] = useState<{ id: string; full_name: string | null; email: string | null }[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [companyIds, setCompanyIds] = useState<string[]>([])
@@ -92,10 +113,7 @@ export default function PersonDetailPage() {
   const [contracts, setContracts] = useState<PersonContract[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [editingSelf, setEditingSelf] = useState(false)
-  const [editingAdmin, setEditingAdmin] = useState(false)
-  const [phone, setPhone] = useState('')
-  const [saving, setSaving] = useState(false)
+  const [editing, setEditing] = useState(false)
 
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -120,7 +138,9 @@ export default function PersonDetailPage() {
       const admin = viewerProfile?.role === 'admin'
       setIsAdmin(admin)
 
-      if (admin) {
+      const viewingSelf = user.id === id
+
+      if (admin || viewingSelf) {
         const { data: fullData } = await supabase
           .from('profiles')
           .select('*')
@@ -132,7 +152,6 @@ export default function PersonDetailPage() {
           return
         }
         setPerson(fullData)
-        setPhone(fullData.phone ?? '')
 
         const { data: profilesData } = await supabase
           .from('profiles')
@@ -149,31 +168,32 @@ export default function PersonDetailPage() {
           .eq('profile_id', id)
         if (pcData) setCompanyIds(pcData.map((r) => r.company_id))
 
-        const { data: contractsData } = await supabase
-          .from('contracts')
-          .select('id, sent_at, employee_signed_at, admin_signed_at, contract_templates!contracts_template_id_fkey(name)')
-          .eq('profile_id', id)
-          .order('sent_at', { ascending: false })
-        if (contractsData) setContracts(contractsData as unknown as PersonContract[])
+        if (admin) {
+          const { data: contractsData } = await supabase
+            .from('contracts')
+            .select('id, sent_at, employee_signed_at, admin_signed_at, contract_templates!contracts_template_id_fkey(name)')
+            .eq('profile_id', id)
+            .order('sent_at', { ascending: false })
+          if (contractsData) setContracts(contractsData as unknown as PersonContract[])
 
-        const { data: { session } } = await supabase.auth.getSession()
-        const statusRes = await fetch('/api/employees', {
-          headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
-        })
-        if (statusRes.ok) {
-          const { statuses } = await statusRes.json()
-          setInviteStatus(statuses?.[id as string] ?? null)
+          const { data: { session } } = await supabase.auth.getSession()
+          const statusRes = await fetch('/api/employees', {
+            headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+          })
+          if (statusRes.ok) {
+            const { statuses } = await statusRes.json()
+            setInviteStatus(statuses?.[id as string] ?? null)
+          }
         }
       } else {
         const { data } = await supabase.rpc('get_people_directory')
-        const found = (data as PersonProfile[] | null)?.find((p) => p.id === id) ?? null
+        const found = (data as DirectoryProfile[] | null)?.find((p) => p.id === id) ?? null
 
         if (!found) {
           router.replace('/people')
           return
         }
-        setPerson(found)
-        setPhone(found.phone ?? '')
+        setDirectoryPerson(found)
       }
 
       setLoading(false)
@@ -184,26 +204,15 @@ export default function PersonDetailPage() {
 
   const isSelf = viewerId === id
 
-  const handleSaveSelf = async () => {
-    setSaving(true)
-    const { error } = await supabase
-      .from('profiles')
-      .update({ phone })
-      .eq('id', id)
-
-    if (!error) {
-      setPerson(prev => prev ? { ...prev, phone } : prev)
-      setEditingSelf(false)
-    }
-    setSaving(false)
-  }
-
   const handleFieldChange = async (field: keyof PersonProfile, value: string | number | null) => {
     const { error } = await supabase.from('profiles').update({ [field]: value }).eq('id', id)
     if (!error) {
       setPerson(prev => prev ? { ...prev, [field]: value } : prev)
     }
   }
+
+  const canEditField = (field: keyof PersonProfile) =>
+    isAdmin || (isSelf && SELF_EDITABLE_FIELDS.includes(field))
 
   const handleToggleCompany = async (companyId: string, checked: boolean) => {
     if (checked) {
@@ -270,7 +279,7 @@ export default function PersonDetailPage() {
     setDeletingContract(false)
   }
 
-  const formatDate = (dateStr?: string) => {
+  const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return ''
     return new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
   }
@@ -286,11 +295,96 @@ export default function PersonDetailPage() {
     }
   }
 
-  if (loading || !person) {
+  const renderRow = (
+    label: string,
+    field: keyof PersonProfile,
+    rawValue: string | number | null,
+    display: string,
+    inputType: 'text' | 'email' | 'number' | 'date' = 'text'
+  ) => {
+    const editable = editing && canEditField(field)
+    const commit = (raw: string) =>
+      handleFieldChange(field, inputType === 'number' ? (raw ? Number(raw) : null) : (raw || null))
+
+    return (
+      <div className="py-3" key={field}>
+        <Label htmlFor={field} className="text-xs text-muted-foreground mb-1">{label}</Label>
+        {editable ? (
+          <Input
+            id={field}
+            type={inputType}
+            min={inputType === 'number' ? 0 : undefined}
+            max={inputType === 'number' ? 100 : undefined}
+            defaultValue={rawValue ?? ''}
+            onBlur={inputType !== 'date' ? (e) => commit(e.target.value) : undefined}
+            onChange={inputType === 'date' ? (e) => commit(e.target.value) : undefined}
+          />
+        ) : (
+          <p className="text-sm">{display}</p>
+        )}
+      </div>
+    )
+  }
+
+  if (loading) {
+    return <div className="p-8">Laster profil...</div>
+  }
+
+  const isDirectoryOnly = !isAdmin && !isSelf
+
+  if (isDirectoryOnly) {
+    if (!directoryPerson) {
+      return <div className="p-8">Laster profil...</div>
+    }
+
+    return (
+      <div className="container mx-auto py-6 px-4 max-w-2xl">
+        <Link
+          href="/people"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
+        >
+          <ArrowLeft className="size-4" />
+          Tilbake
+        </Link>
+
+        <div className="flex items-center gap-4 mb-8">
+          <Avatar className="size-16">
+            <AvatarFallback className="text-lg">{getInitials(directoryPerson.full_name || '?')}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1">
+            <h1 className="text-xl font-bold">{directoryPerson.full_name || '—'}</h1>
+            <p className="text-muted-foreground text-sm">{directoryPerson.title || '—'}</p>
+          </div>
+        </div>
+
+        <div className="divide-y divide-border border-t border-border">
+          <div className="py-3">
+            <p className="text-xs text-muted-foreground mb-1">Rolle</p>
+            {getRoleBadge(directoryPerson.role)}
+          </div>
+          <div className="py-3">
+            <p className="text-xs text-muted-foreground">E-post</p>
+            <p className="text-sm">{directoryPerson.email || '—'}</p>
+          </div>
+          <div className="py-3">
+            <p className="text-xs text-muted-foreground">Telefonnummer</p>
+            <p className="text-sm">{directoryPerson.phone || '—'}</p>
+          </div>
+          <div className="py-3">
+            <p className="text-xs text-muted-foreground">Ansattnummer</p>
+            <p className="text-sm">{directoryPerson.employee_number ?? '—'}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!person) {
     return <div className="p-8">Laster profil...</div>
   }
 
   const isPendingInvite = inviteStatus?.invited_at && !inviteStatus?.confirmed_at
+  const canEditSomething = isAdmin || isSelf
 
   return (
     <div className="container mx-auto py-6 px-4 max-w-2xl">
@@ -349,341 +443,226 @@ export default function PersonDetailPage() {
         )}
       </div>
 
-      <div className="space-y-8">
-        <div className="space-y-4">
-          <div>
-            <p className="text-xs text-muted-foreground">E-post</p>
-            <p className="text-sm">{person.email || '—'}</p>
-          </div>
+      {canEditSomething && (
+        <div className="flex justify-end mb-2">
+          <Button size="sm" variant="outline" onClick={() => setEditing(v => !v)}>
+            {editing ? 'Ferdig' : 'Rediger'}
+          </Button>
+        </div>
+      )}
 
-          <div>
-            <p className="text-xs text-muted-foreground">Telefonnummer</p>
-            {isSelf && editingSelf ? (
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1" />
-            ) : (
-              <p className="text-sm">{person.phone || '—'}</p>
-            )}
-          </div>
+      <div className="divide-y divide-border border-t border-border">
+        {renderRow('Navn', 'full_name', person.full_name, person.full_name || '—', 'text')}
+        {renderRow('E-post', 'email', person.email, person.email || '—', 'email')}
+        {renderRow('Telefonnummer', 'phone', person.phone, person.phone || '—', 'text')}
+        {renderRow('Adresse', 'address', person.address, person.address || '—', 'text')}
 
-          <div>
-            <p className="text-xs text-muted-foreground">Ansattnummer</p>
-            <p className="text-sm">{person.employee_number ?? '—'}</p>
-          </div>
-
-          {isSelf && (
-            editingSelf ? (
-              <div className="flex gap-2">
-                <Button size="sm" onClick={handleSaveSelf} disabled={saving}>
-                  {saving ? 'Lagrer...' : 'Lagre'}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setEditingSelf(false)}>
-                  Avbryt
-                </Button>
-              </div>
-            ) : (
-              <Button size="sm" variant="outline" onClick={() => setEditingSelf(true)}>
-                Rediger min profil
-              </Button>
-            )
+        <div className="py-3">
+          <p className="text-xs text-muted-foreground mb-1">Nærmeste pårørende</p>
+          {editing && canEditField('emergency_contact_name') ? (
+            <div className="flex gap-2">
+              <Input
+                placeholder="Navn"
+                defaultValue={person.emergency_contact_name ?? ''}
+                onBlur={(e) => handleFieldChange('emergency_contact_name', e.target.value || null)}
+              />
+              <Input
+                placeholder="Telefon"
+                defaultValue={person.emergency_contact_phone ?? ''}
+                onBlur={(e) => handleFieldChange('emergency_contact_phone', e.target.value || null)}
+              />
+            </div>
+          ) : (
+            <p className="text-sm">
+              {person.emergency_contact_name || person.emergency_contact_phone
+                ? `${person.emergency_contact_name || '—'}${person.emergency_contact_phone ? ' · ' + person.emergency_contact_phone : ''}`
+                : '—'}
+            </p>
           )}
         </div>
 
-        {isAdmin && (
-          <div className="space-y-4 border-t border-border pt-6">
-            <div className="flex items-center justify-between">
-              <h2 className="font-medium">Administrer</h2>
-              {editingAdmin ? (
-                <Button size="sm" variant="outline" onClick={() => setEditingAdmin(false)}>
-                  Ferdig
-                </Button>
-              ) : (
-                <Button size="sm" variant="outline" onClick={() => setEditingAdmin(true)}>
-                  Rediger
-                </Button>
-              )}
-            </div>
+        <div className="py-3">
+          <p className="text-xs text-muted-foreground">Ansattnummer</p>
+          <p className="text-sm">{person.employee_number ?? '—'}</p>
+        </div>
 
-            {editingAdmin ? (
-              <>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="full_name">Navn</Label>
-                  <Input
-                    id="full_name"
-                    defaultValue={person.full_name ?? ''}
-                    onBlur={(e) => handleFieldChange('full_name', e.target.value)}
-                  />
-                </div>
+        {renderRow('Stilling', 'title', person.title, person.title || '—', 'text')}
 
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="email">E-post</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    defaultValue={person.email ?? ''}
-                    onBlur={(e) => handleFieldChange('email', e.target.value)}
-                  />
-                </div>
+        <div className="py-3">
+          <p className="text-xs text-muted-foreground mb-1">Rolle</p>
+          {editing && isAdmin ? (
+            <Select value={person.role} onValueChange={(val) => val && handleFieldChange('role', val)}>
+              <SelectTrigger className="w-full h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="manager">Leder</SelectItem>
+                <SelectItem value="employee">Ansatt</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : (
+            getRoleBadge(person.role)
+          )}
+        </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="title">Stilling</Label>
-                  <Input
-                    id="title"
-                    placeholder="F.eks. Designer, CTO, Prosjektleder"
-                    defaultValue={person.title ?? ''}
-                    onBlur={(e) => handleFieldChange('title', e.target.value)}
-                  />
-                </div>
+        <div className="py-3">
+          <p className="text-xs text-muted-foreground mb-1">Nærmeste leder</p>
+          {editing && isAdmin ? (
+            <Select
+              value={person.manager_id ?? 'none'}
+              onValueChange={(val) => val && handleFieldChange('manager_id', val === 'none' ? null : val)}
+            >
+              <SelectTrigger className="w-full h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Ingen</SelectItem>
+                {allProfiles
+                  .filter((p) => p.id !== id)
+                  .map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.full_name || p.email}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="text-sm">
+              {allProfiles.find((p) => p.id === person.manager_id)?.full_name || 'Ingen'}
+            </p>
+          )}
+        </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <Label>Rolle</Label>
-                  <Select
-                    value={person.role}
-                    onValueChange={(val) => val && handleFieldChange('role', val)}
-                  >
-                    <SelectTrigger className="w-full h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="manager">Leder</SelectItem>
-                      <SelectItem value="employee">Ansatt</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+        <div className="py-3">
+          <p className="text-xs text-muted-foreground mb-1">Ansettelsesforhold</p>
+          {editing && isAdmin ? (
+            <Select
+              value={person.employment_type ?? 'none'}
+              onValueChange={(val) => val && handleFieldChange('employment_type', val === 'none' ? null : val)}
+            >
+              <SelectTrigger className="w-full h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Ikke satt</SelectItem>
+                <SelectItem value="fast">Fast</SelectItem>
+                <SelectItem value="tilkalling">Tilkalling</SelectItem>
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="text-sm">
+              {person.employment_type === 'fast' ? 'Fast' : person.employment_type === 'tilkalling' ? 'Tilkalling' : '—'}
+            </p>
+          )}
+        </div>
 
-                <div className="flex flex-col gap-1.5">
-                  <Label>Nærmeste leder</Label>
-                  <Select
-                    value={person.manager_id ?? 'none'}
-                    onValueChange={(val) => val && handleFieldChange('manager_id', val === 'none' ? null : val)}
-                  >
-                    <SelectTrigger className="w-full h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Ingen</SelectItem>
-                      {allProfiles
-                        .filter((p) => p.id !== id)
-                        .map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.full_name || p.email}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label>Ansettelsesforhold</Label>
-                  <Select
-                    value={person.employment_type ?? 'none'}
-                    onValueChange={(val) => val && handleFieldChange('employment_type', val === 'none' ? null : val)}
-                  >
-                    <SelectTrigger className="w-full h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Ikke satt</SelectItem>
-                      <SelectItem value="fast">Fast</SelectItem>
-                      <SelectItem value="tilkalling">Tilkalling</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="position_percentage">Stillingsprosent</Label>
-                  <Input
-                    id="position_percentage"
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
-                    defaultValue={person.position_percentage ?? ''}
-                    onBlur={(e) => handleFieldChange('position_percentage', e.target.value ? Number(e.target.value) : null)}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="start_date">Tiltredelse</Label>
-                  <Input
-                    id="start_date"
-                    type="date"
-                    defaultValue={person.start_date ?? ''}
-                    onChange={(e) => handleFieldChange('start_date', e.target.value || null)}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="end_date">Sluttdato</Label>
-                  <Input
-                    id="end_date"
-                    type="date"
-                    defaultValue={person.end_date ?? ''}
-                    onChange={(e) => handleFieldChange('end_date', e.target.value || null)}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label>Bedrifter</Label>
-                  <div className="flex flex-col gap-2 rounded-md border border-input p-3">
-                    {companies.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Ingen bedrifter registrert enda.</p>
-                    ) : (
-                      companies.map((c) => {
-                        const checked = companyIds.includes(c.id)
-                        const checkboxId = `company-${c.id}`
-                        return (
-                          <div key={c.id} className="flex items-center gap-2 text-sm">
-                            <Checkbox
-                              id={checkboxId}
-                              checked={checked}
-                              onCheckedChange={(val) => handleToggleCompany(c.id, val === true)}
-                            />
-                            <Label htmlFor={checkboxId} className="font-normal">
-                              {c.name}
-                            </Label>
-                          </div>
-                        )
-                      })
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="birth_date">Bursdag</Label>
-                  <Input
-                    id="birth_date"
-                    type="date"
-                    defaultValue={person.birth_date ?? ''}
-                    onChange={(e) => handleFieldChange('birth_date', e.target.value || null)}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="next_review_date">Neste medarbeidersamtale</Label>
-                  <Input
-                    id="next_review_date"
-                    type="date"
-                    defaultValue={person.next_review_date ?? ''}
-                    onChange={(e) => handleFieldChange('next_review_date', e.target.value || null)}
-                  />
-                </div>
-              </>
-            ) : (
-              <div className="space-y-3">
-                <div>
-                  <p className="text-xs text-muted-foreground">Navn</p>
-                  <p className="text-sm">{person.full_name || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">E-post</p>
-                  <p className="text-sm">{person.email || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Stilling</p>
-                  <p className="text-sm">{person.title || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Rolle</p>
-                  {getRoleBadge(person.role)}
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Nærmeste leder</p>
-                  <p className="text-sm">
-                    {allProfiles.find((p) => p.id === person.manager_id)?.full_name || 'Ingen'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Ansettelsesforhold</p>
-                  <p className="text-sm">
-                    {person.employment_type === 'fast' ? 'Fast' : person.employment_type === 'tilkalling' ? 'Tilkalling' : '—'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Stillingsprosent</p>
-                  <p className="text-sm">{person.position_percentage != null ? `${person.position_percentage} %` : '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Tiltredelse</p>
-                  <p className="text-sm">{person.start_date ? formatDate(person.start_date) : '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Sluttdato</p>
-                  <p className="text-sm">{person.end_date ? formatDate(person.end_date) : '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Bedrifter</p>
-                  <p className="text-sm">
-                    {companies.filter((c) => companyIds.includes(c.id)).map((c) => c.name).join(', ') || '—'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Bursdag</p>
-                  <p className="text-sm">{person.birth_date ? formatDate(person.birth_date) : '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-muted-foreground">Neste medarbeidersamtale</p>
-                  <p className="text-sm">{person.next_review_date ? formatDate(person.next_review_date) : '—'}</p>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2 border-t border-border pt-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium">Kontrakter</p>
-                <Button size="sm" variant="outline" render={<Link href="/contracts" />}>
-                  Send kontrakt
-                </Button>
-              </div>
-              {contracts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Ingen kontrakter enda.</p>
-              ) : (
-                <div className="flex flex-col divide-y divide-border rounded-md border border-input">
-                  {contracts.map((c) => {
-                    const signedCount = [c.employee_signed_at, c.admin_signed_at].filter(Boolean).length
-                    const isUnsigned = signedCount === 0
-                    return (
-                      <div key={c.id} className="flex items-center justify-between gap-2 p-1 pl-3">
-                        <Link
-                          href={`/contracts/${c.id}`}
-                          className="min-w-0 flex-1 py-2 rounded-md hover:bg-muted/50"
-                        >
-                          <p className="text-sm font-medium truncate">{c.contract_templates?.name || '—'}</p>
-                          <p className="text-xs text-muted-foreground">Sendt {formatDate(c.sent_at)}</p>
-                        </Link>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {signedCount === 2 ? (
-                            <Badge className="bg-green-600 hover:bg-green-700">2 av 2 signert</Badge>
-                          ) : (
-                            <Badge variant="secondary">{signedCount} av 2 signert</Badge>
-                          )}
-                          {isUnsigned && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger
-                                render={
-                                  <Button variant="ghost" size="icon-sm">
-                                    <MoreHorizontal />
-                                    <span className="sr-only">Handlinger</span>
-                                  </Button>
-                                }
-                              />
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem variant="destructive" onClick={() => setContractDeleteId(c.id)}>
-                                  Slett
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
+        {renderRow(
+          'Stillingsprosent',
+          'position_percentage',
+          person.position_percentage,
+          person.position_percentage != null ? `${person.position_percentage} %` : '—',
+          'number'
         )}
+        {renderRow('Tiltredelse', 'start_date', person.start_date, person.start_date ? formatDate(person.start_date) : '—', 'date')}
+        {renderRow('Sluttdato', 'end_date', person.end_date, person.end_date ? formatDate(person.end_date) : '—', 'date')}
+        {renderRow('Bursdag', 'birth_date', person.birth_date, person.birth_date ? formatDate(person.birth_date) : '—', 'date')}
+        {renderRow(
+          'Neste medarbeidersamtale',
+          'next_review_date',
+          person.next_review_date,
+          person.next_review_date ? formatDate(person.next_review_date) : '—',
+          'date'
+        )}
+
+        <div className="py-3">
+          <p className="text-xs text-muted-foreground mb-1">Bedrifter</p>
+          {editing && isAdmin ? (
+            <div className="flex flex-col gap-2 rounded-md border border-input p-3">
+              {companies.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Ingen bedrifter registrert enda.</p>
+              ) : (
+                companies.map((c) => {
+                  const checked = companyIds.includes(c.id)
+                  const checkboxId = `company-${c.id}`
+                  return (
+                    <div key={c.id} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        id={checkboxId}
+                        checked={checked}
+                        onCheckedChange={(val) => handleToggleCompany(c.id, val === true)}
+                      />
+                      <Label htmlFor={checkboxId} className="font-normal">
+                        {c.name}
+                      </Label>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          ) : (
+            <p className="text-sm">
+              {companies.filter((c) => companyIds.includes(c.id)).map((c) => c.name).join(', ') || '—'}
+            </p>
+          )}
+        </div>
       </div>
+
+      {isAdmin && (
+        <div className="space-y-2 border-t border-border pt-4 mt-6">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">Kontrakter</p>
+            <Button size="sm" variant="outline" render={<Link href="/contracts" />}>
+              Send kontrakt
+            </Button>
+          </div>
+          {contracts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Ingen kontrakter enda.</p>
+          ) : (
+            <div className="flex flex-col divide-y divide-border rounded-md border border-input">
+              {contracts.map((c) => {
+                const signedCount = [c.employee_signed_at, c.admin_signed_at].filter(Boolean).length
+                const isUnsigned = signedCount === 0
+                return (
+                  <div key={c.id} className="flex items-center justify-between gap-2 p-1 pl-3">
+                    <Link
+                      href={`/contracts/${c.id}`}
+                      className="min-w-0 flex-1 py-2 rounded-md hover:bg-muted/50"
+                    >
+                      <p className="text-sm font-medium truncate">{c.contract_templates?.name || '—'}</p>
+                      <p className="text-xs text-muted-foreground">Sendt {formatDate(c.sent_at)}</p>
+                    </Link>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {signedCount === 2 ? (
+                        <Badge className="bg-green-600 hover:bg-green-700">2 av 2 signert</Badge>
+                      ) : (
+                        <Badge variant="secondary">{signedCount} av 2 signert</Badge>
+                      )}
+                      {isUnsigned && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button variant="ghost" size="icon-sm">
+                                <MoreHorizontal />
+                                <span className="sr-only">Handlinger</span>
+                              </Button>
+                            }
+                          />
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem variant="destructive" onClick={() => setContractDeleteId(c.id)}>
+                              Slett
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>

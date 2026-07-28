@@ -39,6 +39,11 @@ create trigger protect_profile_columns_trigger
 before update on public.profiles
 for each row execute function public.protect_profile_columns();
 
+-- Nearest-of-kin fields, self-editable alongside phone/address (not touched
+-- by protect_profile_columns since it only blocks admin-owned fields).
+alter table public.profiles add column if not exists emergency_contact_name text;
+alter table public.profiles add column if not exists emergency_contact_phone text;
+
 -- interests/fun_fact removed from the shared directory view (feature dropped);
 -- employee_number added so everyone can see colleagues' employee numbers.
 drop function if exists public.get_people_directory();

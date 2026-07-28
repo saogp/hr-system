@@ -2,12 +2,6 @@ import { NextResponse } from 'next/server'
 import webpush from 'web-push'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
-
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization')
   const token = authHeader?.replace('Bearer ', '')
@@ -15,6 +9,16 @@ export async function POST(request: Request) {
   if (!token) {
     return NextResponse.json({ error: 'Ikke innlogget.' }, { status: 401 })
   }
+
+  if (!process.env.VAPID_SUBJECT || !process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+    return NextResponse.json({ error: 'Push-varsler er ikke konfigurert på serveren.' }, { status: 500 })
+  }
+
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT,
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  )
 
   const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
   if (authError || !user) {
