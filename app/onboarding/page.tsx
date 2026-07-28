@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { GreetingIllustration } from "@/components/decorative/greeting-illustration"
 
 export default function OnboardingPage() {
   const [checkingSession, setCheckingSession] = useState(true)
@@ -73,14 +74,15 @@ export default function OnboardingPage() {
   }
 
   if (checkingSession) {
-    return <div className="min-h-screen flex items-center justify-center bg-background">Laster...</div>
+    return <div className="min-h-screen flex items-center justify-center bg-brand-cream dark:bg-brand-cream-dark">Laster...</div>
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-sm shadow-none border-border">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold">Fullfør kontoen din</CardTitle>
+    <div className="min-h-screen flex items-center justify-center bg-brand-cream dark:bg-brand-cream-dark px-4">
+      <Card className="w-full max-w-sm shadow-none border-brand-navy/10">
+        <CardHeader className="items-center text-center">
+          <GreetingIllustration className="size-24 mb-1" />
+          <CardTitle className="text-xl font-bold text-brand-navy dark:text-white">Fullfør kontoen din</CardTitle>
           <CardDescription>
             Sett et passord og fyll inn bursdagen din for å komme i gang.
           </CardDescription>
@@ -127,7 +129,7 @@ export default function OnboardingPage() {
               />
             </div>
 
-            <Button type="submit" disabled={loading} className="w-full mt-2">
+            <Button type="submit" disabled={loading} className="w-full mt-2 bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
               {loading ? 'Lagrer...' : 'Fullfør'}
             </Button>
           </CardContent>

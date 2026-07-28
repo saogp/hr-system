@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Plus, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { applyRoleOverride } from '@/lib/role-override'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,7 +38,7 @@ export default function ReviewTemplateEditorPage() {
         .eq('id', user.id)
         .single()
 
-      if (viewerProfile?.role !== 'admin') {
+      if (applyRoleOverride(viewerProfile?.role ?? 'employee') !== 'admin') {
         router.replace('/settings')
         return
       }
@@ -129,7 +130,11 @@ export default function ReviewTemplateEditorPage() {
               Lagret {savedAt.toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
-          <Button onClick={handleSave} disabled={saving || !name}>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !name}
+            className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+          >
             {saving ? 'Lagrer...' : 'Lagre'}
           </Button>
         </div>

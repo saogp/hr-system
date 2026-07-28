@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { Sidebar } from '@/components/sidebar'
 import { MobileSidebarTrigger } from '@/components/mobile-sidebar-trigger'
+import { TestRoleSwitcher } from '@/components/test-role-switcher'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 
 export const metadata: Metadata = {
@@ -20,6 +21,7 @@ export default function RootLayout({
         <SidebarProvider>
           <Sidebar />
           <SidebarInset>
+            <TestRoleSwitcher />
             <MobileSidebarTrigger />
             <main className="flex-1 overflow-y-auto">{children}</main>
           </SidebarInset>

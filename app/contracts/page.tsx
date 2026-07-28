@@ -5,15 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { getAdminTokens, extractChoiceFields, usesCompanyTokens } from '@/lib/contract-tokens'
+import { applyRoleOverride } from '@/lib/role-override'
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import {
   Select,
   SelectContent,
@@ -46,11 +39,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal, ChevronRight, FileText } from 'lucide-react'
+import { IconBadge } from '@/components/ui/icon-badge'
 
 type Template = {
   id: string
@@ -80,6 +75,7 @@ type ContractRow = {
   admin_fields: Record<string, string>
   template_id: string
   profile_id: string
+  company_id: string | null
   contract_templates: { name: string } | null
   profiles: { full_name: string | null; email: string | null } | null
 }
@@ -101,6 +97,10 @@ export default function ContractsPage() {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  const [search, setSearch] = useState('')
+  const [companyFilter, setCompanyFilter] = useState('all')
+  const [monthFilter, setMonthFilter] = useState('')
+
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -115,7 +115,7 @@ export default function ContractsPage() {
         .eq('id', user.id)
         .single()
 
-      const currentRole = profile?.role ?? 'employee'
+      const currentRole = applyRoleOverride(profile?.role ?? 'employee') as 'admin' | 'manager' | 'employee'
       setRole(currentRole)
 
       if (currentRole === 'admin') {
@@ -230,10 +230,24 @@ export default function ContractsPage() {
     return <div className="p-8">Laster kontrakter...</div>
   }
 
+  const filteredContracts = contracts.filter((c) => {
+    if (search) {
+      const name = (c.profiles?.full_name || c.profiles?.email || '').toLowerCase()
+      const templateName = (c.contract_templates?.name || '').toLowerCase()
+      if (!name.includes(search.toLowerCase()) && !templateName.includes(search.toLowerCase())) return false
+    }
+    if (companyFilter !== 'all' && c.company_id !== companyFilter) return false
+    if (monthFilter && !c.sent_at.startsWith(monthFilter)) return false
+    return true
+  })
+
   return (
     <div className="container mx-auto py-10 px-4 space-y-8">
       <div>
-        <h1 className="text-2xl font-bold">Kontrakter</h1>
+        <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
+          <IconBadge icon={<FileText className="size-4" />} />
+          Kontrakter
+        </h1>
         <p className="text-muted-foreground text-sm">
           {role === 'admin'
             ? 'Send kontrakter til ansatte.'
@@ -242,77 +256,113 @@ export default function ContractsPage() {
       </div>
 
       <div>
-        <div className="flex flex-row items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">
-            {role === 'admin' ? 'Alle kontrakter' : 'Mine kontrakter'}
-          </h2>
+        <div className="flex flex-row items-center justify-end mb-4">
           {role === 'admin' && (
-            <Button onClick={() => setSendOpen(true)} disabled={templates.length === 0}>
+            <Button
+              onClick={() => setSendOpen(true)}
+              disabled={templates.length === 0}
+              className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+            >
               Send kontrakt
             </Button>
           )}
         </div>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {role === 'admin' && <TableHead>Ansatt</TableHead>}
-              <TableHead>Mal</TableHead>
-              <TableHead>Sendt</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Handling</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {contracts.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={role === 'admin' ? 5 : 4} className="text-center text-muted-foreground py-8">
-                  Ingen kontrakter registrert enda.
-                </TableCell>
-              </TableRow>
-            ) : (
-              contracts.map((c) => (
-                <TableRow key={c.id}>
-                  {role === 'admin' && (
-                    <TableCell className="font-medium">
-                      {c.profiles?.full_name || c.profiles?.email || '—'}
-                    </TableCell>
-                  )}
-                  <TableCell>{c.contract_templates?.name || '—'}</TableCell>
-                  <TableCell>{formatDate(c.sent_at)}</TableCell>
-                  <TableCell>{getStatusBadge(c)}</TableCell>
-                  <TableCell className="text-right">
-                    {role === 'admin' ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button variant="ghost" size="icon-sm">
-                              <MoreHorizontal />
-                              <span className="sr-only">Handlinger</span>
-                            </Button>
-                          }
-                        />
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => router.push(`/contracts/${c.id}`)}>
-                            Åpne
-                          </DropdownMenuItem>
-                          {!c.employee_signed_at && !c.admin_signed_at && (
-                            <DropdownMenuItem variant="destructive" onClick={() => setDeleteTargetId(c.id)}>
-                              Slett
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    ) : (
-                      <Button variant="ghost" size="sm" render={<Link href={`/contracts/${c.id}`} />}>
-                        Åpne
-                      </Button>
+
+        {role === 'admin' && (
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <Input
+              placeholder="Søk etter ansatt eller mal..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="sm:max-w-xs"
+            />
+            <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
+              <SelectTrigger className="w-full sm:w-48 h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle restauranter</SelectItem>
+                {companies.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              type="month"
+              value={monthFilter}
+              onChange={(e) => setMonthFilter(e.target.value)}
+              className="w-full sm:w-40"
+            />
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2">
+          {filteredContracts.length === 0 ? (
+            <p className="text-center text-muted-foreground text-sm py-8">Ingen kontrakter funnet.</p>
+          ) : (
+            filteredContracts.map((c) => {
+              const rowContent = (
+                <>
+                  <div className="min-w-0 flex-1">
+                    {role === 'admin' && (
+                      <p className="font-medium text-sm truncate">
+                        {c.profiles?.full_name || c.profiles?.email || '—'}
+                      </p>
                     )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+                    <p className={role === 'admin' ? 'text-xs text-muted-foreground truncate' : 'font-medium text-sm truncate'}>
+                      {c.contract_templates?.name || '—'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Sendt {formatDate(c.sent_at)}</p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {getStatusBadge(c)}
+                    {role === 'admin' ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button variant="ghost" size="icon-sm">
+                                <MoreHorizontal />
+                                <span className="sr-only">Handlinger</span>
+                              </Button>
+                            }
+                          />
+                          <DropdownMenuContent align="end">
+                            {!c.employee_signed_at && !c.admin_signed_at && (
+                              <DropdownMenuItem variant="destructive" onClick={() => setDeleteTargetId(c.id)}>
+                                Slett
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    ) : (
+                      <ChevronRight className="size-4 text-muted-foreground" />
+                    )}
+                  </div>
+                </>
+              )
+
+              return role === 'admin' ? (
+                <div
+                  key={c.id}
+                  onClick={() => router.push(`/contracts/${c.id}`)}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border p-4 hover:bg-muted/50 cursor-pointer"
+                >
+                  {rowContent}
+                </div>
+              ) : (
+                <Link
+                  key={c.id}
+                  href={`/contracts/${c.id}`}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border p-4 hover:bg-muted/50"
+                >
+                  {rowContent}
+                </Link>
+              )
+            })
+          )}
+        </div>
       </div>
 
       <Dialog open={sendOpen} onOpenChange={setSendOpen}>
@@ -393,18 +443,19 @@ export default function ContractsPage() {
             {choiceFields.map((f) => (
               <div key={f.key} className="flex flex-col gap-1.5">
                 <Label className="capitalize">{f.key}</Label>
-                <Select
+                <RadioGroup
                   value={adminFieldValues[f.key] ?? f.optionA}
-                  onValueChange={(val) => val && setAdminFieldValues(prev => ({ ...prev, [f.key]: val }))}
+                  onValueChange={(val) => setAdminFieldValues(prev => ({ ...prev, [f.key]: val }))}
                 >
-                  <SelectTrigger className="w-full h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={f.optionA}>{f.optionA}</SelectItem>
-                    <SelectItem value={f.optionB}>{f.optionB}</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value={f.optionA} id={`choice-${f.key}-a`} />
+                    <Label htmlFor={`choice-${f.key}-a`} className="font-normal">{f.optionA}</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem value={f.optionB} id={`choice-${f.key}-b`} />
+                    <Label htmlFor={`choice-${f.key}-b`} className="font-normal">{f.optionB}</Label>
+                  </div>
+                </RadioGroup>
               </div>
             ))}
 
@@ -426,6 +477,7 @@ export default function ContractsPage() {
               <Button
                 type="submit"
                 disabled={!selectedEmployeeId || !selectedTemplateId || (needsCompany && !selectedCompanyId)}
+                className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
               >
                 Send kontrakt
               </Button>

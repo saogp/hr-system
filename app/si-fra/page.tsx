@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { sendPushNotification } from '@/lib/push-client'
+import { applyRoleOverride } from '@/lib/role-override'
 
 import {
   Select,
@@ -17,6 +18,8 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { IconBadge } from '@/components/ui/icon-badge'
+import { ShieldAlert } from 'lucide-react'
 
 type PersonOption = { id: string; full_name: string | null; email: string | null }
 type ReceivedMessage = {
@@ -52,7 +55,7 @@ export default function SiFraPage() {
         .select('manager_id, role')
         .eq('id', user.id)
         .single()
-      const admin = ownProfile?.role === 'admin'
+      const admin = applyRoleOverride(ownProfile?.role ?? 'employee') === 'admin'
       setIsAdmin(admin)
 
       const { data: peopleData } = await supabase
@@ -114,8 +117,11 @@ export default function SiFraPage() {
   return (
     <div className="container mx-auto py-10 px-4 max-w-lg space-y-10">
       <div>
-        <h1 className="text-2xl font-bold">Si fra</h1>
-        <p className="text-muted-foreground text-sm">
+        <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
+          <IconBadge icon={<ShieldAlert className="size-4" />} />
+          Si fra
+        </h1>
+        <p className="text-muted-foreground text-sm mt-1">
           Opplever du noe ubehagelig på jobb? Send en anonym melding til en leder. Meldingen lagres
           uten avsenderinformasjon — ingen, heller ikke admin, kan se hvem som sendte den.
         </p>
@@ -156,7 +162,11 @@ export default function SiFraPage() {
           />
         </div>
 
-        <Button type="submit" disabled={sending || !recipientId || !message.trim()}>
+        <Button
+          type="submit"
+          disabled={sending || !recipientId || !message.trim()}
+          className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+        >
           {sending ? 'Sender...' : 'Send anonymt'}
         </Button>
       </form>
@@ -166,7 +176,7 @@ export default function SiFraPage() {
           <h2 className="text-lg font-semibold mb-4">
             {isAdmin ? 'Alle si fra-meldinger' : 'Mottatte meldinger'}
           </h2>
-          <div className="flex flex-col divide-y divide-border rounded-md border border-input">
+          <div className="flex flex-col divide-y divide-border rounded-xl border border-brand-navy/10">
             {inbox.map((m) => (
               <div key={m.id} className="p-4 space-y-2">
                 <div className="flex items-center justify-between gap-2">
@@ -177,7 +187,7 @@ export default function SiFraPage() {
                   {m.read ? (
                     <Badge variant="secondary">Lest</Badge>
                   ) : (
-                    <Badge className="bg-blue-600 hover:bg-blue-700">Ny</Badge>
+                    <Badge className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy">Ny</Badge>
                   )}
                 </div>
                 <p className="text-sm whitespace-pre-wrap">{m.message}</p>

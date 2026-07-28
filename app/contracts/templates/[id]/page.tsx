@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { extractTokens, extractChoiceFields } from '@/lib/contract-tokens'
 import { RichTextEditor } from '@/components/template-editor/rich-text-editor'
+import { applyRoleOverride } from '@/lib/role-override'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,7 +39,7 @@ export default function TemplateEditorPage() {
         .eq('id', user.id)
         .single()
 
-      if (viewerProfile?.role !== 'admin') {
+      if (applyRoleOverride(viewerProfile?.role ?? 'employee') !== 'admin') {
         router.replace('/contracts')
         return
       }
@@ -122,7 +123,11 @@ export default function TemplateEditorPage() {
               Lagret {savedAt.toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
-          <Button onClick={handleSave} disabled={saving || !name || !content}>
+          <Button
+            onClick={handleSave}
+            disabled={saving || !name || !content}
+            className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+          >
             {saving ? 'Lagrer...' : 'Lagre'}
           </Button>
         </div>

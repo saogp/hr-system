@@ -3,17 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { MoreHorizontal, FileText, MessageSquare } from 'lucide-react'
+import { MoreHorizontal, FileText, MessageSquare, Settings } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { IconBadge } from '@/components/ui/icon-badge'
+import { applyRoleOverride } from '@/lib/role-override'
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import {
   Dialog,
   DialogContent,
@@ -29,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -116,7 +111,7 @@ export default function SettingsPage() {
         .eq('id', user.id)
         .single()
 
-      const admin = profile?.role === 'admin'
+      const admin = applyRoleOverride(profile?.role ?? 'employee') === 'admin'
       setIsAdmin(admin)
 
       if (admin) {
@@ -315,7 +310,10 @@ export default function SettingsPage() {
   return (
     <div className="container mx-auto py-10 px-4">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Innstillinger</h1>
+        <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
+          <IconBadge icon={<Settings className="size-4" />} />
+          Innstillinger
+        </h1>
         <p className="text-muted-foreground text-sm">
           {isAdmin ? 'Administrer bedriftsinformasjon, maler og varsler.' : 'Administrer dine varsler.'}
         </p>
@@ -345,7 +343,12 @@ export default function SettingsPage() {
           {!isPushSupported() ? (
             <p className="text-sm text-muted-foreground">Push-varsler støttes ikke i denne nettleseren.</p>
           ) : (
-            <Button onClick={handleTogglePush} disabled={pushBusy} variant={pushEnabled ? 'outline' : 'default'}>
+            <Button
+              onClick={handleTogglePush}
+              disabled={pushBusy}
+              variant={pushEnabled ? 'outline' : 'default'}
+              className={pushEnabled ? '' : 'bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium'}
+            >
               {pushBusy ? 'Vent...' : pushEnabled ? 'Skru av varsler på denne enheten' : 'Aktiver varsler på denne enheten'}
             </Button>
           )}
@@ -357,55 +360,47 @@ export default function SettingsPage() {
             <p className="text-muted-foreground text-sm">
               Bedriftsinformasjon fylles automatisk inn i kontrakter som bruker firma-felt.
             </p>
-            <Button onClick={handleAddCompany}>Ny bedrift</Button>
+            <Button onClick={handleAddCompany} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
+              Ny bedrift
+            </Button>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Navn</TableHead>
-                <TableHead>Org.nr</TableHead>
-                <TableHead>Fakturaadresse</TableHead>
-                <TableHead className="text-right">Handling</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {companies.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                    Ingen bedrifter registrert enda.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                companies.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.name}</TableCell>
-                    <TableCell>{c.org_number || '—'}</TableCell>
-                    <TableCell>{c.billing_address || '—'}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button variant="ghost" size="icon-sm">
-                              <MoreHorizontal />
-                              <span className="sr-only">Handlinger</span>
-                            </Button>
-                          }
-                        />
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEdit(c)}>
-                            Rediger
-                          </DropdownMenuItem>
-                          <DropdownMenuItem variant="destructive" onClick={() => setDeleteTargetId(c.id)}>
-                            Slett
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          {companies.length === 0 ? (
+            <p className="text-center text-muted-foreground text-sm py-8">Ingen bedrifter registrert enda.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {companies.map((c) => (
+                <div
+                  key={c.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border p-4"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{c.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {c.org_number || '—'}{c.billing_address ? ` · ${c.billing_address}` : ''}
+                    </p>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button variant="ghost" size="icon-sm" className="shrink-0">
+                          <MoreHorizontal />
+                          <span className="sr-only">Handlinger</span>
+                        </Button>
+                      }
+                    />
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => openEdit(c)}>
+                        Rediger
+                      </DropdownMenuItem>
+                      <DropdownMenuItem variant="destructive" onClick={() => setDeleteTargetId(c.id)}>
+                        Slett
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              ))}
+            </div>
+          )}
         </TabsContent>
         )}
 
@@ -413,7 +408,10 @@ export default function SettingsPage() {
         <TabsContent value="maler" className="pt-4">
           <div className="flex flex-row items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Ferdige maler</h2>
-            <Button onClick={() => { setNewMalType('kontrakt'); setNewMalBasis('blank'); setNewMalOpen(true) }}>
+            <Button
+              onClick={() => { setNewMalType('kontrakt'); setNewMalBasis('blank'); setNewMalOpen(true) }}
+              className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+            >
               Ny mal
             </Button>
           </div>
@@ -515,23 +513,22 @@ export default function SettingsPage() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label>Type mal</Label>
-              <Select
+              <RadioGroup
                 value={newMalType}
                 onValueChange={(val) => {
-                  if (val) {
-                    setNewMalType(val as 'kontrakt' | 'samtale')
-                    setNewMalBasis('blank')
-                  }
+                  setNewMalType(val as 'kontrakt' | 'samtale')
+                  setNewMalBasis('blank')
                 }}
               >
-                <SelectTrigger className="w-full h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="kontrakt">Kontraktmal</SelectItem>
-                  <SelectItem value="samtale">Samtalemal</SelectItem>
-                </SelectContent>
-              </Select>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="kontrakt" id="maltype-kontrakt" />
+                  <Label htmlFor="maltype-kontrakt" className="font-normal">Kontraktmal</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="samtale" id="maltype-samtale" />
+                  <Label htmlFor="maltype-samtale" className="font-normal">Samtalemal</Label>
+                </div>
+              </RadioGroup>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -552,7 +549,11 @@ export default function SettingsPage() {
             </div>
 
             <DialogFooter>
-              <Button onClick={handleCreateMal} disabled={creatingMal}>
+              <Button
+                onClick={handleCreateMal}
+                disabled={creatingMal}
+                className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+              >
                 {creatingMal ? 'Oppretter...' : 'Fortsett'}
               </Button>
             </DialogFooter>
@@ -583,7 +584,7 @@ export default function SettingsPage() {
               <Input id="edit-address" value={editBillingAddress} onChange={(e) => setEditBillingAddress(e.target.value)} />
             </div>
             <DialogFooter>
-              <Button type="submit" disabled={saving}>
+              <Button type="submit" disabled={saving} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
                 {saving ? 'Lagrer...' : 'Lagre'}
               </Button>
             </DialogFooter>

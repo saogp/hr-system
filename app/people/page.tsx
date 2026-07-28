@@ -7,13 +7,10 @@ import { supabase } from '@/lib/supabase'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { ArrowUpAZ, ArrowDownAZ, Users } from 'lucide-react'
+import { IconBadge } from '@/components/ui/icon-badge'
+import { applyRoleOverride } from '@/lib/role-override'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Dialog,
   DialogContent,
@@ -25,6 +22,8 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { StatTile } from '@/components/ui/stat-tile'
+import { ChevronRight } from 'lucide-react'
 
 type Person = {
   id: string
@@ -71,7 +70,7 @@ export default function PeoplePage() {
       .select('role')
       .eq('id', user.id)
       .single()
-    const admin = viewerProfile?.role === 'admin'
+    const admin = applyRoleOverride(viewerProfile?.role ?? 'employee') === 'admin'
     setIsAdmin(admin)
 
     if (admin) {
@@ -156,13 +155,18 @@ export default function PeoplePage() {
 
   return (
     <div className="container mx-auto py-10 px-4">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Ansatte</h1>
-        <p className="text-muted-foreground text-sm">Oversikt over alle ansatte.</p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
+            <IconBadge icon={<Users className="size-4" />} />
+            Ansatte
+          </h1>
+          <p className="text-muted-foreground text-sm">Oversikt over alle ansatte.</p>
+        </div>
         {isAdmin && (
-          <p className="text-sm mt-2">
-            <span className="font-medium">{activeCount}</span> aktive ansatte
-          </p>
+          <div className="w-full sm:w-48">
+            <StatTile label="Aktive ansatte" value={activeCount} />
+          </div>
         )}
       </div>
 
@@ -174,22 +178,32 @@ export default function PeoplePage() {
             onChange={(e) => setSearch(e.target.value)}
             className="max-w-sm"
           />
-          <Select value={sortDir} onValueChange={(val) => val && setSortDir(val as 'asc' | 'desc')}>
-            <SelectTrigger className="w-56 h-8">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="asc">Sorter etter navn (A-Å)</SelectItem>
-              <SelectItem value="desc">Sorter etter navn (Å-A)</SelectItem>
-            </SelectContent>
-          </Select>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-8"
+                  onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
+                >
+                  {sortDir === 'asc' ? <ArrowUpAZ className="size-4" /> : <ArrowDownAZ className="size-4" />}
+                </Button>
+              }
+            />
+            <TooltipContent>
+              {sortDir === 'asc' ? 'Sortert A-Å — klikk for Å-A' : 'Sortert Å-A — klikk for A-Å'}
+            </TooltipContent>
+          </Tooltip>
         </div>
         {isAdmin && (
-          <Button onClick={() => setAddOpen(true)}>Legg til ansatt</Button>
+          <Button onClick={() => setAddOpen(true)} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
+            Legg til ansatt
+          </Button>
         )}
       </div>
 
-      <div className="flex flex-col divide-y divide-border border-t border-border">
+      <div className="flex flex-col gap-2">
         {filtered.length === 0 ? (
           <p className="text-muted-foreground text-sm py-8 text-center">Ingen treff.</p>
         ) : (
@@ -197,22 +211,25 @@ export default function PeoplePage() {
             <Link
               key={p.id}
               href={`/people/${p.id}`}
-              className="flex items-center gap-3 py-3 px-2 -mx-2 rounded-md hover:bg-muted/50"
+              className="flex items-center gap-3 rounded-xl border border-border p-3 hover:bg-muted/50"
             >
               <Avatar className="size-10">
-                <AvatarFallback>{getInitials(p.full_name || '?')}</AvatarFallback>
+                <AvatarFallback className="bg-brand-navy text-brand-orange">{getInitials(p.full_name || '?')}</AvatarFallback>
               </Avatar>
-              <div className="flex-1">
-                <p className="font-medium text-sm">{p.full_name || '—'}</p>
-                <p className="text-xs text-muted-foreground">{p.title || '—'}</p>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-sm truncate">{p.full_name || '—'}</p>
+                <p className="text-xs text-muted-foreground truncate">{p.title || '—'}</p>
               </div>
-              {isAdmin && p.contractStatus !== 'none' && (
+              {isAdmin && (
                 p.contractStatus === 'signed' ? (
                   <Badge className="bg-green-600 hover:bg-green-700">Kontrakt signert</Badge>
+                ) : p.contractStatus === 'pending' ? (
+                  <Badge variant="secondary">Kontrakt venter</Badge>
                 ) : (
-                  <Badge variant="secondary">Kontrakt ikke signert</Badge>
+                  <Badge variant="outline" className="border-brand-orange/50 text-brand-navy dark:text-white">Mangler kontrakt</Badge>
                 )
               )}
+              <ChevronRight className="size-4 text-muted-foreground shrink-0" />
             </Link>
           ))
         )}
@@ -256,7 +273,7 @@ export default function PeoplePage() {
             </div>
 
             <DialogFooter>
-              <Button type="submit" disabled={inviting}>
+              <Button type="submit" disabled={inviting} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
                 {inviting ? 'Sender invitasjon...' : 'Send invitasjon'}
               </Button>
             </DialogFooter>

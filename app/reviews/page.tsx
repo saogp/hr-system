@@ -7,14 +7,6 @@ import { supabase } from '@/lib/supabase'
 import { sendPushNotification } from '@/lib/push-client'
 
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -33,6 +25,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { ChevronRight, MessageSquare } from 'lucide-react'
+import { IconBadge } from '@/components/ui/icon-badge'
+import { applyRoleOverride } from '@/lib/role-override'
 
 type PersonOption = {
   id: string
@@ -45,6 +40,8 @@ type ReviewTemplate = {
   name: string
   questions: { id: string; text: string }[]
 }
+
+type Company = { id: string; name: string }
 
 type ReviewRow = {
   id: string
@@ -62,7 +59,13 @@ export default function ReviewsPage() {
   const [people, setPeople] = useState<PersonOption[]>([])
   const [templates, setTemplates] = useState<ReviewTemplate[]>([])
   const [reviews, setReviews] = useState<ReviewRow[]>([])
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [employeeCompanies, setEmployeeCompanies] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState(true)
+
+  const [search, setSearch] = useState('')
+  const [companyFilter, setCompanyFilter] = useState('all')
+  const [monthFilter, setMonthFilter] = useState('')
 
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
@@ -83,7 +86,7 @@ export default function ReviewsPage() {
       .select('role')
       .eq('id', user.id)
       .single()
-    const currentRole = viewerProfile?.role ?? 'employee'
+    const currentRole = applyRoleOverride(viewerProfile?.role ?? 'employee') as 'admin' | 'manager' | 'employee'
     setRole(currentRole)
 
     if (currentRole === 'admin') {
@@ -98,6 +101,23 @@ export default function ReviewsPage() {
         .select('id, name, questions')
         .order('name')
       if (templatesData) setTemplates(templatesData)
+
+      const { data: companiesData } = await supabase
+        .from('companies')
+        .select('id, name')
+        .order('name')
+      if (companiesData) setCompanies(companiesData)
+
+      const { data: pcData } = await supabase
+        .from('profile_companies')
+        .select('profile_id, company_id')
+      if (pcData) {
+        const map: Record<string, string[]> = {}
+        for (const row of pcData) {
+          map[row.profile_id] = [...(map[row.profile_id] ?? []), row.company_id]
+        }
+        setEmployeeCompanies(map)
+      }
 
       const { data: reviewsData } = await supabase
         .from('reviews')
@@ -151,62 +171,97 @@ export default function ReviewsPage() {
     return <div className="p-8">Laster medarbeidersamtaler...</div>
   }
 
+  const filteredReviews = reviews.filter((r) => {
+    if (search) {
+      const name = (r.profiles?.full_name || r.profiles?.email || '').toLowerCase()
+      if (!name.includes(search.toLowerCase())) return false
+    }
+    if (companyFilter !== 'all' && !(employeeCompanies[r.employee_id] ?? []).includes(companyFilter)) return false
+    if (monthFilter && !r.scheduled_date.startsWith(monthFilter)) return false
+    return true
+  })
+
   return (
     <div className="container mx-auto py-10 px-4">
       <div className="flex flex-row items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Medarbeidersamtaler</h1>
+          <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
+            <IconBadge icon={<MessageSquare className="size-4" />} />
+            Medarbeidersamtaler
+          </h1>
           <p className="text-muted-foreground text-sm">
             {role === 'admin' ? 'Alle medarbeidersamtaler.' : 'Dine medarbeidersamtaler.'}
           </p>
         </div>
         {role === 'admin' && (
-          <Button onClick={() => setScheduleOpen(true)} disabled={people.length === 0}>
+          <Button
+            onClick={() => setScheduleOpen(true)}
+            disabled={people.length === 0}
+            className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+          >
             Ny samtale
           </Button>
         )}
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Ansatt</TableHead>
-            <TableHead>Dato</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Handling</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {reviews.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                Ingen medarbeidersamtaler registrert enda.
-              </TableCell>
-            </TableRow>
-          ) : (
-            reviews.map((r) => (
-              <TableRow key={r.id}>
-                <TableCell className="font-medium">
+      {role === 'admin' && (
+        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <Input
+            placeholder="Søk etter ansatt..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="sm:max-w-xs"
+          />
+          <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
+            <SelectTrigger className="w-full sm:w-48 h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle restauranter</SelectItem>
+              {companies.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            type="month"
+            value={monthFilter}
+            onChange={(e) => setMonthFilter(e.target.value)}
+            className="w-full sm:w-40"
+          />
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        {filteredReviews.length === 0 ? (
+          <p className="text-center text-muted-foreground text-sm py-8">
+            Ingen medarbeidersamtaler funnet.
+          </p>
+        ) : (
+          filteredReviews.map((r) => (
+            <Link
+              key={r.id}
+              href={`/reviews/${r.id}`}
+              className="flex items-center justify-between gap-3 rounded-xl border border-border p-4 hover:bg-muted/50"
+            >
+              <div className="min-w-0">
+                <p className="font-medium text-sm truncate">
                   {r.profiles?.full_name || r.profiles?.email || '—'}
-                </TableCell>
-                <TableCell>{formatDate(r.scheduled_date)}</TableCell>
-                <TableCell>
-                  {r.status === 'completed' ? (
-                    <Badge className="bg-green-600 hover:bg-green-700">Fullført</Badge>
-                  ) : (
-                    <Badge variant="secondary">Åpen</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" render={<Link href={`/reviews/${r.id}`} />}>
-                    Åpne
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+                </p>
+                <p className="text-xs text-muted-foreground">{formatDate(r.scheduled_date)}</p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                {r.status === 'completed' ? (
+                  <Badge className="bg-green-600 hover:bg-green-700">Fullført</Badge>
+                ) : (
+                  <Badge variant="secondary">Åpen</Badge>
+                )}
+                <ChevronRight className="size-4 text-muted-foreground" />
+              </div>
+            </Link>
+          ))
+        )}
+      </div>
 
       <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
         <DialogContent>
@@ -276,7 +331,11 @@ export default function ReviewsPage() {
             </div>
 
             <DialogFooter>
-              <Button type="submit" disabled={!selectedEmployeeId || !selectedTemplateId}>
+              <Button
+                type="submit"
+                disabled={!selectedEmployeeId || !selectedTemplateId}
+                className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+              >
                 Planlegg samtale
               </Button>
             </DialogFooter>

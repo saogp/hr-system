@@ -47,6 +47,10 @@
   --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: "Recoleta", ui-serif, Georgia, serif;
+  --color-brand-navy: #001f3c;
+  --color-brand-orange: #f2a152;
+  --color-brand-cream: #faf6ee;
+  --color-brand-cream-dark: #0a1626;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -112,14 +116,14 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #faf6ee;
+  --sidebar-foreground: #001f3c;
+  --sidebar-primary: #001f3c;
+  --sidebar-primary-foreground: #faf6ee;
+  --sidebar-accent: #fbe3c7;
+  --sidebar-accent-foreground: #001f3c;
+  --sidebar-border: color-mix(in oklch, #001f3c 10%, transparent);
+  --sidebar-ring: #f2a152;
 }
 
 .dark {
@@ -146,14 +150,14 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
+  --sidebar: #0a1626;
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-primary: #f2a152;
+  --sidebar-primary-foreground: #001f3c;
+  --sidebar-accent: color-mix(in oklch, #f2a152 20%, transparent);
+  --sidebar-accent-foreground: #f2a152;
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: #f2a152;
 }
 
 @layer base {

@@ -228,7 +228,7 @@ export default function ReviewDetailPage() {
 
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Medarbeidersamtale</h1>
+          <h1 className="text-2xl font-bold text-brand-navy dark:text-white">Medarbeidersamtale</h1>
           <p className="text-muted-foreground text-sm">{formatDate(review.scheduled_date)}</p>
           <p className="text-sm mt-2">
             {employeeInfo?.full_name || employeeInfo?.email || '—'}
@@ -309,7 +309,7 @@ export default function ReviewDetailPage() {
                         </Select>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" onClick={() => handleAddTask(q.id)}>Legg til</Button>
+                        <Button size="sm" onClick={() => handleAddTask(q.id)} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">Legg til</Button>
                         <Button size="sm" variant="outline" onClick={() => setAddingTaskFor(null)}>Avbryt</Button>
                       </div>
                     </div>
@@ -333,7 +333,11 @@ export default function ReviewDetailPage() {
       </div>
 
       {isParticipant && review.status !== 'completed' && (
-        <Button className="mt-8" onClick={handleCompleteMeeting} disabled={completing}>
+        <Button
+          className="mt-8 bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+          onClick={handleCompleteMeeting}
+          disabled={completing}
+        >
           {completing ? 'Fullfører...' : 'Fullfør møte'}
         </Button>
       )}

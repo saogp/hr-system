@@ -4,25 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { sendPushNotification } from '@/lib/push-client'
-import { SURVEY_TEMPLATES } from '@/lib/survey-templates'
+import { applyRoleOverride } from '@/lib/role-override'
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -30,20 +13,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { OrganicBlob } from '@/components/decorative/organic-blobs'
+import { IconBadge } from '@/components/ui/icon-badge'
+import { ChevronRight, ClipboardList } from 'lucide-react'
 
 type Person = { id: string; full_name: string | null; email: string | null }
 
-type Question = { id: string; text: string }
+type Company = { id: string; name: string }
 
 type SurveyRow = {
   id: string
   title: string
   created_at: string
+  company_id: string | null
 }
 
 type MySurveyRow = {
@@ -57,15 +42,15 @@ export default function SurveysPage() {
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
   const [people, setPeople] = useState<Person[]>([])
+  const [companies, setCompanies] = useState<Company[]>([])
   const [surveys, setSurveys] = useState<SurveyRow[]>([])
   const [surveyCounts, setSurveyCounts] = useState<Record<string, { total: number; submitted: number }>>({})
   const [mySurveys, setMySurveys] = useState<MySurveyRow[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [createOpen, setCreateOpen] = useState(false)
-  const [title, setTitle] = useState('')
-  const [questions, setQuestions] = useState<Question[]>([{ id: 'q1', text: '' }])
-  const [selectedRecipients, setSelectedRecipients] = useState<string[]>([])
+  const [search, setSearch] = useState('')
+  const [companyFilter, setCompanyFilter] = useState('all')
+  const [monthFilter, setMonthFilter] = useState('')
 
   const load = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -79,7 +64,7 @@ export default function SurveysPage() {
       .select('role')
       .eq('id', user.id)
       .single()
-    const admin = viewerProfile?.role === 'admin'
+    const admin = applyRoleOverride(viewerProfile?.role ?? 'employee') === 'admin'
     setIsAdmin(admin)
 
     if (admin) {
@@ -89,9 +74,15 @@ export default function SurveysPage() {
         .order('full_name')
       if (peopleData) setPeople(peopleData)
 
+      const { data: companiesData } = await supabase
+        .from('companies')
+        .select('id, name')
+        .order('name')
+      if (companiesData) setCompanies(companiesData)
+
       const { data: surveysData } = await supabase
         .from('surveys')
-        .select('id, title, created_at')
+        .select('id, title, created_at, company_id')
         .order('created_at', { ascending: false })
       if (surveysData) setSurveys(surveysData)
 
@@ -125,58 +116,6 @@ export default function SurveysPage() {
     load()
   }, [])
 
-  const applyTemplate = (templateId: string) => {
-    if (templateId === 'blank') return
-    const template = SURVEY_TEMPLATES.find((t) => t.id === templateId)
-    if (!template) return
-    setTitle(template.title)
-    setQuestions(template.questions.map((text, i) => ({ id: `q${i + 1}`, text })))
-  }
-
-  const addQuestion = () => {
-    setQuestions(prev => [...prev, { id: `q${prev.length + 1}`, text: '' }])
-  }
-
-  const updateQuestion = (index: number, text: string) => {
-    setQuestions(prev => prev.map((q, i) => (i === index ? { ...q, text } : q)))
-  }
-
-  const removeQuestion = (index: number) => {
-    setQuestions(prev => prev.filter((_, i) => i !== index))
-  }
-
-  const toggleRecipient = (id: string, checked: boolean) => {
-    setSelectedRecipients(prev => (checked ? [...prev, id] : prev.filter(r => r !== id)))
-  }
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const cleanQuestions = questions.filter(q => q.text.trim().length > 0)
-    if (cleanQuestions.length === 0 || selectedRecipients.length === 0) return
-
-    const { data: survey, error } = await supabase
-      .from('surveys')
-      .insert({ title, questions: cleanQuestions })
-      .select()
-      .single()
-
-    if (!error && survey) {
-      await supabase.from('survey_recipients').insert(
-        selectedRecipients.map((profileId) => ({ survey_id: survey.id, profile_id: profileId }))
-      )
-
-      for (const profileId of selectedRecipients) {
-        sendPushNotification(profileId, 'Ny undersøkelse', title, `/surveys/${survey.id}`)
-      }
-
-      setCreateOpen(false)
-      setTitle('')
-      setQuestions([{ id: 'q1', text: '' }])
-      setSelectedRecipients([])
-      load()
-    }
-  }
-
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -184,179 +123,115 @@ export default function SurveysPage() {
     return <div className="p-8">Laster undersøkelser...</div>
   }
 
+  const filteredSurveys = surveys.filter((s) => {
+    if (search && !s.title.toLowerCase().includes(search.toLowerCase())) return false
+    if (companyFilter !== 'all' && s.company_id !== companyFilter) return false
+    if (monthFilter && !s.created_at.startsWith(monthFilter)) return false
+    return true
+  })
+
   return (
-    <div className="container mx-auto py-10 px-4">
+    <div className="container relative mx-auto py-10 px-4 overflow-hidden">
+      <OrganicBlob className="pointer-events-none absolute -right-20 -top-24 -z-10 h-72 w-72 opacity-90" />
+      <OrganicBlob className="pointer-events-none absolute -left-24 top-72 -z-10 h-56 w-56 opacity-60 rotate-45" />
+      <OrganicBlob className="pointer-events-none absolute right-10 bottom-0 -z-10 h-48 w-48 opacity-40 -rotate-12" />
+
       <div className="flex flex-row items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">Undersøkelser</h1>
+          <h1 className="text-2xl font-bold text-brand-navy dark:text-white mb-1 flex items-center gap-2">
+            <IconBadge icon={<ClipboardList className="size-4" />} />
+            Undersøkelser
+          </h1>
           <p className="text-muted-foreground text-sm">
             {isAdmin ? 'Send undersøkelser til ansatte om hvordan de jobber.' : 'Dine undersøkelser.'}
           </p>
         </div>
         {isAdmin && (
-          <Button onClick={() => setCreateOpen(true)} disabled={people.length === 0}>
+          <Button
+            render={<Link href="/surveys/new" />}
+            disabled={people.length === 0}
+            className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+          >
             Ny undersøkelse
           </Button>
         )}
       </div>
 
-      {isAdmin ? (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tittel</TableHead>
-              <TableHead>Opprettet</TableHead>
-              <TableHead>Svar</TableHead>
-              <TableHead className="text-right">Handling</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {surveys.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                  Ingen undersøkelser sendt enda.
-                </TableCell>
-              </TableRow>
-            ) : (
-              surveys.map((s) => {
-                const counts = surveyCounts[s.id] ?? { total: 0, submitted: 0 }
-                return (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-medium">{s.title}</TableCell>
-                    <TableCell>{formatDate(s.created_at)}</TableCell>
-                    <TableCell>{counts.submitted} av {counts.total}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" render={<Link href={`/surveys/${s.id}`} />}>
-                        Åpne
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tittel</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Handling</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {mySurveys.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
-                  Ingen undersøkelser enda.
-                </TableCell>
-              </TableRow>
-            ) : (
-              mySurveys.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell className="font-medium">{s.surveys?.title || '—'}</TableCell>
-                  <TableCell>
-                    {s.submitted_at ? (
-                      <Badge className="bg-green-600 hover:bg-green-700">Besvart</Badge>
-                    ) : (
-                      <Badge variant="secondary">Venter</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" render={<Link href={`/surveys/${s.survey_id}`} />}>
-                      Åpne
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+      {isAdmin && (
+        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <Input
+            placeholder="Søk etter undersøkelse..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="sm:max-w-xs"
+          />
+          <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
+            <SelectTrigger className="w-full sm:w-48 h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle restauranter</SelectItem>
+              {companies.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            type="month"
+            value={monthFilter}
+            onChange={(e) => setMonthFilter(e.target.value)}
+            className="w-full sm:w-40"
+          />
+        </div>
       )}
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ny undersøkelse</DialogTitle>
-            <DialogDescription>Skriv spørsmål og velg hvem som skal motta undersøkelsen.</DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleCreate} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label>Start fra mal</Label>
-              <Select defaultValue="blank" onValueChange={(val) => val && applyTemplate(val)}>
-                <SelectTrigger className="w-full h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="blank">Blank undersøkelse</SelectItem>
-                  {SURVEY_TEMPLATES.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="survey-title">Tittel</Label>
-              <Input id="survey-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label>Spørsmål</Label>
-              {questions.map((q, i) => (
-                <div key={q.id} className="flex items-center gap-2">
-                  <Input
-                    value={q.text}
-                    onChange={(e) => updateQuestion(i, e.target.value)}
-                    placeholder="Skriv et spørsmål..."
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeQuestion(i)}
-                    disabled={questions.length === 1}
-                  >
-                    Fjern
-                  </Button>
-                </div>
-              ))}
-              <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addQuestion}>
-                Legg til spørsmål
-              </Button>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Mottakere</Label>
-              <div className="flex flex-col gap-2 rounded-md border border-input p-3 max-h-48 overflow-y-auto">
-                {people.map((p) => {
-                  const checkboxId = `recipient-${p.id}`
-                  return (
-                    <div key={p.id} className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        id={checkboxId}
-                        checked={selectedRecipients.includes(p.id)}
-                        onCheckedChange={(val) => toggleRecipient(p.id, val === true)}
-                      />
-                      <Label htmlFor={checkboxId} className="font-normal">
-                        {p.full_name || p.email}
-                      </Label>
-                    </div>
-                  )
-                })}
+      <div className="flex flex-col gap-2">
+        {isAdmin ? (
+          filteredSurveys.length === 0 ? (
+            <p className="text-center text-muted-foreground text-sm py-8">Ingen undersøkelser funnet.</p>
+          ) : (
+            filteredSurveys.map((s) => {
+              const counts = surveyCounts[s.id] ?? { total: 0, submitted: 0 }
+              return (
+                <Link
+                  key={s.id}
+                  href={`/surveys/${s.id}`}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm truncate">{s.title}</p>
+                    <p className="text-xs text-muted-foreground">Opprettet {formatDate(s.created_at)}</p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-sm text-muted-foreground">{counts.submitted} av {counts.total}</span>
+                    <ChevronRight className="size-4 text-muted-foreground" />
+                  </div>
+                </Link>
+              )
+            })
+          )
+        ) : mySurveys.length === 0 ? (
+          <p className="text-center text-muted-foreground text-sm py-8">Ingen undersøkelser enda.</p>
+        ) : (
+          mySurveys.map((s) => (
+            <Link
+              key={s.id}
+              href={`/surveys/${s.survey_id}`}
+              className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50"
+            >
+              <p className="font-medium text-sm truncate">{s.surveys?.title || '—'}</p>
+              <div className="flex items-center gap-3 shrink-0">
+                {s.submitted_at ? (
+                  <Badge className="bg-green-600 hover:bg-green-700">Besvart</Badge>
+                ) : (
+                  <Badge variant="secondary">Venter</Badge>
+                )}
+                <ChevronRight className="size-4 text-muted-foreground" />
               </div>
-            </div>
-
-            <DialogFooter>
-              <Button type="submit" disabled={!title || selectedRecipients.length === 0}>
-                Send undersøkelse
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+            </Link>
+          ))
+        )}
+      </div>
     </div>
   )
 }

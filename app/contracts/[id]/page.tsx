@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, MoreHorizontal } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import {
   extractTokens,
@@ -12,11 +12,18 @@ import {
   type CompanyFields,
 } from '@/lib/contract-tokens'
 import { SignaturePad } from '@/components/signature-pad'
+import { applyRoleOverride } from '@/lib/role-override'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -90,7 +97,7 @@ export default function ContractDetailPage() {
         .select('role')
         .eq('id', user.id)
         .single()
-      setIsAdmin(viewerProfile?.role === 'admin')
+      setIsAdmin(applyRoleOverride(viewerProfile?.role ?? 'employee') === 'admin')
 
       const { data: contractData } = await supabase
         .from('contracts')
@@ -262,9 +269,21 @@ export default function ContractDetailPage() {
             <p className="text-muted-foreground text-sm">Sendt {formatDate(contract.sent_at)}</p>
           </div>
           {isAdmin && isUnsigned && (
-            <Button variant="outline" className="text-destructive hover:text-destructive shrink-0" onClick={() => setDeleteOpen(true)}>
-              Slett kontrakt
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button variant="ghost" size="icon-sm" className="shrink-0">
+                    <MoreHorizontal />
+                    <span className="sr-only">Handlinger</span>
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
+                  Slett kontrakt
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
 

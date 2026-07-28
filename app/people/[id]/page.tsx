@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, MoreHorizontal } from 'lucide-react'
+import { ArrowLeft, MoreHorizontal, FileText } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { IconBadge } from '@/components/ui/icon-badge'
+import { applyRoleOverride } from '@/lib/role-override'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -18,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,8 +86,10 @@ type InviteStatus = {
 }
 
 const SELF_EDITABLE_FIELDS: (keyof PersonProfile)[] = [
+  'email',
   'phone',
   'address',
+  'birth_date',
   'emergency_contact_name',
   'emergency_contact_phone',
 ]
@@ -135,7 +140,7 @@ export default function PersonDetailPage() {
         .select('role')
         .eq('id', user.id)
         .single()
-      const admin = viewerProfile?.role === 'admin'
+      const admin = applyRoleOverride(viewerProfile?.role ?? 'employee') === 'admin'
       setIsAdmin(admin)
 
       const viewingSelf = user.id === id
@@ -349,19 +354,15 @@ export default function PersonDetailPage() {
 
         <div className="flex items-center gap-4 mb-8">
           <Avatar className="size-16">
-            <AvatarFallback className="text-lg">{getInitials(directoryPerson.full_name || '?')}</AvatarFallback>
+            <AvatarFallback className="text-lg bg-brand-navy text-brand-orange">{getInitials(directoryPerson.full_name || '?')}</AvatarFallback>
           </Avatar>
           <div className="flex-1">
-            <h1 className="text-xl font-bold">{directoryPerson.full_name || '—'}</h1>
+            <h1 className="text-xl font-bold text-brand-navy dark:text-white">{directoryPerson.full_name || '—'}</h1>
             <p className="text-muted-foreground text-sm">{directoryPerson.title || '—'}</p>
           </div>
         </div>
 
         <div className="divide-y divide-border border-t border-border">
-          <div className="py-3">
-            <p className="text-xs text-muted-foreground mb-1">Rolle</p>
-            {getRoleBadge(directoryPerson.role)}
-          </div>
           <div className="py-3">
             <p className="text-xs text-muted-foreground">E-post</p>
             <p className="text-sm">{directoryPerson.email || '—'}</p>
@@ -423,10 +424,10 @@ export default function PersonDetailPage() {
 
       <div className="flex items-center gap-4 mb-8">
         <Avatar className="size-16">
-          <AvatarFallback className="text-lg">{getInitials(person.full_name || '?')}</AvatarFallback>
+          <AvatarFallback className="text-lg bg-brand-navy text-brand-orange">{getInitials(person.full_name || '?')}</AvatarFallback>
         </Avatar>
         <div className="flex-1">
-          <h1 className="text-xl font-bold">{person.full_name || '—'}</h1>
+          <h1 className="text-xl font-bold text-brand-navy dark:text-white">{person.full_name || '—'}</h1>
           <p className="text-muted-foreground text-sm">{person.title || '—'}</p>
         </div>
         {isAdmin && isPendingInvite && (
@@ -445,7 +446,12 @@ export default function PersonDetailPage() {
 
       {canEditSomething && (
         <div className="flex justify-end mb-2">
-          <Button size="sm" variant="outline" onClick={() => setEditing(v => !v)}>
+          <Button
+            size="sm"
+            variant={editing ? 'outline' : 'default'}
+            className={editing ? '' : 'bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium'}
+            onClick={() => setEditing(v => !v)}
+          >
             {editing ? 'Ferdig' : 'Rediger'}
           </Button>
         </div>
@@ -491,16 +497,20 @@ export default function PersonDetailPage() {
         <div className="py-3">
           <p className="text-xs text-muted-foreground mb-1">Rolle</p>
           {editing && isAdmin ? (
-            <Select value={person.role} onValueChange={(val) => val && handleFieldChange('role', val)}>
-              <SelectTrigger className="w-full h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="manager">Leder</SelectItem>
-                <SelectItem value="employee">Ansatt</SelectItem>
-              </SelectContent>
-            </Select>
+            <RadioGroup value={person.role} onValueChange={(val) => handleFieldChange('role', val)}>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="admin" id="role-admin" />
+                <Label htmlFor="role-admin" className="font-normal">Admin</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="manager" id="role-manager" />
+                <Label htmlFor="role-manager" className="font-normal">Leder</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="employee" id="role-employee" />
+                <Label htmlFor="role-employee" className="font-normal">Ansatt</Label>
+              </div>
+            </RadioGroup>
           ) : (
             getRoleBadge(person.role)
           )}
@@ -537,19 +547,23 @@ export default function PersonDetailPage() {
         <div className="py-3">
           <p className="text-xs text-muted-foreground mb-1">Ansettelsesforhold</p>
           {editing && isAdmin ? (
-            <Select
+            <RadioGroup
               value={person.employment_type ?? 'none'}
-              onValueChange={(val) => val && handleFieldChange('employment_type', val === 'none' ? null : val)}
+              onValueChange={(val) => handleFieldChange('employment_type', val === 'none' ? null : val)}
             >
-              <SelectTrigger className="w-full h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Ikke satt</SelectItem>
-                <SelectItem value="fast">Fast</SelectItem>
-                <SelectItem value="tilkalling">Tilkalling</SelectItem>
-              </SelectContent>
-            </Select>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="none" id="employment-none" />
+                <Label htmlFor="employment-none" className="font-normal">Ikke satt</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="fast" id="employment-fast" />
+                <Label htmlFor="employment-fast" className="font-normal">Fast</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="tilkalling" id="employment-tilkalling" />
+                <Label htmlFor="employment-tilkalling" className="font-normal">Tilkalling</Label>
+              </div>
+            </RadioGroup>
           ) : (
             <p className="text-sm">
               {person.employment_type === 'fast' ? 'Fast' : person.employment_type === 'tilkalling' ? 'Tilkalling' : '—'}
@@ -611,7 +625,10 @@ export default function PersonDetailPage() {
       {isAdmin && (
         <div className="space-y-2 border-t border-border pt-4 mt-6">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">Kontrakter</p>
+            <p className="text-sm font-medium flex items-center gap-2">
+              <IconBadge icon={<FileText className="size-4" />} />
+              Kontrakter
+            </p>
             <Button size="sm" variant="outline" render={<Link href="/contracts" />}>
               Send kontrakt
             </Button>

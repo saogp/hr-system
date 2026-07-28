@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { RadarChart } from '@/components/radar-chart'
+import { applyRoleOverride } from '@/lib/role-override'
 
 import {
   Table,
@@ -22,6 +23,8 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { IconBadge } from '@/components/ui/icon-badge'
+import { GraduationCap } from 'lucide-react'
 
 type Person = { id: string; full_name: string | null; email: string | null }
 type Competence = { id: string; name: string; target_level: number }
@@ -51,7 +54,7 @@ export default function CompetencePage() {
       .select('role')
       .eq('id', user.id)
       .single()
-    setIsAdmin(viewerProfile?.role === 'admin')
+    setIsAdmin(applyRoleOverride(viewerProfile?.role ?? 'employee') === 'admin')
 
     const { data: peopleData } = await supabase
       .from('profiles')
@@ -144,8 +147,11 @@ export default function CompetencePage() {
   return (
     <div className="container mx-auto py-10 px-4 space-y-10">
       <div>
-        <h1 className="text-2xl font-bold">Kompetanse</h1>
-        <p className="text-muted-foreground text-sm">
+        <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
+          <IconBadge icon={<GraduationCap className="size-4" />} />
+          Kompetanse
+        </h1>
+        <p className="text-muted-foreground text-sm mt-1">
           Registrer kompetanse per ansatt og se hvem som har hva.
         </p>
       </div>
@@ -229,7 +235,9 @@ export default function CompetencePage() {
               onChange={(e) => setNewCompetenceName(e.target.value)}
               className="max-w-xs"
             />
-            <Button onClick={handleAddCompetence}>Legg til</Button>
+            <Button onClick={handleAddCompetence} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
+              Legg til
+            </Button>
           </div>
           <Table>
             <TableHeader>

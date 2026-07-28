@@ -90,7 +90,7 @@ export function Sidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" render={<Link href="/" />}>
-              <Building2 />
+              <Building2 className="text-brand-orange" />
               <span className="font-semibold">HR Portal</span>
             </SidebarMenuButton>
           </SidebarMenuItem>

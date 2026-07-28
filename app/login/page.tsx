@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { GreetingIllustration } from "@/components/decorative/greeting-illustration"
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -63,10 +64,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-sm shadow-none border-border">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-xl font-bold">Logg inn</CardTitle>
+    <div className="min-h-screen flex items-center justify-center bg-brand-cream dark:bg-brand-cream-dark px-4">
+      <Card className="w-full max-w-sm shadow-none border-brand-navy/10">
+        <CardHeader className="space-y-1 items-center text-center">
+          <GreetingIllustration className="size-24 mb-1" />
+          <CardTitle className="text-xl font-bold text-brand-navy dark:text-white">Logg inn</CardTitle>
           <CardDescription>
             Skriv inn e-posten din for å logge inn på kontoen din
           </CardDescription>
@@ -120,7 +122,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <Button type="submit" disabled={loading} className="w-full mt-2">
+            <Button type="submit" disabled={loading} className="w-full mt-2 bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
               {loading ? 'Logger inn...' : 'Logg inn'}
             </Button>
 
