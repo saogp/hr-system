@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 
 type Person = {
   id: string
@@ -31,6 +32,8 @@ type Person = {
   title: string | null
   role: string
   email: string | null
+  end_date: string | null
+  contractStatus: 'signed' | 'pending' | 'none'
 }
 
 function getInitials(name: string) {
@@ -68,10 +71,38 @@ export default function PeoplePage() {
       .select('role')
       .eq('id', user.id)
       .single()
-    setIsAdmin(viewerProfile?.role === 'admin')
+    const admin = viewerProfile?.role === 'admin'
+    setIsAdmin(admin)
 
-    const { data } = await supabase.rpc('get_people_directory')
-    if (data) setPeople(data)
+    if (admin) {
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, title, role, email, end_date')
+      const { data: contractsData } = await supabase
+        .from('contracts')
+        .select('profile_id, employee_signed_at, admin_signed_at')
+
+      const statusByProfile = new Map<string, 'signed' | 'pending'>()
+      for (const c of contractsData ?? []) {
+        const fullySigned = Boolean(c.employee_signed_at && c.admin_signed_at)
+        const current = statusByProfile.get(c.profile_id)
+        if (!fullySigned) {
+          statusByProfile.set(c.profile_id, 'pending')
+        } else if (current !== 'pending') {
+          statusByProfile.set(c.profile_id, 'signed')
+        }
+      }
+
+      if (profilesData) {
+        setPeople(profilesData.map((p) => ({
+          ...p,
+          contractStatus: statusByProfile.get(p.id) ?? 'none',
+        })))
+      }
+    } else {
+      const { data } = await supabase.rpc('get_people_directory')
+      if (data) setPeople(data.map((p: Person) => ({ ...p, end_date: null, contractStatus: 'none' })))
+    }
     setLoading(false)
   }
 
@@ -94,7 +125,6 @@ export default function PeoplePage() {
       body: JSON.stringify({
         email: newEmail,
         full_name: newName,
-        redirectTo: `${window.location.origin}/onboarding`,
       }),
     })
     const result = await res.json()
@@ -121,11 +151,19 @@ export default function PeoplePage() {
       return sortDir === 'asc' ? cmp : -cmp
     })
 
+  const today = new Date().toISOString().slice(0, 10)
+  const activeCount = people.filter((p) => !p.end_date || p.end_date >= today).length
+
   return (
     <div className="container mx-auto py-10 px-4">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Ansatte</h1>
         <p className="text-muted-foreground text-sm">Oversikt over alle ansatte.</p>
+        {isAdmin && (
+          <p className="text-sm mt-2">
+            <span className="font-medium">{activeCount}</span> aktive ansatte
+          </p>
+        )}
       </div>
 
       <div className="flex flex-row items-center justify-between gap-4 mb-4">
@@ -164,10 +202,17 @@ export default function PeoplePage() {
               <Avatar className="size-10">
                 <AvatarFallback>{getInitials(p.full_name || '?')}</AvatarFallback>
               </Avatar>
-              <div>
+              <div className="flex-1">
                 <p className="font-medium text-sm">{p.full_name || '—'}</p>
                 <p className="text-xs text-muted-foreground">{p.title || '—'}</p>
               </div>
+              {isAdmin && p.contractStatus !== 'none' && (
+                p.contractStatus === 'signed' ? (
+                  <Badge className="bg-green-600 hover:bg-green-700">Kontrakt signert</Badge>
+                ) : (
+                  <Badge variant="secondary">Kontrakt ikke signert</Badge>
+                )
+              )}
             </Link>
           ))
         )}

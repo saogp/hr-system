@@ -6,11 +6,11 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { extractTokens, extractChoiceFields } from '@/lib/contract-tokens'
+import { RichTextEditor } from '@/components/template-editor/rich-text-editor'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 
 export default function TemplateEditorPage() {
@@ -129,14 +129,8 @@ export default function TemplateEditorPage() {
       </div>
 
       <div className="flex flex-col gap-1.5 mb-4">
-        <Label htmlFor="content">Kontrakttekst</Label>
-        <Textarea
-          id="content"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="min-h-[70vh] font-mono text-sm leading-relaxed"
-          placeholder="Skriv kontraktteksten her..."
-        />
+        <Label>Kontrakttekst</Label>
+        <RichTextEditor value={content} onChange={setContent} />
       </div>
 
       <div className="rounded-md border border-input p-3 text-sm space-y-2">

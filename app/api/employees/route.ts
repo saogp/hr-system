@@ -43,14 +43,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: verified.error }, { status: verified.status })
   }
 
-  const { email, full_name, redirectTo } = await request.json()
+  const { email, full_name } = await request.json()
   if (!email) {
     return NextResponse.json({ error: 'E-post er påkrevd.' }, { status: 400 })
   }
 
   const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
     data: full_name ? { full_name } : undefined,
-    redirectTo,
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/onboarding`,
   })
 
   if (error) {

@@ -8,7 +8,6 @@ import { supabase } from '@/lib/supabase'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -56,8 +55,11 @@ type PersonProfile = {
   birth_date: string | null
   manager_id: string | null
   phone: string | null
-  interests: string | null
-  fun_fact: string | null
+  employee_number: number | null
+  employment_type: 'fast' | 'tilkalling' | null
+  position_percentage: number | null
+  start_date: string | null
+  end_date: string | null
   next_review_date: string | null
 }
 
@@ -93,8 +95,6 @@ export default function PersonDetailPage() {
   const [editingSelf, setEditingSelf] = useState(false)
   const [editingAdmin, setEditingAdmin] = useState(false)
   const [phone, setPhone] = useState('')
-  const [interests, setInterests] = useState('')
-  const [funFact, setFunFact] = useState('')
   const [saving, setSaving] = useState(false)
 
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -133,8 +133,6 @@ export default function PersonDetailPage() {
         }
         setPerson(fullData)
         setPhone(fullData.phone ?? '')
-        setInterests(fullData.interests ?? '')
-        setFunFact(fullData.fun_fact ?? '')
 
         const { data: profilesData } = await supabase
           .from('profiles')
@@ -176,8 +174,6 @@ export default function PersonDetailPage() {
         }
         setPerson(found)
         setPhone(found.phone ?? '')
-        setInterests(found.interests ?? '')
-        setFunFact(found.fun_fact ?? '')
       }
 
       setLoading(false)
@@ -192,17 +188,17 @@ export default function PersonDetailPage() {
     setSaving(true)
     const { error } = await supabase
       .from('profiles')
-      .update({ phone, interests, fun_fact: funFact })
+      .update({ phone })
       .eq('id', id)
 
     if (!error) {
-      setPerson(prev => prev ? { ...prev, phone, interests, fun_fact: funFact } : prev)
+      setPerson(prev => prev ? { ...prev, phone } : prev)
       setEditingSelf(false)
     }
     setSaving(false)
   }
 
-  const handleFieldChange = async (field: keyof PersonProfile, value: string | null) => {
+  const handleFieldChange = async (field: keyof PersonProfile, value: string | number | null) => {
     const { error } = await supabase.from('profiles').update({ [field]: value }).eq('id', id)
     if (!error) {
       setPerson(prev => prev ? { ...prev, [field]: value } : prev)
@@ -234,7 +230,6 @@ export default function PersonDetailPage() {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session?.access_token ?? ''}`,
       },
-      body: JSON.stringify({ redirectTo: `${window.location.origin}/onboarding` }),
     })
 
     if (!res.ok) {
@@ -371,21 +366,8 @@ export default function PersonDetailPage() {
           </div>
 
           <div>
-            <p className="text-xs text-muted-foreground">Interesser</p>
-            {isSelf && editingSelf ? (
-              <Textarea value={interests} onChange={(e) => setInterests(e.target.value)} className="mt-1" />
-            ) : (
-              <p className="text-sm">{person.interests || '—'}</p>
-            )}
-          </div>
-
-          <div>
-            <p className="text-xs text-muted-foreground">Morsom fakta</p>
-            {isSelf && editingSelf ? (
-              <Textarea value={funFact} onChange={(e) => setFunFact(e.target.value)} className="mt-1" />
-            ) : (
-              <p className="text-sm">{person.fun_fact || '—'}</p>
-            )}
+            <p className="text-xs text-muted-foreground">Ansattnummer</p>
+            <p className="text-sm">{person.employee_number ?? '—'}</p>
           </div>
 
           {isSelf && (
@@ -492,6 +474,56 @@ export default function PersonDetailPage() {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
+                  <Label>Ansettelsesforhold</Label>
+                  <Select
+                    value={person.employment_type ?? 'none'}
+                    onValueChange={(val) => val && handleFieldChange('employment_type', val === 'none' ? null : val)}
+                  >
+                    <SelectTrigger className="w-full h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Ikke satt</SelectItem>
+                      <SelectItem value="fast">Fast</SelectItem>
+                      <SelectItem value="tilkalling">Tilkalling</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="position_percentage">Stillingsprosent</Label>
+                  <Input
+                    id="position_percentage"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    defaultValue={person.position_percentage ?? ''}
+                    onBlur={(e) => handleFieldChange('position_percentage', e.target.value ? Number(e.target.value) : null)}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="start_date">Tiltredelse</Label>
+                  <Input
+                    id="start_date"
+                    type="date"
+                    defaultValue={person.start_date ?? ''}
+                    onChange={(e) => handleFieldChange('start_date', e.target.value || null)}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="end_date">Sluttdato</Label>
+                  <Input
+                    id="end_date"
+                    type="date"
+                    defaultValue={person.end_date ?? ''}
+                    onChange={(e) => handleFieldChange('end_date', e.target.value || null)}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
                   <Label>Bedrifter</Label>
                   <div className="flex flex-col gap-2 rounded-md border border-input p-3">
                     {companies.length === 0 ? (
@@ -562,6 +594,24 @@ export default function PersonDetailPage() {
                   </p>
                 </div>
                 <div>
+                  <p className="text-xs text-muted-foreground">Ansettelsesforhold</p>
+                  <p className="text-sm">
+                    {person.employment_type === 'fast' ? 'Fast' : person.employment_type === 'tilkalling' ? 'Tilkalling' : '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Stillingsprosent</p>
+                  <p className="text-sm">{person.position_percentage != null ? `${person.position_percentage} %` : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Tiltredelse</p>
+                  <p className="text-sm">{person.start_date ? formatDate(person.start_date) : '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Sluttdato</p>
+                  <p className="text-sm">{person.end_date ? formatDate(person.end_date) : '—'}</p>
+                </div>
+                <div>
                   <p className="text-xs text-muted-foreground">Bedrifter</p>
                   <p className="text-sm">
                     {companies.filter((c) => companyIds.includes(c.id)).map((c) => c.name).join(', ') || '—'}
@@ -593,29 +643,36 @@ export default function PersonDetailPage() {
                     const signedCount = [c.employee_signed_at, c.admin_signed_at].filter(Boolean).length
                     const isUnsigned = signedCount === 0
                     return (
-                      <div key={c.id} className="flex items-center justify-between gap-2 p-3">
-                        <div className="min-w-0">
+                      <div key={c.id} className="flex items-center justify-between gap-2 p-1 pl-3">
+                        <Link
+                          href={`/contracts/${c.id}`}
+                          className="min-w-0 flex-1 py-2 rounded-md hover:bg-muted/50"
+                        >
                           <p className="text-sm font-medium truncate">{c.contract_templates?.name || '—'}</p>
                           <p className="text-xs text-muted-foreground">Sendt {formatDate(c.sent_at)}</p>
-                        </div>
+                        </Link>
                         <div className="flex items-center gap-2 shrink-0">
                           {signedCount === 2 ? (
                             <Badge className="bg-green-600 hover:bg-green-700">2 av 2 signert</Badge>
                           ) : (
                             <Badge variant="secondary">{signedCount} av 2 signert</Badge>
                           )}
-                          <Button size="sm" variant="ghost" render={<Link href={`/contracts/${c.id}`} />}>
-                            Åpne
-                          </Button>
                           {isUnsigned && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => setContractDeleteId(c.id)}
-                            >
-                              Slett
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger
+                                render={
+                                  <Button variant="ghost" size="icon-sm">
+                                    <MoreHorizontal />
+                                    <span className="sr-only">Handlinger</span>
+                                  </Button>
+                                }
+                              />
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem variant="destructive" onClick={() => setContractDeleteId(c.id)}>
+                                  Slett
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                         </div>
                       </div>

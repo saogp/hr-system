@@ -9,7 +9,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params
-  const { redirectTo } = await request.json()
 
   const { data: profile } = await supabaseAdmin
     .from('profiles')
@@ -23,7 +22,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(profile.email, {
     data: profile.full_name ? { full_name: profile.full_name } : undefined,
-    redirectTo,
+    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/onboarding`,
   })
 
   if (error) {

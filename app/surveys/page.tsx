@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { sendPushNotification } from '@/lib/push-client'
+import { SURVEY_TEMPLATES } from '@/lib/survey-templates'
 
 import {
   Table,
@@ -22,6 +23,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -116,6 +124,14 @@ export default function SurveysPage() {
   useEffect(() => {
     load()
   }, [])
+
+  const applyTemplate = (templateId: string) => {
+    if (templateId === 'blank') return
+    const template = SURVEY_TEMPLATES.find((t) => t.id === templateId)
+    if (!template) return
+    setTitle(template.title)
+    setQuestions(template.questions.map((text, i) => ({ id: `q${i + 1}`, text })))
+  }
 
   const addQuestion = () => {
     setQuestions(prev => [...prev, { id: `q${prev.length + 1}`, text: '' }])
@@ -267,6 +283,21 @@ export default function SurveysPage() {
           </DialogHeader>
 
           <form onSubmit={handleCreate} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label>Start fra mal</Label>
+              <Select defaultValue="blank" onValueChange={(val) => val && applyTemplate(val)}>
+                <SelectTrigger className="w-full h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="blank">Blank undersøkelse</SelectItem>
+                  {SURVEY_TEMPLATES.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="survey-title">Tittel</Label>
               <Input id="survey-title" value={title} onChange={(e) => setTitle(e.target.value)} required />

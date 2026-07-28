@@ -19,10 +19,18 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 type PersonOption = { id: string; full_name: string | null; email: string | null }
-type ReceivedMessage = { id: string; message: string; read: boolean; created_at: string }
+type ReceivedMessage = {
+  id: string
+  message: string
+  read: boolean
+  created_at: string
+  recipient_id: string
+  profiles: { full_name: string | null; email: string | null } | null
+}
 
 export default function SiFraPage() {
   const router = useRouter()
+  const [isAdmin, setIsAdmin] = useState(false)
   const [people, setPeople] = useState<PersonOption[]>([])
   const [recipientId, setRecipientId] = useState('')
   const [message, setMessage] = useState('')
@@ -41,9 +49,11 @@ export default function SiFraPage() {
 
       const { data: ownProfile } = await supabase
         .from('profiles')
-        .select('manager_id')
+        .select('manager_id, role')
         .eq('id', user.id)
         .single()
+      const admin = ownProfile?.role === 'admin'
+      setIsAdmin(admin)
 
       const { data: peopleData } = await supabase
         .from('profiles')
@@ -56,12 +66,14 @@ export default function SiFraPage() {
         setRecipientId(ownProfile.manager_id)
       }
 
-      const { data: inboxData } = await supabase
+      const baseInboxQuery = supabase
         .from('concern_reports')
-        .select('id, message, read, created_at')
-        .eq('recipient_id', user.id)
+        .select('id, message, read, created_at, recipient_id, profiles!concern_reports_recipient_id_fkey(full_name, email)')
         .order('created_at', { ascending: false })
-      if (inboxData) setInbox(inboxData)
+      const { data: inboxData } = admin
+        ? await baseInboxQuery
+        : await baseInboxQuery.eq('recipient_id', user.id)
+      if (inboxData) setInbox(inboxData as unknown as ReceivedMessage[])
 
       setLoading(false)
     }
@@ -151,12 +163,17 @@ export default function SiFraPage() {
 
       {inbox.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold mb-4">Mottatte meldinger</h2>
+          <h2 className="text-lg font-semibold mb-4">
+            {isAdmin ? 'Alle si fra-meldinger' : 'Mottatte meldinger'}
+          </h2>
           <div className="flex flex-col divide-y divide-border rounded-md border border-input">
             {inbox.map((m) => (
               <div key={m.id} className="p-4 space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-muted-foreground">{formatDate(m.created_at)}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(m.created_at)}
+                    {isAdmin && ` · Til ${m.profiles?.full_name || m.profiles?.email || '—'}`}
+                  </p>
                   {m.read ? (
                     <Badge variant="secondary">Lest</Badge>
                   ) : (

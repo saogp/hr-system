@@ -59,6 +59,20 @@ type MyTask = {
   } | null
 }
 
+type UnsignedContract = {
+  id: string
+  sent_at: string
+  employee_signed_at: string | null
+  admin_signed_at: string | null
+  profiles: { full_name: string | null; email: string | null } | null
+}
+
+type UnreadReport = {
+  id: string
+  created_at: string
+  profiles: { full_name: string | null; email: string | null } | null
+}
+
 export default function DashboardPage() {
   const [userName, setUserName] = useState<string>('')
   const [loading, setLoading] = useState(true)
@@ -66,6 +80,9 @@ export default function DashboardPage() {
   const [nextReviewDate, setNextReviewDate] = useState<string | null>(null)
   const [myReviews, setMyReviews] = useState<MyReview[]>([])
   const [myTasks, setMyTasks] = useState<MyTask[]>([])
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [unsignedContracts, setUnsignedContracts] = useState<UnsignedContract[]>([])
+  const [unreadReports, setUnreadReports] = useState<UnreadReport[]>([])
   const router = useRouter()
 
   useEffect(() => {
@@ -79,12 +96,30 @@ export default function DashboardPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, next_review_date')
+        .select('full_name, next_review_date, role')
         .eq('id', user.id)
         .maybeSingle()
 
       setUserName(profile?.full_name || user.email || 'Ansatt')
       setNextReviewDate(profile?.next_review_date ?? null)
+      const admin = profile?.role === 'admin'
+      setIsAdmin(admin)
+
+      if (admin) {
+        const { data: unsignedData } = await supabase
+          .from('contracts')
+          .select('id, sent_at, employee_signed_at, admin_signed_at, profiles!contracts_profile_id_fkey(full_name, email)')
+          .or('employee_signed_at.is.null,admin_signed_at.is.null')
+          .order('sent_at', { ascending: false })
+        if (unsignedData) setUnsignedContracts(unsignedData as unknown as UnsignedContract[])
+
+        const { data: unreadData } = await supabase
+          .from('concern_reports')
+          .select('id, created_at, profiles!concern_reports_recipient_id_fkey(full_name, email)')
+          .eq('read', false)
+          .order('created_at', { ascending: false })
+        if (unreadData) setUnreadReports(unreadData as unknown as UnreadReport[])
+      }
 
       const { data: contractsData } = await supabase
         .from('contracts')
@@ -144,6 +179,46 @@ export default function DashboardPage() {
         </div>
         <h1 className="text-2xl font-bold">{getTimeOfDayGreeting()}, {userName}</h1>
       </div>
+
+      {isAdmin && (unsignedContracts.length > 0 || unreadReports.length > 0) && (
+        <Card className="shadow-none border-border">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Trenger oppmerksomhet</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {unsignedContracts.length > 0 && (
+              <div>
+                <p className="text-sm font-medium mb-2">
+                  {unsignedContracts.length} kontrakt{unsignedContracts.length !== 1 ? 'er' : ''} venter på signering
+                </p>
+                <div className="space-y-2">
+                  {unsignedContracts.slice(0, 5).map((c) => (
+                    <div key={c.id} className="flex items-center justify-between border-b border-border pb-2 last:border-0 last:pb-0">
+                      <p className="text-sm text-muted-foreground">
+                        {c.profiles?.full_name || c.profiles?.email || '—'}
+                      </p>
+                      <Button variant="ghost" size="sm" render={<Link href={`/contracts/${c.id}`} />}>
+                        Åpne
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {unreadReports.length > 0 && (
+              <div>
+                <p className="text-sm font-medium mb-2">
+                  {unreadReports.length} ny{unreadReports.length !== 1 ? 'e' : ''} si fra-melding{unreadReports.length !== 1 ? 'er' : ''}
+                </p>
+                <Button variant="ghost" size="sm" render={<Link href="/si-fra" />}>
+                  Åpne Si fra
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {reviewDueSoon && nextReviewDate && (
         <Card className="shadow-none border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900">

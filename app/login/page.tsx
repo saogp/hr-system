@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { Eye, EyeOff } from 'lucide-react'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -13,14 +14,18 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [infoMsg, setInfoMsg] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setErrorMsg('')
+    setInfoMsg('')
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -36,19 +41,34 @@ export default function LoginPage() {
     }
   }
 
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setErrorMsg('Skriv inn e-posten din over først.')
+      return
+    }
+    setResetting(true)
+    setErrorMsg('')
+    setInfoMsg('')
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/onboarding`,
+    })
+
+    if (error) {
+      setErrorMsg(error.message)
+    } else {
+      setInfoMsg('Sjekk e-posten din for en lenke til å tilbakestille passordet.')
+    }
+    setResetting(false)
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      {/* Ingen skygge, nøyaktig ramme og bredde som eksempelet */}
       <Card className="w-full max-w-sm shadow-none border-border">
         <CardHeader className="space-y-1">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-xl font-bold">Login to your account</CardTitle>
-            <a href="#" className="text-sm font-medium underline-offset-4 hover:underline">
-              Sign Up
-            </a>
-          </div>
+          <CardTitle className="text-xl font-bold">Logg inn</CardTitle>
           <CardDescription>
-            Enter your email below to login to your account
+            Skriv inn e-posten din for å logge inn på kontoen din
           </CardDescription>
         </CardHeader>
 
@@ -59,13 +79,18 @@ export default function LoginPage() {
                 <AlertDescription>{errorMsg}</AlertDescription>
               </Alert>
             )}
+            {infoMsg && (
+              <Alert>
+                <AlertDescription>{infoMsg}</AlertDescription>
+              </Alert>
+            )}
 
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">E-post</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="m@example.com"
+                placeholder="navn@firma.no"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -73,28 +98,40 @@ export default function LoginPage() {
             </div>
 
             <div className="grid gap-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <a href="#" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
-                  Forgot your password?
-                </a>
+              <Label htmlFor="password">Passord</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex items-center px-2.5 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Skjul passord' : 'Vis passord'}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
               </div>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
             </div>
 
             <Button type="submit" disabled={loading} className="w-full mt-2">
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? 'Logger inn...' : 'Logg inn'}
             </Button>
 
-            <Button type="button" variant="outline" className="w-full">
-              Login with Google
-            </Button>
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={resetting}
+              className="text-sm text-muted-foreground underline-offset-4 hover:underline text-center"
+            >
+              {resetting ? 'Sender...' : 'Glemt passord?'}
+            </button>
           </CardContent>
         </form>
       </Card>
