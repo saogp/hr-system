@@ -18,6 +18,13 @@ export function setRoleOverride(role: Role | null) {
   window.location.reload()
 }
 
+// Clears the role override without reloading — for callers (like impersonation)
+// that are about to navigate/reload themselves right after.
+export function clearRoleOverrideSilently() {
+  if (typeof window === 'undefined') return
+  window.localStorage.removeItem(KEY)
+}
+
 export function applyRoleOverride(realRole: string): string {
   return getRoleOverride() ?? realRole
 }

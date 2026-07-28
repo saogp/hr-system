@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, LogOut, FileText, Users, Settings, MessageSquare, ShieldAlert, ClipboardList, Moon, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, LogOut, FileText, Users, Settings, MessageSquare, ShieldAlert, ClipboardList, Mail, Moon, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getStoredTheme, applyTheme, type Theme } from '@/lib/theme'
+import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { ZestLogo } from '@/components/zest-logo'
 import {
   Sidebar as SidebarPrimitive,
@@ -35,11 +36,12 @@ const navigation = [
   { name: 'Kontrakter', href: '/contracts', icon: FileText },
   { name: 'Medarbeidersamtaler', href: '/reviews', icon: MessageSquare },
   { name: 'Undersøkelser', href: '/surveys', icon: ClipboardList },
-  { name: 'Si fra', href: '/si-fra', icon: ShieldAlert },
 ]
 
 const secondaryNavigation = [
+  { name: 'Meldinger', href: '/meldinger', icon: Mail, adminOnly: true },
   { name: 'Innstillinger', href: '/settings', icon: Settings },
+  { name: 'Si fra', href: '/si-fra', icon: ShieldAlert },
 ]
 
 function getInitials(name: string) {
@@ -142,7 +144,9 @@ export function Sidebar() {
         <SidebarGroup className="mt-4">
           <SidebarGroupContent>
             <SidebarMenu>
-              {secondaryNavigation.map((item) => (
+              {secondaryNavigation
+                .filter((item) => !item.adminOnly || isAdminLike(applyRoleOverride(currentUser?.role ?? 'employee')))
+                .map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton
                     render={<Link href={item.href} onClick={closeMobileSidebar} />}
@@ -162,7 +166,7 @@ export function Sidebar() {
       <SidebarFooter>
         <div className="rounded-xl border border-sidebar-border overflow-hidden group-data-[collapsible=icon]:rounded-none group-data-[collapsible=icon]:border-none">
           <div className="flex items-center justify-between gap-2 px-3 py-2.5 group-data-[collapsible=icon]:hidden">
-            <div className="flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-2 text-base">
               <Moon className="size-4 text-muted-foreground" />
               <span>Dark Mode</span>
             </div>
@@ -184,7 +188,7 @@ export function Sidebar() {
                           {getInitials(currentUser?.name ?? '?')}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="grid flex-1 text-left text-sm leading-tight">
+                      <div className="grid flex-1 text-left text-base leading-tight">
                         <span className="truncate font-medium">
                           {currentUser?.name ?? 'Laster...'}
                         </span>

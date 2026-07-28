@@ -219,7 +219,7 @@ export default function PeoplePage() {
                 <AvatarFallback className="bg-brand-navy text-brand-orange">{getInitials(p.full_name || '?')}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm truncate">{p.full_name || '—'}</p>
+                <p className="font-medium text-base md:text-sm truncate">{p.full_name || '—'}</p>
                 <p className="text-xs text-muted-foreground truncate">{p.title || '—'}</p>
               </div>
               {isAdmin && (

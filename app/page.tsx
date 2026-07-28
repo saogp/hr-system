@@ -484,7 +484,7 @@ export default function DashboardPage() {
                   className="flex items-center justify-between gap-2 border-b border-border pb-3 last:border-0 last:pb-0"
                 >
                   <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{c.contract_templates?.name || '—'}</p>
+                    <p className="font-medium text-base md:text-sm truncate">{c.contract_templates?.name || '—'}</p>
                     <p className="text-xs text-muted-foreground">
                       Sendt {new Date(c.sent_at).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </p>
@@ -556,7 +556,7 @@ export default function DashboardPage() {
                     href={`/surveys/${s.survey_id}`}
                     className="flex items-center justify-between gap-2 border-b border-border pb-3 last:border-0 last:pb-0"
                   >
-                    <p className="font-medium text-sm truncate">{s.surveys?.title || '—'}</p>
+                    <p className="font-medium text-base md:text-sm truncate">{s.surveys?.title || '—'}</p>
                     <div className="flex items-center gap-2 shrink-0">
                       {s.submitted_at ? (
                         <Badge className="bg-green-600 hover:bg-green-700">{score !== null ? `${score} poeng` : 'Besvart'}</Badge>

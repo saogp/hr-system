@@ -381,7 +381,7 @@ export default function ContractDetailPage() {
           </div>
         )}
 
-        <div className="rounded-md border border-input p-4 text-sm">
+        <div className="rounded-md border border-input p-4 text-base md:text-sm">
           <RenderedContractText text={renderedText} />
         </div>
 

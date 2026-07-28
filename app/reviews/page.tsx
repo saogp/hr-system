@@ -243,7 +243,7 @@ export default function ReviewsPage() {
               className="flex items-center justify-between gap-3 rounded-xl border border-border p-4 hover:bg-muted/50"
             >
               <div className="min-w-0">
-                <p className="font-medium text-sm truncate">
+                <p className="font-medium text-base md:text-sm truncate">
                   {r.profiles?.full_name || r.profiles?.email || '—'}
                 </p>
                 <p className="text-xs text-muted-foreground">{formatDate(r.scheduled_date)}</p>

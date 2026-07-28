@@ -45,7 +45,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { isPushSupported, subscribeToPush, unsubscribeFromPush, getPushSubscription } from '@/lib/push-client'
@@ -67,17 +66,6 @@ type ReviewTemplate = {
   id: string
   name: string
   created_at: string
-}
-
-type BroadcastMessage = {
-  id: string
-  subject: string
-  message: string
-  recipient_count: number
-  pdf_url: string | null
-  pdf_filename: string | null
-  created_at: string
-  profiles: { full_name: string | null; email: string | null } | null
 }
 
 export default function SettingsPage() {
@@ -112,13 +100,6 @@ export default function SettingsPage() {
   const [newMalBasis, setNewMalBasis] = useState('blank')
   const [creatingMal, setCreatingMal] = useState(false)
 
-  const [broadcastSubject, setBroadcastSubject] = useState('')
-  const [broadcastMessage, setBroadcastMessage] = useState('')
-  const [broadcastPdf, setBroadcastPdf] = useState<File | null>(null)
-  const [sendingBroadcast, setSendingBroadcast] = useState(false)
-  const [broadcastError, setBroadcastError] = useState('')
-  const [broadcastSuccess, setBroadcastSuccess] = useState('')
-  const [broadcastHistory, setBroadcastHistory] = useState<BroadcastMessage[]>([])
 
   useEffect(() => {
     async function checkAccessAndLoad() {
@@ -157,12 +138,6 @@ export default function SettingsPage() {
           .select('id, name, created_at')
           .order('created_at', { ascending: false })
         if (reviewTemplatesData) setReviewTemplates(reviewTemplatesData)
-
-        const { data: broadcastData } = await supabase
-          .from('broadcast_messages')
-          .select('id, subject, message, recipient_count, pdf_url, pdf_filename, created_at, profiles!broadcast_messages_sender_id_fkey(full_name, email)')
-          .order('created_at', { ascending: false })
-        if (broadcastData) setBroadcastHistory(broadcastData as unknown as BroadcastMessage[])
       }
 
       if (isPushSupported()) {
@@ -175,44 +150,6 @@ export default function SettingsPage() {
 
     checkAccessAndLoad()
   }, [router])
-
-  const handleSendBroadcast = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSendingBroadcast(true)
-    setBroadcastError('')
-    setBroadcastSuccess('')
-
-    const { data: { session } } = await supabase.auth.getSession()
-    const formData = new FormData()
-    formData.append('subject', broadcastSubject)
-    formData.append('message', broadcastMessage)
-    if (broadcastPdf) formData.append('pdf', broadcastPdf)
-
-    const res = await fetch('/api/broadcast', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
-      body: formData,
-    })
-
-    const result = await res.json().catch(() => ({}))
-
-    if (!res.ok) {
-      setBroadcastError(result.error || 'Kunne ikke sende meldingen.')
-    } else {
-      setBroadcastSuccess(`Sendt til ${result.sentCount} ansatte.`)
-      setBroadcastSubject('')
-      setBroadcastMessage('')
-      setBroadcastPdf(null)
-
-      const { data: broadcastData } = await supabase
-        .from('broadcast_messages')
-        .select('id, subject, message, recipient_count, pdf_url, pdf_filename, created_at, profiles!broadcast_messages_sender_id_fkey(full_name, email)')
-        .order('created_at', { ascending: false })
-      if (broadcastData) setBroadcastHistory(broadcastData as unknown as BroadcastMessage[])
-    }
-
-    setSendingBroadcast(false)
-  }
 
   const handleTogglePush = async () => {
     setPushBusy(true)
@@ -388,9 +325,8 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue={isAdmin ? 'meldinger' : 'varsler'}>
+      <Tabs defaultValue={isAdmin ? 'maler' : 'varsler'}>
         <TabsList>
-          {isAdmin && <TabsTrigger value="meldinger">Meldinger</TabsTrigger>}
           {isAdmin && <TabsTrigger value="maler">Maler</TabsTrigger>}
           {isAdmin && <TabsTrigger value="bedrifter">Bedrifter</TabsTrigger>}
           <TabsTrigger value="varsler">Varsler</TabsTrigger>
@@ -425,94 +361,6 @@ export default function SettingsPage() {
         </TabsContent>
 
         {isAdmin && (
-        <TabsContent value="meldinger" className="pt-4 max-w-lg">
-          <h2 className="text-lg font-semibold mb-2">Send fellesmail</h2>
-          <p className="text-muted-foreground text-sm mb-4">
-            Send en e-post til alle ansatte samtidig, med valgfritt PDF-vedlegg.
-          </p>
-
-          {broadcastError && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{broadcastError}</AlertDescription>
-            </Alert>
-          )}
-          {broadcastSuccess && (
-            <Alert className="mb-4">
-              <AlertDescription>{broadcastSuccess}</AlertDescription>
-            </Alert>
-          )}
-
-          <form onSubmit={handleSendBroadcast} className="flex flex-col gap-4 mb-8">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="broadcast-subject">Emne</Label>
-              <Input
-                id="broadcast-subject"
-                value={broadcastSubject}
-                onChange={(e) => setBroadcastSubject(e.target.value)}
-                placeholder='F.eks. «Innkalling til personalmøte»'
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="broadcast-message">Melding</Label>
-              <Textarea
-                id="broadcast-message"
-                className="min-h-32"
-                value={broadcastMessage}
-                onChange={(e) => setBroadcastMessage(e.target.value)}
-                placeholder='Skriv meldingen her. «Hei fornavn» og signatur legges til automatisk.'
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="broadcast-pdf">PDF-vedlegg (valgfritt)</Label>
-              <Input
-                id="broadcast-pdf"
-                type="file"
-                accept="application/pdf"
-                onChange={(e) => setBroadcastPdf(e.target.files?.[0] ?? null)}
-              />
-            </div>
-            <Button
-              type="submit"
-              disabled={sendingBroadcast || !broadcastSubject.trim() || !broadcastMessage.trim()}
-              className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium w-fit"
-            >
-              {sendingBroadcast ? 'Sender...' : 'Send til alle ansatte'}
-            </Button>
-          </form>
-
-          <h2 className="text-lg font-semibold mb-2">Historikk</h2>
-          {broadcastHistory.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Ingen fellesmailer sendt enda.</p>
-          ) : (
-            <div className="flex flex-col divide-y divide-border rounded-md border border-input">
-              {broadcastHistory.map((b) => (
-                <div key={b.id} className="p-4 space-y-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium">{b.subject}</p>
-                    <p className="text-xs text-muted-foreground shrink-0">{formatDate(b.created_at)}</p>
-                  </div>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{b.message}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Sendt av {b.profiles?.full_name || b.profiles?.email || '—'} til {b.recipient_count} ansatte
-                    {b.pdf_url && (
-                      <>
-                        {' · '}
-                        <a href={b.pdf_url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
-                          {b.pdf_filename || 'Vedlegg'}
-                        </a>
-                      </>
-                    )}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-        )}
-
-        {isAdmin && (
         <TabsContent value="bedrifter" className="pt-4">
           <div className="flex flex-row items-center justify-between mb-4">
             <p className="text-muted-foreground text-sm">
@@ -532,7 +380,7 @@ export default function SettingsPage() {
                   className="flex items-center justify-between gap-3 rounded-xl border border-border p-4"
                 >
                   <div className="min-w-0">
-                    <p className="font-medium text-sm truncate">{c.name}</p>
+                    <p className="font-medium text-base md:text-sm truncate">{c.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {c.org_number || '—'}{c.billing_address ? ` · ${c.billing_address}` : ''}
                     </p>

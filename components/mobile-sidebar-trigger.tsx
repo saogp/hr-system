@@ -15,10 +15,10 @@ export function MobileSidebarTrigger() {
     <Button
       variant="ghost"
       size="icon"
-      className="m-2 md:hidden [&_svg]:size-6"
+      className="m-2 size-11 md:hidden"
       onClick={toggleSidebar}
     >
-      <Menu />
+      <Menu className="size-8" />
       <span className="sr-only">Åpne meny</span>
     </Button>
   )

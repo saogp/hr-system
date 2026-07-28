@@ -315,11 +315,11 @@ export default function ContractsPage() {
                 <>
                   <div className="min-w-0 flex-1">
                     {isAdminLike(role) && (
-                      <p className="font-medium text-sm truncate">
+                      <p className="font-medium text-base md:text-sm truncate">
                         {c.profiles?.full_name || c.profiles?.email || '—'}
                       </p>
                     )}
-                    <p className={isAdminLike(role) ? 'text-xs text-muted-foreground truncate' : 'font-medium text-sm truncate'}>
+                    <p className={isAdminLike(role) ? 'text-xs text-muted-foreground truncate' : 'font-medium text-base md:text-sm truncate'}>
                       {c.contract_templates?.name || '—'}
                     </p>
                     <p className="text-xs text-muted-foreground">Sendt {formatDate(c.sent_at)}</p>

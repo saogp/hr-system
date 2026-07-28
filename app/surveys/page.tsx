@@ -200,7 +200,7 @@ export default function SurveysPage() {
                   className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm truncate">{s.title}</p>
+                    <p className="font-medium text-base md:text-sm truncate">{s.title}</p>
                     <p className="text-xs text-muted-foreground">Opprettet {formatDate(s.created_at)}</p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
@@ -222,7 +222,7 @@ export default function SurveysPage() {
                 href={`/surveys/${s.survey_id}`}
                 className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50"
               >
-                <p className="font-medium text-sm truncate">{s.surveys?.title || '—'}</p>
+                <p className="font-medium text-base md:text-sm truncate">{s.surveys?.title || '—'}</p>
                 <div className="flex items-center gap-3 shrink-0">
                   {s.submitted_at ? (
                     <Badge className="bg-green-600 hover:bg-green-700">{score !== null ? `${score} poeng` : 'Besvart'}</Badge>

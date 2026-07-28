@@ -358,7 +358,7 @@ function PersonDetailPageInner() {
             onChange={inputType === 'date' ? (e) => commit(e.target.value) : undefined}
           />
         ) : (
-          <p className="text-sm">{display}</p>
+          <p className="text-base md:text-sm">{display}</p>
         )}
       </div>
     )
@@ -399,15 +399,15 @@ function PersonDetailPageInner() {
         <div className="divide-y divide-border border-t border-border">
           <div className="py-3">
             <p className="text-xs text-muted-foreground">E-post</p>
-            <p className="text-sm">{directoryPerson.email || '—'}</p>
+            <p className="text-base md:text-sm">{directoryPerson.email || '—'}</p>
           </div>
           <div className="py-3">
             <p className="text-xs text-muted-foreground">Telefonnummer</p>
-            <p className="text-sm">{directoryPerson.phone || '—'}</p>
+            <p className="text-base md:text-sm">{directoryPerson.phone || '—'}</p>
           </div>
           <div className="py-3">
             <p className="text-xs text-muted-foreground">Ansattnummer</p>
-            <p className="text-sm">{directoryPerson.employee_number ?? '—'}</p>
+            <p className="text-base md:text-sm">{directoryPerson.employee_number ?? '—'}</p>
           </div>
         </div>
       </div>
@@ -516,7 +516,7 @@ function PersonDetailPageInner() {
                     onCommit={(val) => handleFieldChange('phone', val)}
                   />
                 ) : (
-                  <p className="text-sm">{person.phone || '—'}</p>
+                  <p className="text-base md:text-sm">{person.phone || '—'}</p>
                 )}
               </div>
 
@@ -539,7 +539,7 @@ function PersonDetailPageInner() {
                     />
                   </div>
                 ) : (
-                  <p className="text-sm">
+                  <p className="text-base md:text-sm">
                     {person.postal_code || person.postal_place
                       ? `${person.postal_code || ''} ${person.postal_place || ''}`.trim()
                       : '—'}
@@ -565,7 +565,7 @@ function PersonDetailPageInner() {
                     />
                   </div>
                 ) : (
-                  <p className="text-sm">
+                  <p className="text-base md:text-sm">
                     {person.emergency_contact_name || person.emergency_contact_phone
                       ? `${person.emergency_contact_name || '—'}${person.emergency_contact_phone ? ' · ' + person.emergency_contact_phone : ''}`
                       : '—'}
@@ -601,7 +601,7 @@ function PersonDetailPageInner() {
                           href={`/contracts/${c.id}`}
                           className="min-w-0 flex-1 py-2 rounded-md hover:bg-muted/50"
                         >
-                          <p className="text-sm font-medium truncate">{c.contract_templates?.name || '—'}</p>
+                          <p className="text-base md:text-sm font-medium truncate">{c.contract_templates?.name || '—'}</p>
                           <p className="text-xs text-muted-foreground">Sendt {formatDate(c.sent_at)}</p>
                         </Link>
                         <div className="flex items-center gap-2 shrink-0">
@@ -672,7 +672,7 @@ function PersonDetailPageInner() {
                     })}
                   </div>
                 ) : (
-                  <p className="text-sm">{person.title || '—'}</p>
+                  <p className="text-base md:text-sm">{person.title || '—'}</p>
                 )}
               </div>
 
@@ -720,7 +720,7 @@ function PersonDetailPageInner() {
                     </SelectContent>
                   </Select>
                 ) : (
-                  <p className="text-sm">
+                  <p className="text-base md:text-sm">
                     {allProfiles.find((p) => p.id === person.manager_id)?.full_name || 'Ingen'}
                   </p>
                 )}
@@ -747,7 +747,7 @@ function PersonDetailPageInner() {
                     </div>
                   </RadioGroup>
                 ) : (
-                  <p className="text-sm">
+                  <p className="text-base md:text-sm">
                     {person.employment_type === 'fast' ? 'Fast' : person.employment_type === 'tilkalling' ? 'Tilkalling' : '—'}
                   </p>
                 )}
@@ -799,7 +799,7 @@ function PersonDetailPageInner() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm">
+                  <p className="text-base md:text-sm">
                     {companies.filter((c) => companyIds.includes(c.id)).map((c) => c.name).join(', ') || '—'}
                   </p>
                 )}

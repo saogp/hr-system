@@ -218,7 +218,7 @@ export default function SiFraPage() {
                       <Badge className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy">Ny</Badge>
                     )}
                   </div>
-                  <p className="text-sm whitespace-pre-wrap">{m.message}</p>
+                  <p className="text-base md:text-sm whitespace-pre-wrap">{m.message}</p>
                   {!m.read && (
                     <Button size="sm" variant="outline" onClick={() => handleMarkRead(m.id)}>
                       Merk som lest
@@ -269,7 +269,7 @@ export default function SiFraPage() {
                         <Badge className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy">Ny</Badge>
                       )}
                     </div>
-                    <p className="text-sm whitespace-pre-wrap">{m.message}</p>
+                    <p className="text-base md:text-sm whitespace-pre-wrap">{m.message}</p>
                     {!m.read && (
                       <Button size="sm" variant="outline" onClick={() => handleMarkRead(m.id)}>
                         Merk som lest
