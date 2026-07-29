@@ -19,11 +19,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { StatTile } from '@/components/ui/stat-tile'
 import { ChevronRight } from 'lucide-react'
+import { getAdminTokens, extractChoiceFields, usesCompanyTokens } from '@/lib/contract-tokens'
+import { UNIFORM_TYPES, UNIFORM_SIZES, needsCardCredentials } from '@/lib/uniform-items'
 
 type Person = {
   id: string
@@ -34,7 +44,23 @@ type Person = {
   end_date: string | null
   contractStatus: 'signed' | 'pending' | 'none'
   avatar_url: string | null
+  is_active: boolean
 }
+
+type Template = {
+  id: string
+  name: string
+  content: string
+}
+
+type Company = {
+  id: string
+  name: string
+}
+
+type UniformRow = { type: string; size: string; quantity: number; cardNumber: string; cardPassword: string }
+
+const emptyUniformRow = (): UniformRow => ({ type: UNIFORM_TYPES[0], size: 'Ingen', quantity: 1, cardNumber: '', cardPassword: '' })
 
 function getInitials(name: string) {
   return name
@@ -52,12 +78,25 @@ export default function PeoplePage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [showInactive, setShowInactive] = useState(false)
 
   const [addOpen, setAddOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const [newEmail, setNewEmail] = useState('')
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState('')
+
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [companies, setCompanies] = useState<Company[]>([])
+
+  const [sendContract, setSendContract] = useState(false)
+  const [contractTemplateId, setContractTemplateId] = useState('')
+  const [contractCompanyId, setContractCompanyId] = useState('')
+  const [contractAdminFields, setContractAdminFields] = useState<Record<string, string>>({})
+
+  const [sendUniform, setSendUniform] = useState(false)
+  const [uniformRows, setUniformRows] = useState<UniformRow[]>([emptyUniformRow()])
+  const [uniformSendEmail, setUniformSendEmail] = useState(false)
 
   const load = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -77,7 +116,7 @@ export default function PeoplePage() {
     if (admin) {
       const { data: profilesData } = await supabase
         .from('profiles')
-        .select('id, full_name, title, role, email, end_date, avatar_url')
+        .select('id, full_name, title, role, email, end_date, avatar_url, is_active')
       const { data: contractsData } = await supabase
         .from('contracts')
         .select('profile_id, employee_signed_at, admin_signed_at')
@@ -99,9 +138,21 @@ export default function PeoplePage() {
           contractStatus: statusByProfile.get(p.id) ?? 'none',
         })))
       }
+
+      const { data: templatesData } = await supabase
+        .from('contract_templates')
+        .select('id, name, content')
+        .order('created_at', { ascending: false })
+      if (templatesData) setTemplates(templatesData)
+
+      const { data: companiesData } = await supabase
+        .from('companies')
+        .select('id, name')
+        .order('name')
+      if (companiesData) setCompanies(companiesData)
     } else {
       const { data } = await supabase.rpc('get_people_directory')
-      if (data) setPeople(data.map((p: Person) => ({ ...p, end_date: null, contractStatus: 'none' })))
+      if (data) setPeople(data.map((p: Person) => ({ ...p, end_date: null, contractStatus: 'none', is_active: true })))
     }
     setLoading(false)
   }
@@ -109,6 +160,27 @@ export default function PeoplePage() {
   useEffect(() => {
     load()
   }, [])
+
+  const selectedTemplate = templates.find(t => t.id === contractTemplateId) ?? null
+  const contractAdminTokens = selectedTemplate ? getAdminTokens(selectedTemplate.content) : []
+  const contractChoiceFields = selectedTemplate ? extractChoiceFields(selectedTemplate.content) : []
+  const contractNeedsCompany = selectedTemplate ? usesCompanyTokens(selectedTemplate.content) : false
+
+  const updateUniformRow = (index: number, patch: Partial<UniformRow>) => {
+    setUniformRows(prev => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)))
+  }
+
+  const resetAddForm = () => {
+    setNewName('')
+    setNewEmail('')
+    setSendContract(false)
+    setContractTemplateId('')
+    setContractCompanyId('')
+    setContractAdminFields({})
+    setSendUniform(false)
+    setUniformRows([emptyUniformRow()])
+    setUniformSendEmail(false)
+  }
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -131,12 +203,39 @@ export default function PeoplePage() {
 
     if (!res.ok) {
       setInviteError(result.error || 'Noe gikk galt.')
-    } else {
-      setAddOpen(false)
-      setNewName('')
-      setNewEmail('')
-      load()
+      setInviting(false)
+      return
     }
+
+    const newProfileId: string | undefined = result.user?.id
+
+    if (newProfileId && sendContract && contractTemplateId) {
+      await supabase.from('contracts').insert({
+        template_id: contractTemplateId,
+        profile_id: newProfileId,
+        company_id: contractNeedsCompany ? contractCompanyId : null,
+        admin_fields: contractAdminFields,
+      })
+    }
+
+    if (newProfileId && sendUniform && uniformRows.length > 0) {
+      await fetch('/api/uniform-issuance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token ?? ''}`,
+        },
+        body: JSON.stringify({
+          profileId: newProfileId,
+          items: uniformRows,
+          sendEmail: uniformSendEmail,
+        }),
+      })
+    }
+
+    setAddOpen(false)
+    resetAddForm()
+    load()
     setInviting(false)
   }
 
@@ -145,30 +244,21 @@ export default function PeoplePage() {
   }
 
   const filtered = people
+    .filter((p) => (showInactive ? !p.is_active : p.is_active))
     .filter((p) => (p.full_name ?? '').toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
       const cmp = (a.full_name ?? '').localeCompare(b.full_name ?? '', 'no')
       return sortDir === 'asc' ? cmp : -cmp
     })
 
-  const today = new Date().toISOString().slice(0, 10)
-  const activeCount = people.filter((p) => !p.end_date || p.end_date >= today).length
-
   return (
-    <div className="max-w-4xl py-10 px-4">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
-            <IconBadge icon={<Users className="size-4" />} />
-            Ansatte
-          </h1>
-          <p className="text-muted-foreground text-sm">Oversikt over alle ansatte.</p>
-        </div>
-        {isAdmin && (
-          <div className="w-full sm:w-48">
-            <StatTile label="Aktive ansatte" value={activeCount} />
-          </div>
-        )}
+    <div className="max-w-4xl p-6 md:p-12">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
+          <IconBadge icon={<Users className="size-4" />} />
+          Ansatte
+        </h1>
+        <p className="text-muted-foreground text-sm">Oversikt over alle ansatte.</p>
       </div>
 
       <div className="flex flex-row items-center justify-between gap-4 mb-4">
@@ -198,9 +288,18 @@ export default function PeoplePage() {
           </Tooltip>
         </div>
         {isAdmin && (
-          <Button onClick={() => setAddOpen(true)} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
-            Legg til ansatt
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant={showInactive ? 'default' : 'outline'}
+              className={showInactive ? 'bg-brand-navy text-white hover:bg-brand-navy/90' : ''}
+              onClick={() => setShowInactive((v) => !v)}
+            >
+              {showInactive ? 'Aktive ansatte' : 'Inaktive ansatte'}
+            </Button>
+            <Button onClick={() => setAddOpen(true)} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
+              Legg til ansatt
+            </Button>
+          </div>
         )}
       </div>
 
@@ -212,7 +311,7 @@ export default function PeoplePage() {
             <Link
               key={p.id}
               href={`/people/${p.id}`}
-              className="group flex items-center gap-3 rounded-2xl border border-border bg-white dark:bg-white/5 p-3 transition-colors hover:bg-brand-cream/60 dark:hover:bg-white/10"
+              className={`group flex items-center gap-3 rounded-2xl border border-border bg-white dark:bg-white/5 p-3 transition-colors hover:bg-brand-cream/60 dark:hover:bg-white/10 ${!p.is_active ? 'opacity-60' : ''}`}
             >
               <Avatar className="size-11 ring-2 ring-transparent transition-all group-hover:ring-brand-orange/40">
                 {p.avatar_url && <AvatarImage src={p.avatar_url} alt={p.full_name ?? ''} />}
@@ -222,7 +321,9 @@ export default function PeoplePage() {
                 <p className="font-medium text-base md:text-sm truncate">{p.full_name || '—'}</p>
                 <p className="text-xs text-muted-foreground truncate">{p.title || '—'}</p>
               </div>
-              {isAdmin && (
+              {!p.is_active ? (
+                <Badge variant="secondary">Inaktiv</Badge>
+              ) : isAdmin && (
                 p.contractStatus === 'signed' ? (
                   <Badge className="bg-green-600 hover:bg-green-700">Kontrakt signert</Badge>
                 ) : p.contractStatus === 'pending' ? (
@@ -237,8 +338,8 @@ export default function PeoplePage() {
         )}
       </div>
 
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent>
+      <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) resetAddForm() }}>
+        <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Legg til ansatt</DialogTitle>
             <DialogDescription>
@@ -246,32 +347,223 @@ export default function PeoplePage() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleInvite} className="flex flex-col gap-4">
-            {inviteError && (
-              <Alert variant="destructive">
-                <AlertDescription>{inviteError}</AlertDescription>
-              </Alert>
-            )}
+          <form onSubmit={handleInvite} className="flex flex-col gap-4 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto -mx-4 px-4 flex flex-col gap-4">
+              {inviteError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{inviteError}</AlertDescription>
+                </Alert>
+              )}
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="new-name">Navn</Label>
-              <Input
-                id="new-name"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                required
-              />
-            </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="new-name">Navn</Label>
+                <Input
+                  id="new-name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  required
+                />
+              </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="new-email">E-post</Label>
-              <Input
-                id="new-email"
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                required
-              />
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="new-email">E-post</Label>
+                <Input
+                  id="new-email"
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="send-contract"
+                  checked={sendContract}
+                  onCheckedChange={(val) => setSendContract(val === true)}
+                />
+                <Label htmlFor="send-contract" className="font-normal">
+                  Send arbeidskontrakt samtidig
+                </Label>
+              </div>
+
+              {sendContract && (
+                <div className="flex flex-col gap-4 rounded-md border border-input p-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Mal</Label>
+                    <Select
+                      value={contractTemplateId}
+                      onValueChange={(val) => {
+                        if (!val) return
+                        setContractTemplateId(val)
+                        const template = templates.find(t => t.id === val)
+                        const defaults: Record<string, string> = {}
+                        if (template) {
+                          for (const f of extractChoiceFields(template.content)) {
+                            defaults[f.key] = f.optionA
+                          }
+                        }
+                        setContractAdminFields(defaults)
+                      }}
+                    >
+                      <SelectTrigger className="w-full h-9">
+                        <SelectValue placeholder="Velg mal" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {templates.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {contractNeedsCompany && (
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Bedrift</Label>
+                      <Select value={contractCompanyId} onValueChange={(val) => val && setContractCompanyId(val)}>
+                        <SelectTrigger className="w-full h-9">
+                          <SelectValue placeholder="Velg bedrift" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {companies.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {contractChoiceFields.map((f) => (
+                    <div key={f.key} className="flex flex-col gap-1.5">
+                      <Label className="capitalize">{f.key}</Label>
+                      <RadioGroup
+                        value={contractAdminFields[f.key] ?? f.optionA}
+                        onValueChange={(val) => setContractAdminFields(prev => ({ ...prev, [f.key]: val }))}
+                      >
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value={f.optionA} id={`new-choice-${f.key}-a`} />
+                          <Label htmlFor={`new-choice-${f.key}-a`} className="font-normal">{f.optionA}</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <RadioGroupItem value={f.optionB} id={`new-choice-${f.key}-b`} />
+                          <Label htmlFor={`new-choice-${f.key}-b`} className="font-normal">{f.optionB}</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  ))}
+
+                  {contractAdminTokens.map((token) => (
+                    <div key={token} className="flex flex-col gap-1.5">
+                      <Label htmlFor={`new-field-${token}`} className="capitalize">{token}</Label>
+                      <Input
+                        id={`new-field-${token}`}
+                        type={token === 'tiltredelsesdato' ? 'date' : 'text'}
+                        value={contractAdminFields[token] ?? ''}
+                        onChange={(e) => setContractAdminFields(prev => ({ ...prev, [token]: e.target.value }))}
+                        required
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="send-uniform"
+                  checked={sendUniform}
+                  onCheckedChange={(val) => setSendUniform(val === true)}
+                />
+                <Label htmlFor="send-uniform" className="font-normal">
+                  Send uniform/utstyr samtidig
+                </Label>
+              </div>
+
+              {sendUniform && (
+                <div className="flex flex-col gap-3 rounded-md border border-input p-3">
+                  {uniformRows.map((row, i) => {
+                    const isCard = needsCardCredentials(row.type)
+                    return (
+                      <div key={i} className="flex items-center gap-2 flex-wrap">
+                        <Select value={row.type} onValueChange={(val) => val && updateUniformRow(i, { type: val })}>
+                          <SelectTrigger className="w-36 h-9 shrink-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {UNIFORM_TYPES.map((t) => (
+                              <SelectItem key={t} value={t}>{t}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {isCard ? (
+                          <>
+                            <Input
+                              placeholder="Kortnummer"
+                              value={row.cardNumber}
+                              onChange={(e) => updateUniformRow(i, { cardNumber: e.target.value })}
+                              className="w-32 h-9 shrink-0"
+                            />
+                            <Input
+                              placeholder="Passord/kode"
+                              value={row.cardPassword}
+                              onChange={(e) => updateUniformRow(i, { cardPassword: e.target.value })}
+                              className="w-32 h-9 shrink-0"
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <Select value={row.size} onValueChange={(val) => val && updateUniformRow(i, { size: val })}>
+                              <SelectTrigger className="w-24 h-9 shrink-0">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {UNIFORM_SIZES.map((s) => (
+                                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={row.quantity}
+                              onChange={(e) => updateUniformRow(i, { quantity: Math.max(1, Number(e.target.value)) })}
+                              className="w-16 h-9 shrink-0"
+                            />
+                          </>
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setUniformRows(prev => prev.filter((_, idx) => idx !== i))}
+                          disabled={uniformRows.length === 1}
+                        >
+                          Fjern
+                        </Button>
+                      </div>
+                    )
+                  })}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    onClick={() => setUniformRows(prev => [...prev, emptyUniformRow()])}
+                  >
+                    + Legg til utstyr
+                  </Button>
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="uniform-send-email"
+                      checked={uniformSendEmail}
+                      onCheckedChange={(val) => setUniformSendEmail(val === true)}
+                    />
+                    <Label htmlFor="uniform-send-email" className="font-normal">
+                      Send e-post og be om signatur
+                    </Label>
+                  </div>
+                </div>
+              )}
             </div>
 
             <DialogFooter>

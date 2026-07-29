@@ -134,7 +134,7 @@ export default function SurveysPage() {
   })
 
   return (
-    <div className="relative max-w-4xl py-10 px-4 overflow-hidden">
+    <div className="relative max-w-4xl p-6 md:p-12 overflow-hidden">
       <OrganicBlob className="pointer-events-none absolute -right-20 -top-24 -z-10 h-72 w-72 opacity-90" />
       <OrganicBlob className="pointer-events-none absolute -left-24 top-72 -z-10 h-56 w-56 opacity-60 rotate-45" />
       <OrganicBlob className="pointer-events-none absolute right-10 bottom-0 -z-10 h-48 w-48 opacity-40 -rotate-12" />

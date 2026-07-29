@@ -182,7 +182,7 @@ export default function ReviewsPage() {
   })
 
   return (
-    <div className="max-w-4xl py-10 px-4">
+    <div className="max-w-4xl p-6 md:p-12">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
           <IconBadge icon={<MessageSquare className="size-4" />} />

@@ -187,7 +187,8 @@ export default function ReviewDetailPage() {
     if (!review) return
     setCompleting(true)
 
-    const nowIso = new Date().toISOString()
+    const now = new Date()
+    const nowIso = now.toISOString()
     const { error } = await supabase
       .from('reviews')
       .update({ status: 'completed', completed_at: nowIso })
@@ -195,6 +196,13 @@ export default function ReviewDetailPage() {
 
     if (!error) {
       setReview(prev => prev ? { ...prev, status: 'completed', completed_at: nowIso } : prev)
+
+      const nextReviewDate = new Date(now)
+      nextReviewDate.setMonth(nextReviewDate.getMonth() + 6)
+      await supabase
+        .from('profiles')
+        .update({ next_review_date: nextReviewDate.toISOString().slice(0, 10) })
+        .eq('id', review.employee_id)
     }
     setCompleting(false)
   }
@@ -223,7 +231,7 @@ export default function ReviewDetailPage() {
   }
 
   return (
-    <div className="py-10 px-4 max-w-2xl">
+    <div className="p-6 md:p-12 max-w-2xl">
       <div className="flex items-center justify-between mb-6">
         <Link
           href="/reviews"

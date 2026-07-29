@@ -73,6 +73,7 @@ type PersonProfile = {
   start_date: string | null
   end_date: string | null
   next_review_date: string | null
+  is_active: boolean
 }
 
 type DirectoryProfile = {
@@ -284,6 +285,15 @@ function PersonDetailPageInner() {
     setResending(false)
   }
 
+  const handleToggleActive = async () => {
+    if (!person) return
+    const nextActive = !person.is_active
+    const { error } = await supabase.from('profiles').update({ is_active: nextActive }).eq('id', id)
+    if (!error) {
+      setPerson(prev => prev ? { ...prev, is_active: nextActive } : prev)
+    }
+  }
+
   const handleDelete = async () => {
     setDeleting(true)
     const { data: { session } } = await supabase.auth.getSession()
@@ -448,6 +458,9 @@ function PersonDetailPageInner() {
                   {resending ? 'Sender...' : 'Send invitasjon på nytt'}
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem onClick={handleToggleActive}>
+                {person.is_active ? 'Deaktiver' : 'Aktiver'}
+              </DropdownMenuItem>
               {isRealAdmin && (
                 <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
                   Slett
@@ -467,7 +480,10 @@ function PersonDetailPageInner() {
           onUploaded={(url) => setPerson(prev => prev ? { ...prev, avatar_url: url } : prev)}
         />
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-brand-navy dark:text-white">{person.full_name || '—'}</h1>
+          <h1 className="text-xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
+            {person.full_name || '—'}
+            {!person.is_active && <Badge variant="secondary">Inaktiv</Badge>}
+          </h1>
           <p className="text-muted-foreground text-sm">{person.title || '—'}</p>
         </div>
         {isAdmin && isPendingInvite && (

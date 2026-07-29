@@ -255,7 +255,7 @@ export default function ContractsPage() {
   })
 
   return (
-    <div className="max-w-4xl py-10 px-4 space-y-8">
+    <div className="max-w-4xl p-6 md:p-12 space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
           <IconBadge icon={<FileText className="size-4" />} />

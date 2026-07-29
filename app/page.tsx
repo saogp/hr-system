@@ -11,12 +11,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { GreetingIllustration } from '@/components/decorative/greeting-illustration'
 import { AllDoneIllustration } from '@/components/decorative/all-done-illustration'
-import { ClipboardCheck, FileText, MessageSquare, ShieldAlert, ChevronRight, Sparkles, UserCheck, type LucideIcon } from 'lucide-react'
+import { ClipboardCheck, FileText, MessageSquare, ShieldAlert, ChevronRight, Sparkles, UserCheck, Package, Info, type LucideIcon } from 'lucide-react'
+import { needsCardCredentials } from '@/lib/uniform-items'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { computeCategoryScores, computeResponseScore, type ScoredQuestion } from '@/lib/survey-score'
 import type { SurveyCategory } from '@/lib/survey-categories'
 import { computeProfileCompletion } from '@/lib/profile-completion'
-import { ProfileCompletionBar } from '@/components/profile-completion-bar'
+import { StatTile } from '@/components/ui/stat-tile'
 
 function getTimeOfDayGreeting() {
   const hour = new Date().getHours()
@@ -38,6 +39,46 @@ function getDateLine() {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1)
 }
 
+function getAnniversaryLabel(startDate: string | null): string | null {
+  if (!startDate) return null
+
+  const start = new Date(startDate)
+  const today = new Date()
+
+  if (today.getDate() !== start.getDate()) return null
+
+  const monthsSinceStart =
+    (today.getFullYear() - start.getFullYear()) * 12 + (today.getMonth() - start.getMonth())
+
+  if (monthsSinceStart < 12 || monthsSinceStart % 6 !== 0) return null
+
+  const years = Math.floor(monthsSinceStart / 12)
+  const remainderMonths = monthsSinceStart % 12
+  return remainderMonths === 0 ? `${years} år` : `${years} år og ${remainderMonths} måneder`
+}
+
+const FUN_FACTS = [
+  'Visste du at den første pizzaen med tomat, mozzarella og basilikum ble laget i Napoli i 1889, og fargene skal ha representert det italienske flagget?',
+  'Visste du at ordet «pizza» dukket opp skriftlig for første gang i Italia allerede i år 997?',
+  'Visste du at verdens største pizza noensinne ble laget i Roma i 2012 og veide over 19 tonn?',
+  'Visste du at italienere spiser pizza med kniv og gaffel, mens resten av verden ofte tar den med hendene?',
+  'Visste du at 9. februar er internasjonal pizzadag?',
+  'Gåte: Hva blir mer verdt jo mer du bruker av det? (Svar: Erfaring)',
+  'Gåte: Hva har mange nøkler, men kan ikke åpne en eneste dør? (Svar: Et piano)',
+  'Visste du at det å ta korte pauser i løpet av arbeidsdagen kan gjøre deg mer produktiv, ikke mindre?',
+  'Visste du at et smil, selv et påtatt et, kan bidra til å redusere stress?',
+  'Gåte: Jo mer du tar bort fra meg, jo større blir jeg. Hva er jeg? (Svar: Et hull)',
+  'Visste du at gjennomsnittlig nordmann drikker over 8 kg kaffe i året — en av de høyeste tallene i verden?',
+  'Visste du at det tar rundt 20 minutter for hjernen å registrere at magen er mett?',
+]
+
+function getFunFactOfTheDay(): string {
+  const start = new Date(new Date().getFullYear(), 0, 0)
+  const diff = Date.now() - start.getTime()
+  const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24))
+  return FUN_FACTS[dayOfYear % FUN_FACTS.length]
+}
+
 type MyContract = {
   id: string
   sent_at: string
@@ -57,6 +98,11 @@ type MySurvey = {
   submitted_at: string | null
   responses: Record<string, string> | null
   surveys: { title: string; questions: ScoredQuestion[] } | null
+}
+
+type MyUniformIssuance = {
+  id: string
+  items: { type: string; size: string; quantity: number; card_number: string | null }[]
 }
 
 type MyTask = {
@@ -91,6 +137,7 @@ export default function DashboardPage() {
   const [nextReviewDate, setNextReviewDate] = useState<string | null>(null)
   const [myReviews, setMyReviews] = useState<MyReview[]>([])
   const [mySurveys, setMySurveys] = useState<MySurvey[]>([])
+  const [myUniformIssuances, setMyUniformIssuances] = useState<MyUniformIssuance[]>([])
   const [myTasks, setMyTasks] = useState<MyTask[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [unsignedContracts, setUnsignedContracts] = useState<UnsignedContract[]>([])
@@ -99,8 +146,11 @@ export default function DashboardPage() {
   const [engagementCategories, setEngagementCategories] = useState<{ category: SurveyCategory; label: string; score: number | null }[]>([])
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [profileCompletionPercent, setProfileCompletionPercent] = useState(100)
+  const [profileMissingLabels, setProfileMissingLabels] = useState<string[]>([])
   const [birthdaysToday, setBirthdaysToday] = useState<string[]>([])
   const [myBirthdayToday, setMyBirthdayToday] = useState(false)
+  const [anniversaryLabel, setAnniversaryLabel] = useState<string | null>(null)
+  const [companyActiveCounts, setCompanyActiveCounts] = useState<{ name: string; count: number }[]>([])
   const router = useRouter()
 
   useEffect(() => {
@@ -115,11 +165,13 @@ export default function DashboardPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, next_review_date, role, birth_date, phone, address, emergency_contact_name, emergency_contact_phone, avatar_url')
+        .select('full_name, next_review_date, role, birth_date, start_date, phone, address, emergency_contact_name, emergency_contact_phone, avatar_url')
         .eq('id', user.id)
         .maybeSingle()
 
-      setProfileCompletionPercent(computeProfileCompletion(profile ?? {}).percent)
+      const completion = computeProfileCompletion(profile ?? {})
+      setProfileCompletionPercent(completion.percent)
+      setProfileMissingLabels(completion.missing.map((f) => f.label))
 
       setUserName(profile?.full_name || user.email || 'Ansatt')
       setNextReviewDate(profile?.next_review_date ?? null)
@@ -130,6 +182,7 @@ export default function DashboardPage() {
       if (profile?.birth_date && profile.birth_date.slice(5, 10) === todayMonthDay) {
         setMyBirthdayToday(true)
       }
+      setAnniversaryLabel(getAnniversaryLabel(profile?.start_date ?? null))
 
       if (admin) {
         const { data: allBirthdays } = await supabase
@@ -141,6 +194,43 @@ export default function DashboardPage() {
             .filter((p) => p.birth_date && p.birth_date.slice(5, 10) === todayMonthDay)
             .map((p) => p.full_name || 'Ukjent')
           setBirthdaysToday(names)
+        }
+      } else {
+        const { data: directoryData } = await supabase.rpc('get_people_directory')
+        if (directoryData) {
+          const names = (directoryData as { id: string; full_name: string | null; is_birthday_today: boolean }[])
+            .filter((p) => p.is_birthday_today && p.id !== user.id)
+            .map((p) => p.full_name || 'Ukjent')
+          setBirthdaysToday(names)
+        }
+      }
+
+      if (admin) {
+        const { data: myCompanyLinks } = await supabase
+          .from('profile_companies')
+          .select('company_id, companies(name)')
+          .eq('profile_id', user.id)
+
+        if (myCompanyLinks && myCompanyLinks.length > 0) {
+          const companyIds = myCompanyLinks.map((c) => c.company_id)
+          const { data: allLinks } = await supabase
+            .from('profile_companies')
+            .select('company_id, profiles(is_active)')
+            .in('company_id', companyIds)
+
+          const counts = new Map<string, number>()
+          for (const link of (allLinks ?? []) as unknown as { company_id: string; profiles: { is_active: boolean } | null }[]) {
+            if (link.profiles?.is_active) {
+              counts.set(link.company_id, (counts.get(link.company_id) ?? 0) + 1)
+            }
+          }
+
+          setCompanyActiveCounts(
+            (myCompanyLinks as unknown as { company_id: string; companies: { name: string } | null }[]).map((c) => ({
+              name: c.companies?.name ?? '—',
+              count: counts.get(c.company_id) ?? 0,
+            }))
+          )
         }
 
         const { data: unsignedData } = await supabase
@@ -174,21 +264,6 @@ export default function DashboardPage() {
           setEngagementOverall(overall)
           setEngagementCategories(categories)
         }
-      } else {
-        const { data: mySurveysData } = await supabase
-          .from('survey_recipients')
-          .select('survey_id, responses, surveys!survey_recipients_survey_id_fkey(questions)')
-          .eq('profile_id', user.id)
-          .not('submitted_at', 'is', null)
-
-        if (mySurveysData) {
-          const entries = (mySurveysData as unknown as { surveys: { questions: ScoredQuestion[] } | null; responses: Record<string, string> }[])
-            .map((r) => ({ questions: r.surveys?.questions ?? [], responses: r.responses }))
-            .filter((e) => e.questions.length > 0)
-          const { overall, categories } = computeCategoryScores(entries)
-          setEngagementOverall(overall)
-          setEngagementCategories(categories)
-        }
       }
 
       const { data: contractsData } = await supabase
@@ -214,6 +289,14 @@ export default function DashboardPage() {
         .order('id')
 
       if (myFullSurveysData) setMySurveys(myFullSurveysData as unknown as MySurvey[])
+
+      const { data: myUniformData } = await supabase
+        .from('uniform_issuances')
+        .select('id, items')
+        .eq('profile_id', user.id)
+        .is('employee_signed_at', null)
+
+      if (myUniformData) setMyUniformIssuances(myUniformData as unknown as MyUniformIssuance[])
 
       const { data: tasksData } = await supabase
         .from('review_tasks')
@@ -256,6 +339,16 @@ export default function DashboardPage() {
 
   const actionItems: ActionItem[] = []
 
+  if (profileCompletionPercent < 100 && currentUserId) {
+    actionItems.push({
+      id: 'profile-completion',
+      icon: UserCheck,
+      label: 'Fyll ut profilen din',
+      sublabel: `Mangler: ${profileMissingLabels.join(', ')}`,
+      href: `/people/${currentUserId}?edit=1`,
+    })
+  }
+
   for (const t of myTasks) {
     actionItems.push({
       id: `task-${t.id}`,
@@ -273,6 +366,20 @@ export default function DashboardPage() {
       icon: FileText,
       label: `Signer kontrakt: ${c.contract_templates?.name || 'Kontrakt'}`,
       href: `/contracts/${c.id}`,
+    })
+  }
+
+  for (const u of myUniformIssuances) {
+    actionItems.push({
+      id: `uniform-${u.id}`,
+      icon: Package,
+      label: 'Bekreft mottak av utstyr',
+      sublabel: u.items
+        .map((i) => needsCardCredentials(i.type)
+          ? `${i.type}${i.card_number ? ` (nr. ${i.card_number})` : ''}`
+          : `${i.type}${i.size !== 'Ingen' ? ` (${i.size})` : ''}`)
+        .join(', '),
+      href: `/uniformer/${u.id}`,
     })
   }
 
@@ -308,7 +415,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-5xl p-8 space-y-6">
+    <div className="max-w-5xl p-6 md:p-12 space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 shadow-none border-brand-navy/10 bg-brand-cream dark:bg-white/5 overflow-hidden relative py-0">
           <CardContent className="p-6 flex items-center justify-between gap-4 relative z-10">
@@ -342,6 +449,11 @@ export default function DashboardPage() {
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <IconBadge icon={<ClipboardCheck className="size-4" />} />
               Gjøremål
+              {actionItems.length > 0 && (
+                <Badge className="bg-brand-orange/15 text-brand-navy dark:text-brand-orange hover:bg-brand-orange/15">
+                  {actionItems.length}
+                </Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -381,88 +493,77 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <Card className="shadow-none border-border">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <IconBadge icon={<UserCheck className="size-4" />} />
-            Profilutfylling
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ProfileCompletionBar percent={profileCompletionPercent} />
-          <p className="text-sm mt-3">
-            {profileCompletionPercent === 100
-              ? 'Profilen din er komplett!'
-              : profileCompletionPercent >= 70
-              ? 'Profilen din er sterk!'
-              : 'Fyll ut mer for en sterkere profil.'}
-            {profileCompletionPercent < 100 && currentUserId && (
-              <>
-                {' '}
-                <Link href={`/people/${currentUserId}?edit=1`} className="underline underline-offset-2 hover:text-brand-orange">
-                  Se hva som mangler
-                </Link>
-              </>
-            )}
-          </p>
-        </CardContent>
-      </Card>
+      {isAdmin && companyActiveCounts.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-3">
+          {companyActiveCounts.map((c) => (
+            <StatTile key={c.name} label={`Aktive ansatte · ${c.name}`} value={c.count} />
+          ))}
+        </div>
+      )}
 
-      {(myBirthdayToday || birthdaysToday.length > 0) && (
-        <Card className="shadow-none border-brand-navy/10 bg-brand-cream dark:bg-white/5">
-          <CardContent className="py-4">
-            <p className="text-sm font-medium">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className={`shadow-none border-border ${isAdmin ? '' : 'lg:col-span-3'}`}>
+          <CardHeader>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <IconBadge icon={<Info className="size-4" />} />
+              Visste du at
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm">
               {myBirthdayToday && birthdaysToday.length > 0
                 ? `🎉 Gratulerer med dagen! I dag er det også bursdag til ${birthdaysToday.join(', ')}.`
                 : myBirthdayToday
                 ? '🎉 Gratulerer med dagen!'
-                : `🎉 I dag er det bursdag til ${birthdaysToday.join(', ')}!`}
+                : birthdaysToday.length > 0
+                ? `🎉 I dag er det bursdag til ${birthdaysToday.join(', ')}!`
+                : anniversaryLabel
+                ? `Du har jobbet her i ${anniversaryLabel} — gratulerer med jubileum!`
+                : getFunFactOfTheDay()}
             </p>
           </CardContent>
         </Card>
-      )}
 
-      <Card className="shadow-none border-border">
-        <CardHeader>
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <IconBadge icon={<Sparkles className="size-4" />} />
-            Trivselspuls
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {engagementOverall === null ? (
-            <p className="text-sm text-muted-foreground">
-              {isAdmin
-                ? 'Ingen skala-baserte undersøkelser er besvart enda. Send en undersøkelse med skala-spørsmål (f.eks. Trivselsundersøkelse) for å se en samlet score her.'
-                : 'Du har ikke besvart noen skala-baserte undersøkelser enda. Svar på en undersøkelse (f.eks. Trivselsundersøkelse) for å se din egen score her.'}
-            </p>
-          ) : (
-            <div className="flex flex-col sm:flex-row gap-6">
-              <div className="flex flex-row sm:flex-col items-baseline sm:items-start gap-2 sm:gap-1 shrink-0 sm:w-28">
-                <p className="text-4xl font-bold text-brand-navy dark:text-white">{engagementOverall}</p>
-                <p className="text-xs text-muted-foreground">
-                  {isAdmin ? 'av alle besvarte undersøkelser' : 'basert på dine svar'}
-                </p>
-              </div>
-              <div className="flex-1 space-y-3">
-                {engagementCategories.map((c) => (
-                  <div key={c.category} className="flex items-center gap-3">
-                    <span className="w-28 text-sm shrink-0 truncate">{c.label}</span>
-                    <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                      {c.score !== null && (
-                        <div className="h-full bg-brand-orange rounded-full" style={{ width: `${c.score}%` }} />
-                      )}
+        {isAdmin && (
+        <Card className="lg:col-span-2 shadow-none border-border">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <IconBadge icon={<Sparkles className="size-4" />} />
+              Trivselspuls
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {engagementOverall === null ? (
+              <p className="text-sm text-muted-foreground">
+                Ingen skala-baserte undersøkelser er besvart enda. Send en undersøkelse med skala-spørsmål (f.eks. Trivselsundersøkelse) for å se en samlet score her.
+              </p>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-6">
+                <div className="flex flex-row sm:flex-col items-baseline sm:items-start gap-2 sm:gap-1 shrink-0 sm:w-28">
+                  <p className="text-4xl font-bold text-brand-navy dark:text-white">{engagementOverall}</p>
+                  <p className="text-xs text-muted-foreground">av alle besvarte undersøkelser</p>
+                </div>
+                <div className="flex-1 space-y-3">
+                  {engagementCategories.map((c) => (
+                    <div key={c.category} className="flex items-center gap-3">
+                      <span className="w-28 text-sm shrink-0 truncate">{c.label}</span>
+                      <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                        {c.score !== null && (
+                          <div className="h-full bg-brand-orange rounded-full" style={{ width: `${c.score}%` }} />
+                        )}
+                      </div>
+                      <span className={`w-8 text-sm text-right shrink-0 ${c.score === null ? 'text-muted-foreground' : ''}`}>
+                        {c.score !== null ? c.score : '–'}
+                      </span>
                     </div>
-                    <span className={`w-8 text-sm text-right shrink-0 ${c.score === null ? 'text-muted-foreground' : ''}`}>
-                      {c.score !== null ? c.score : '–'}
-                    </span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+        )}
+      </div>
 
       {!isAdmin && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

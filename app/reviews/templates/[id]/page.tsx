@@ -108,7 +108,7 @@ export default function ReviewTemplateEditorPage() {
   }
 
   return (
-    <div className="py-10 px-4 max-w-2xl">
+    <div className="p-6 md:p-12 max-w-2xl">
       <Link
         href="/settings"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
