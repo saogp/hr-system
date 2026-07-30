@@ -20,6 +20,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DateInput } from '@/components/ui/date-input'
 import { Label } from '@/components/ui/label'
 
 type Template = {
@@ -263,15 +264,26 @@ function NewContractPageInner() {
         {adminTokens.map((token) => (
           <div key={token} className="flex flex-col gap-1.5">
             <Label htmlFor={`field-${token}`} className="capitalize">{token}</Label>
-            <Input
-              id={`field-${token}`}
-              type={token === 'tiltredelsesdato' ? 'date' : 'text'}
-              value={adminFieldValues[token] ?? ''}
-              onChange={(e) =>
-                setAdminFieldValues(prev => ({ ...prev, [token]: e.target.value }))
-              }
-              required
-            />
+            {token === 'tiltredelsesdato' ? (
+              <DateInput
+                id={`field-${token}`}
+                value={adminFieldValues[token] ?? ''}
+                onChange={(e) =>
+                  setAdminFieldValues(prev => ({ ...prev, [token]: e.target.value }))
+                }
+                required
+              />
+            ) : (
+              <Input
+                id={`field-${token}`}
+                type="text"
+                value={adminFieldValues[token] ?? ''}
+                onChange={(e) =>
+                  setAdminFieldValues(prev => ({ ...prev, [token]: e.target.value }))
+                }
+                required
+              />
+            )}
           </div>
         ))}
 

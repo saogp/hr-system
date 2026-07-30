@@ -12,6 +12,7 @@ import { IconBadge } from '@/components/ui/icon-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DateInput } from '@/components/ui/date-input'
 import {
   Select,
   SelectContent,
@@ -228,10 +229,10 @@ export default function RenholdPage() {
               </Select>
             </FilterField>
             <FilterField label="Fra dato">
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full" />
+              <DateInput value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full" />
             </FilterField>
             <FilterField label="Til dato">
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full" />
+              <DateInput value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full" />
             </FilterField>
             {historyFilterCount > 0 && (
               <Button

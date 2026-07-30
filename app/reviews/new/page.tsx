@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { DateInput } from '@/components/ui/date-input'
 import { Label } from '@/components/ui/label'
 
 type PersonOption = {
@@ -199,9 +200,8 @@ function NewReviewPageInner() {
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="scheduled-date">Dato</Label>
-          <Input
+          <DateInput
             id="scheduled-date"
-            type="date"
             value={scheduledDate}
             onChange={(e) => setScheduledDate(e.target.value)}
             required
