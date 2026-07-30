@@ -1,0 +1,195 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
+import { sendPushNotification } from '@/lib/push-client'
+import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+import { useToastManager } from '@/components/ui/toast'
+import { ArrowLeft } from 'lucide-react'
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+
+type PersonOption = {
+  id: string
+  full_name: string | null
+  email: string | null
+}
+
+type ReviewTemplate = {
+  id: string
+  name: string
+  questions: { id: string; text: string }[]
+}
+
+export default function NewReviewPage() {
+  const router = useRouter()
+  const toastManager = useToastManager()
+  const [loading, setLoading] = useState(true)
+  const [people, setPeople] = useState<PersonOption[]>([])
+  const [templates, setTemplates] = useState<ReviewTemplate[]>([])
+
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
+  const [selectedLeaderId, setSelectedLeaderId] = useState('')
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  const [scheduledDate, setScheduledDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [scheduling, setScheduling] = useState(false)
+
+  useEffect(() => {
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.replace('/login')
+        return
+      }
+
+      const { data: viewerProfile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (!isAdminLike(applyRoleOverride(viewerProfile?.role ?? 'employee'))) {
+        router.replace('/reviews')
+        return
+      }
+
+      const { data: peopleData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .order('full_name')
+      if (peopleData) setPeople(peopleData)
+
+      const { data: templatesData } = await supabase
+        .from('review_templates')
+        .select('id, name, questions')
+        .order('name')
+      if (templatesData) setTemplates(templatesData)
+
+      setLoading(false)
+    }
+
+    load()
+  }, [router])
+
+  const handleSchedule = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setScheduling(true)
+    const template = templates.find(t => t.id === selectedTemplateId)
+
+    const { error } = await supabase.from('reviews').insert({
+      employee_id: selectedEmployeeId,
+      leader_id: selectedLeaderId || null,
+      template_id: selectedTemplateId || null,
+      scheduled_date: scheduledDate,
+      questions: template?.questions ?? [],
+    })
+
+    if (!error) {
+      const dateLabel = new Date(scheduledDate).toLocaleDateString('no-NO', { day: 'numeric', month: 'long', year: 'numeric' })
+      sendPushNotification(selectedEmployeeId, 'Medarbeidersamtale planlagt', `Du har fått en medarbeidersamtale ${dateLabel}.`, '/reviews')
+      toastManager.add({ title: 'Medarbeidersamtale planlagt', description: `Planlagt ${dateLabel}.` })
+      router.push('/reviews')
+      return
+    }
+    setScheduling(false)
+  }
+
+  if (loading) {
+    return <div className="p-8">Laster...</div>
+  }
+
+  return (
+    <div className="p-6 max-w-2xl">
+      <Link
+        href="/reviews"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
+      >
+        <ArrowLeft className="size-4" />
+        Tilbake til medarbeidersamtaler
+      </Link>
+
+      <h1 className="text-2xl font-bold text-brand-navy dark:text-white mb-1">Ny medarbeidersamtale</h1>
+      <p className="text-muted-foreground text-sm mb-6">Velg ansatt, leder og en samtalemal.</p>
+
+      <form onSubmit={handleSchedule} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label>Ansatt</Label>
+          <Select value={selectedEmployeeId} onValueChange={(val) => val && setSelectedEmployeeId(val)}>
+            <SelectTrigger className="w-full h-9">
+              <SelectValue placeholder="Velg ansatt" />
+            </SelectTrigger>
+            <SelectContent>
+              {people.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.full_name || p.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label>Leder (vert)</Label>
+          <Select value={selectedLeaderId} onValueChange={(val) => val && setSelectedLeaderId(val)}>
+            <SelectTrigger className="w-full h-9">
+              <SelectValue placeholder="Velg leder" />
+            </SelectTrigger>
+            <SelectContent>
+              {people.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.full_name || p.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label>Mal</Label>
+          <Select value={selectedTemplateId} onValueChange={(val) => val && setSelectedTemplateId(val)}>
+            <SelectTrigger className="w-full h-9">
+              <SelectValue placeholder="Velg mal" />
+            </SelectTrigger>
+            <SelectContent>
+              {templates.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="scheduled-date">Dato</Label>
+          <Input
+            id="scheduled-date"
+            type="date"
+            value={scheduledDate}
+            onChange={(e) => setScheduledDate(e.target.value)}
+            required
+          />
+        </div>
+
+        <Button
+          type="submit"
+          disabled={scheduling || !selectedEmployeeId || !selectedTemplateId}
+          className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium w-fit"
+        >
+          {scheduling ? 'Planlegger...' : 'Planlegg samtale'}
+        </Button>
+      </form>
+    </div>
+  )
+}

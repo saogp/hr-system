@@ -4,9 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { getAdminTokens, extractChoiceFields, usesCompanyTokens } from '@/lib/contract-tokens'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
-import { useToastManager } from '@/components/ui/toast'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 
 import {
@@ -16,14 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,7 +31,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -55,12 +44,6 @@ type Template = {
   name: string
   content: string
   created_at: string
-}
-
-type EmployeeOption = {
-  id: string
-  full_name: string | null
-  email: string | null
 }
 
 type Company = {
@@ -86,19 +69,12 @@ type ContractRow = {
 
 export default function ContractsPage() {
   const router = useRouter()
-  const toastManager = useToastManager()
   const [role, setRole] = useState<'admin' | 'manager' | 'employee' | null>(null)
   const [templates, setTemplates] = useState<Template[]>([])
-  const [employees, setEmployees] = useState<EmployeeOption[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [contracts, setContracts] = useState<ContractRow[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [sendOpen, setSendOpen] = useState(false)
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
-  const [selectedTemplateId, setSelectedTemplateId] = useState('')
-  const [selectedCompanyId, setSelectedCompanyId] = useState('')
-  const [adminFieldValues, setAdminFieldValues] = useState<Record<string, string>>({})
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
@@ -131,12 +107,6 @@ export default function ContractsPage() {
           .order('created_at', { ascending: false })
         if (templatesData) setTemplates(templatesData)
 
-        const { data: employeesData } = await supabase
-          .from('profiles')
-          .select('id, full_name, email')
-          .order('full_name')
-        if (employeesData) setEmployees(employeesData)
-
         const { data: companiesData } = await supabase
           .from('companies')
           .select('*')
@@ -166,41 +136,6 @@ export default function ContractsPage() {
   useEffect(() => {
     setPage(1)
   }, [search, companyFilter, monthFilter])
-
-  const refetchContracts = async () => {
-    if (isAdminLike(role)) {
-      const { data } = await supabase
-        .from('contracts')
-        .select('*, contract_templates!contracts_template_id_fkey(name), profiles!contracts_profile_id_fkey(full_name, email)')
-        .order('sent_at', { ascending: false })
-      if (data) setContracts(data as unknown as ContractRow[])
-    }
-  }
-
-  const selectedTemplate = templates.find(t => t.id === selectedTemplateId) ?? null
-  const adminTokens = selectedTemplate ? getAdminTokens(selectedTemplate.content) : []
-  const choiceFields = selectedTemplate ? extractChoiceFields(selectedTemplate.content) : []
-  const needsCompany = selectedTemplate ? usesCompanyTokens(selectedTemplate.content) : false
-
-  const handleSendContract = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const { error } = await supabase.from('contracts').insert({
-      template_id: selectedTemplateId,
-      profile_id: selectedEmployeeId,
-      company_id: needsCompany ? selectedCompanyId : null,
-      admin_fields: adminFieldValues,
-    })
-
-    if (!error) {
-      setSendOpen(false)
-      setSelectedEmployeeId('')
-      setSelectedTemplateId('')
-      setSelectedCompanyId('')
-      setAdminFieldValues({})
-      refetchContracts()
-      toastManager.add({ title: 'Kontrakt sendt', description: 'Den ansatte kan nå signere kontrakten.' })
-    }
-  }
 
   const handleDeleteContract = async () => {
     if (!deleteTargetId) return
@@ -308,7 +243,7 @@ export default function ContractsPage() {
               />
             </div>
             <Button
-              onClick={() => setSendOpen(true)}
+              onClick={() => router.push('/contracts/new')}
               disabled={templates.length === 0}
               className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium shrink-0"
             >
@@ -380,7 +315,7 @@ export default function ContractsPage() {
                 <div
                   key={c.id}
                   onClick={() => router.push(`/contracts/${c.id}`)}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50 cursor-pointer"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50 cursor-pointer"
                 >
                   {rowContent}
                 </div>
@@ -388,7 +323,7 @@ export default function ContractsPage() {
                 <Link
                   key={c.id}
                   href={`/contracts/${c.id}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50"
                 >
                   {rowContent}
                 </Link>
@@ -399,128 +334,6 @@ export default function ContractsPage() {
 
         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
       </div>
-
-      <Dialog open={sendOpen} onOpenChange={setSendOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Send kontrakt</DialogTitle>
-            <DialogDescription>
-              Velg ansatt og mal, og fyll inn det som er spesifikt for denne kontrakten.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSendContract} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label>Ansatt</Label>
-              <Select value={selectedEmployeeId} onValueChange={(val) => val && setSelectedEmployeeId(val)}>
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue placeholder="Velg ansatt" />
-                </SelectTrigger>
-                <SelectContent>
-                  {employees.map((emp) => (
-                    <SelectItem key={emp.id} value={emp.id}>
-                      {emp.full_name || emp.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Mal</Label>
-              <Select
-                value={selectedTemplateId}
-                onValueChange={(val) => {
-                  if (val) {
-                    setSelectedTemplateId(val)
-                    const template = templates.find(t => t.id === val)
-                    const defaults: Record<string, string> = {}
-                    if (template) {
-                      for (const f of extractChoiceFields(template.content)) {
-                        defaults[f.key] = f.optionA
-                      }
-                    }
-                    setAdminFieldValues(defaults)
-                  }
-                }}
-              >
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue placeholder="Velg mal" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {needsCompany && (
-              <div className="flex flex-col gap-1.5">
-                <Label>Bedrift</Label>
-                <Select value={selectedCompanyId} onValueChange={(val) => val && setSelectedCompanyId(val)}>
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue placeholder="Velg bedrift" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {companies.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            {choiceFields.map((f) => (
-              <div key={f.key} className="flex flex-col gap-1.5">
-                <Label className="capitalize">{f.key}</Label>
-                <RadioGroup
-                  value={adminFieldValues[f.key] ?? f.optionA}
-                  onValueChange={(val) => setAdminFieldValues(prev => ({ ...prev, [f.key]: val }))}
-                >
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem value={f.optionA} id={`choice-${f.key}-a`} />
-                    <Label htmlFor={`choice-${f.key}-a`} className="font-normal">{f.optionA}</Label>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem value={f.optionB} id={`choice-${f.key}-b`} />
-                    <Label htmlFor={`choice-${f.key}-b`} className="font-normal">{f.optionB}</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-            ))}
-
-            {adminTokens.map((token) => (
-              <div key={token} className="flex flex-col gap-1.5">
-                <Label htmlFor={`field-${token}`} className="capitalize">{token}</Label>
-                <Input
-                  id={`field-${token}`}
-                  type={token === 'tiltredelsesdato' ? 'date' : 'text'}
-                  value={adminFieldValues[token] ?? ''}
-                  onChange={(e) =>
-                    setAdminFieldValues(prev => ({ ...prev, [token]: e.target.value }))
-                  }
-                  required
-                />
-              </div>
-            ))}
-
-            <DialogFooter>
-              <Button
-                type="submit"
-                disabled={!selectedEmployeeId || !selectedTemplateId || (needsCompany && !selectedCompanyId)}
-                className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
-              >
-                Send kontrakt
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog open={deleteTargetId !== null} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
         <AlertDialogContent>

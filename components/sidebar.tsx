@@ -33,13 +33,13 @@ import {
 const navigation = [
   { name: 'Dashbord', href: '/', icon: LayoutDashboard },
   { name: 'Ansatte', href: '/people', icon: Users },
-  { name: 'Personalutstyr', href: '/uniformer', icon: Package, adminOnly: true },
   { name: 'Kontrakter', href: '/contracts', icon: FileText },
-  { name: 'Undersøkelser', href: '/surveys', icon: ClipboardList },
   { name: 'Medarbeidersamtaler', href: '/reviews', icon: MessageSquare },
+  { name: 'Undersøkelser', href: '/surveys', icon: ClipboardList },
 ]
 
-const facilitiesNavigation = [
+const driftNavigation = [
+  { name: 'Personalutstyr', href: '/uniformer', icon: Package, adminOnly: true },
   { name: 'Renhold', href: '/renhold', icon: SprayCan, adminOnly: true },
 ]
 
@@ -129,9 +129,7 @@ export function Sidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navigation
-                .filter((item) => !item.adminOnly || isAdminLike(applyRoleOverride(currentUser?.role ?? 'employee')))
-                .map((item) => (
+              {navigation.map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton
                     render={<Link href={item.href} onClick={closeMobileSidebar} />}
@@ -150,7 +148,7 @@ export function Sidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {facilitiesNavigation
+              {driftNavigation
                 .filter((item) => !item.adminOnly || isAdminLike(applyRoleOverride(currentUser?.role ?? 'employee')))
                 .map((item) => (
                 <SidebarMenuItem key={item.name}>

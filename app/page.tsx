@@ -445,6 +445,17 @@ export default function DashboardPage() {
         href: '/si-fra',
       })
     }
+
+    const uncleanedGroups = cleaningStatus.filter((s) => s.done < s.total)
+    if (uncleanedGroups.length > 0) {
+      actionItems.push({
+        id: 'renhold',
+        icon: SprayCan,
+        label: 'Renhold ikke fullført i dag',
+        sublabel: uncleanedGroups.map((s) => `${s.name} (${s.done}/${s.total})`).join(', '),
+        href: '/renhold',
+      })
+    }
   }
 
   return (

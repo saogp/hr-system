@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { sendPushNotification } from '@/lib/push-client'
 
 import {
   Select,
@@ -13,14 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,7 +34,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ChevronRight, MessageSquare, MoreHorizontal } from 'lucide-react'
 import { IconBadge } from '@/components/ui/icon-badge'
-import { useToastManager } from '@/components/ui/toast'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 
@@ -51,12 +41,6 @@ type PersonOption = {
   id: string
   full_name: string | null
   email: string | null
-}
-
-type ReviewTemplate = {
-  id: string
-  name: string
-  questions: { id: string; text: string }[]
 }
 
 type Company = { id: string; name: string }
@@ -72,11 +56,9 @@ type ReviewRow = {
 
 export default function ReviewsPage() {
   const router = useRouter()
-  const toastManager = useToastManager()
   const [role, setRole] = useState<'admin' | 'manager' | 'employee' | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [people, setPeople] = useState<PersonOption[]>([])
-  const [templates, setTemplates] = useState<ReviewTemplate[]>([])
   const [reviews, setReviews] = useState<ReviewRow[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [employeeCompanies, setEmployeeCompanies] = useState<Record<string, string[]>>({})
@@ -87,11 +69,6 @@ export default function ReviewsPage() {
   const [monthFilter, setMonthFilter] = useState('')
   const [page, setPage] = useState(1)
 
-  const [scheduleOpen, setScheduleOpen] = useState(false)
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
-  const [selectedLeaderId, setSelectedLeaderId] = useState('')
-  const [selectedTemplateId, setSelectedTemplateId] = useState('')
-  const [scheduledDate, setScheduledDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
@@ -117,12 +94,6 @@ export default function ReviewsPage() {
         .select('id, full_name, email')
         .order('full_name')
       if (peopleData) setPeople(peopleData)
-
-      const { data: templatesData } = await supabase
-        .from('review_templates')
-        .select('id, name, questions')
-        .order('name')
-      if (templatesData) setTemplates(templatesData)
 
       const { data: companiesData } = await supabase
         .from('companies')
@@ -165,31 +136,6 @@ export default function ReviewsPage() {
   useEffect(() => {
     setPage(1)
   }, [search, companyFilter, monthFilter])
-
-  const handleSchedule = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const template = templates.find(t => t.id === selectedTemplateId)
-
-    const { error } = await supabase.from('reviews').insert({
-      employee_id: selectedEmployeeId,
-      leader_id: selectedLeaderId || null,
-      template_id: selectedTemplateId || null,
-      scheduled_date: scheduledDate,
-      questions: template?.questions ?? [],
-    })
-
-    if (!error) {
-      setScheduleOpen(false)
-      const dateLabel = new Date(scheduledDate).toLocaleDateString('no-NO', { day: 'numeric', month: 'long', year: 'numeric' })
-      sendPushNotification(selectedEmployeeId, 'Medarbeidersamtale planlagt', `Du har fått en medarbeidersamtale ${dateLabel}.`, '/reviews')
-      toastManager.add({ title: 'Medarbeidersamtale planlagt', description: `Planlagt ${dateLabel}.` })
-      setSelectedEmployeeId('')
-      setSelectedLeaderId('')
-      setSelectedTemplateId('')
-      setScheduledDate(new Date().toISOString().slice(0, 10))
-      load()
-    }
-  }
 
   const handleDeleteReview = async () => {
     if (!deleteTargetId) return
@@ -262,7 +208,7 @@ export default function ReviewsPage() {
             />
           </div>
           <Button
-            onClick={() => setScheduleOpen(true)}
+            onClick={() => router.push('/reviews/new')}
             disabled={people.length === 0}
             className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium shrink-0"
           >
@@ -320,7 +266,7 @@ export default function ReviewsPage() {
               <div
                 key={r.id}
                 onClick={() => router.push(`/reviews/${r.id}`)}
-                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50 cursor-pointer"
+                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50 cursor-pointer"
               >
                 {rowContent}
               </div>
@@ -328,7 +274,7 @@ export default function ReviewsPage() {
               <Link
                 key={r.id}
                 href={`/reviews/${r.id}`}
-                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50"
+                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50"
               >
                 {rowContent}
               </Link>
@@ -338,86 +284,6 @@ export default function ReviewsPage() {
       </div>
 
       <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
-
-      <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ny medarbeidersamtale</DialogTitle>
-            <DialogDescription>Velg ansatt, leder og en samtalemal.</DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSchedule} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label>Ansatt</Label>
-              <Select value={selectedEmployeeId} onValueChange={(val) => val && setSelectedEmployeeId(val)}>
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue placeholder="Velg ansatt" />
-                </SelectTrigger>
-                <SelectContent>
-                  {people.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.full_name || p.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Leder (vert)</Label>
-              <Select value={selectedLeaderId} onValueChange={(val) => val && setSelectedLeaderId(val)}>
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue placeholder="Velg leder" />
-                </SelectTrigger>
-                <SelectContent>
-                  {people.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.full_name || p.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Mal</Label>
-              <Select value={selectedTemplateId} onValueChange={(val) => val && setSelectedTemplateId(val)}>
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue placeholder="Velg mal" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="scheduled-date">Dato</Label>
-              <Input
-                id="scheduled-date"
-                type="date"
-                value={scheduledDate}
-                onChange={(e) => setScheduledDate(e.target.value)}
-                required
-              />
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="submit"
-                disabled={!selectedEmployeeId || !selectedTemplateId}
-                className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
-              >
-                Planlegg samtale
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       <AlertDialog open={deleteTargetId !== null} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
         <AlertDialogContent>

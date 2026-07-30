@@ -246,7 +246,7 @@ export default function SurveysPage() {
                 <div
                   key={s.id}
                   onClick={() => router.push(`/surveys/${s.id}`)}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50 cursor-pointer"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50 cursor-pointer"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-base md:text-sm truncate">{s.title}</p>
@@ -291,7 +291,7 @@ export default function SurveysPage() {
               <Link
                 key={s.id}
                 href={`/surveys/${s.survey_id}`}
-                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50"
+                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50"
               >
                 <p className="font-medium text-base md:text-sm truncate">{s.surveys?.title || '—'}</p>
                 <div className="flex items-center gap-3 shrink-0">
