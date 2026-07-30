@@ -57,6 +57,12 @@ function getInitials(name: string) {
     .join('')
 }
 
+function getShortName(name: string) {
+  const parts = name.split(' ').filter(Boolean)
+  if (parts.length <= 1) return name
+  return `${parts[0]} ${parts[parts.length - 1]}`
+}
+
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
@@ -212,17 +218,14 @@ export function Sidebar() {
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
                       <span className="truncate font-medium">
-                        {currentUser?.name ?? 'Laster...'}
-                      </span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        {currentUser?.email ?? ''}
+                        {currentUser ? getShortName(currentUser.name) : 'Laster...'}
                       </span>
                     </div>
                     <ChevronRight className="size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
                   </SidebarMenuButton>
                 }
               />
-              <DropdownMenuContent side="top" align="end" className="w-(--anchor-width) min-w-56">
+              <DropdownMenuContent side="top" align="end" className="w-(--anchor-width)">
                 <DropdownMenuItem onClick={handleLogout} variant="destructive">
                   <LogOut />
                   Logg ut

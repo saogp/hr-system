@@ -218,16 +218,10 @@ export default function ReviewTemplateEditorPage() {
             </Button>
           </div>
         ))}
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => addQuestion('question')}>
-            <Plus className="size-4" />
-            Legg til spørsmål
-          </Button>
-          <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => addQuestion('heading')}>
-            <Plus className="size-4" />
-            Legg til overskrift
-          </Button>
-        </div>
+        <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => addQuestion('question')}>
+          <Plus className="size-4" />
+          Legg til spørsmål
+        </Button>
       </div>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
