@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { sendPushNotification } from '@/lib/push-client'
 import { UNIFORM_TYPES, UNIFORM_SIZES, needsCardCredentials } from '@/lib/uniform-items'
+import { useToastManager } from '@/components/ui/toast'
 
 import {
   Select,
@@ -28,6 +29,7 @@ const emptyRow = (): Row => ({ type: UNIFORM_TYPES[0], size: 'Ingen', quantity: 
 
 export default function NewUniformIssuancePage() {
   const router = useRouter()
+  const toastManager = useToastManager()
   const [loading, setLoading] = useState(true)
   const [people, setPeople] = useState<Person[]>([])
 
@@ -127,6 +129,7 @@ export default function NewUniformIssuancePage() {
       `/uniformer/${result.issuance.id}`
     )
 
+    toastManager.add({ title: 'Utlevering registrert', description: 'Utstyret er registrert.' })
     router.push('/uniformer')
   }
 
@@ -135,7 +138,7 @@ export default function NewUniformIssuancePage() {
   }
 
   return (
-    <div className="p-6 md:p-12 max-w-2xl">
+    <div className="p-6 max-w-2xl">
       <Link
         href="/uniformer"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"

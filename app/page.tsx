@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { GreetingIllustration } from '@/components/decorative/greeting-illustration'
 import { AllDoneIllustration } from '@/components/decorative/all-done-illustration'
-import { ClipboardCheck, FileText, MessageSquare, ShieldAlert, ChevronRight, Sparkles, UserCheck, Package, Info, type LucideIcon } from 'lucide-react'
+import { ClipboardCheck, ClipboardList, FileText, MessageSquare, ShieldAlert, ChevronRight, Sparkles, UserCheck, Package, Info, Users, SprayCan, type LucideIcon } from 'lucide-react'
 import { needsCardCredentials } from '@/lib/uniform-items'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { computeCategoryScores, computeResponseScore, type ScoredQuestion } from '@/lib/survey-score'
@@ -151,6 +151,7 @@ export default function DashboardPage() {
   const [myBirthdayToday, setMyBirthdayToday] = useState(false)
   const [anniversaryLabel, setAnniversaryLabel] = useState<string | null>(null)
   const [companyActiveCounts, setCompanyActiveCounts] = useState<{ name: string; count: number }[]>([])
+  const [cleaningStatus, setCleaningStatus] = useState<{ name: string; done: number; total: number }[]>([])
   const router = useRouter()
 
   useEffect(() => {
@@ -230,6 +231,29 @@ export default function DashboardPage() {
               name: c.companies?.name ?? '—',
               count: counts.get(c.company_id) ?? 0,
             }))
+          )
+        }
+
+        const { data: cleaningGroupsData } = await supabase
+          .from('cleaning_room_groups')
+          .select('id, name, sort_order')
+          .order('sort_order')
+        const { data: cleaningRoomsData } = await supabase
+          .from('cleaning_rooms')
+          .select('id, group_id')
+        const { data: cleaningChecksData } = await supabase
+          .from('cleaning_checks')
+          .select('room_id')
+          .eq('check_date', new Date().toISOString().slice(0, 10))
+
+        if (cleaningGroupsData && cleaningRoomsData) {
+          const doneRoomIds = new Set((cleaningChecksData ?? []).map((c) => c.room_id))
+          setCleaningStatus(
+            cleaningGroupsData.map((g) => {
+              const groupRooms = cleaningRoomsData.filter((r) => r.group_id === g.id)
+              const done = groupRooms.filter((r) => doneRoomIds.has(r.id)).length
+              return { name: g.name, done, total: groupRooms.length }
+            })
           )
         }
 
@@ -383,6 +407,15 @@ export default function DashboardPage() {
     })
   }
 
+  for (const s of mySurveys.filter((s) => !s.submitted_at)) {
+    actionItems.push({
+      id: `survey-${s.id}`,
+      icon: ClipboardList,
+      label: `Svar på undersøkelse: ${s.surveys?.title || 'Undersøkelse'}`,
+      href: `/surveys/${s.survey_id}`,
+    })
+  }
+
   if (reviewDueSoon && nextReviewDate) {
     actionItems.push({
       id: 'review-due',
@@ -415,7 +448,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-5xl p-6 md:p-12 space-y-6">
+    <div className="max-w-5xl p-6 space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 shadow-none border-brand-navy/10 bg-brand-cream dark:bg-white/5 overflow-hidden relative py-0">
           <CardContent className="p-6 flex items-center justify-between gap-4 relative z-10">
@@ -493,14 +526,6 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {isAdmin && companyActiveCounts.length > 0 && (
-        <div className="flex flex-col sm:flex-row gap-3">
-          {companyActiveCounts.map((c) => (
-            <StatTile key={c.name} label={`Aktive ansatte · ${c.name}`} value={c.count} />
-          ))}
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className={`shadow-none border-border ${isAdmin ? '' : 'lg:col-span-3'}`}>
           <CardHeader>
@@ -564,6 +589,50 @@ export default function DashboardPage() {
         </Card>
         )}
       </div>
+
+      {isAdmin && companyActiveCounts.length > 0 && (
+        <Card className="shadow-none border-border">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <IconBadge icon={<Users className="size-4" />} />
+              Ansatte
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col sm:flex-row gap-3">
+            {companyActiveCounts.map((c) => (
+              <StatTile key={c.name} label={c.name} value={c.count} />
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {isAdmin && cleaningStatus.length > 0 && (
+        <Card className="shadow-none border-border">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <IconBadge icon={<SprayCan className="size-4" />} />
+              Renhold
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Link href="/renhold" className="flex flex-col sm:flex-row gap-3">
+              {cleaningStatus.map((s) => (
+                <div
+                  key={s.name}
+                  className="flex-1 flex items-center justify-between gap-2 rounded-xl border border-brand-navy/10 bg-brand-cream dark:border-white/10 dark:bg-white/5 p-4 hover:bg-brand-cream/70 dark:hover:bg-white/10"
+                >
+                  <p className="text-sm font-medium text-brand-navy dark:text-white">{s.name}</p>
+                  {s.done === s.total ? (
+                    <Badge className="bg-green-600 hover:bg-green-700">{s.done}/{s.total} rengjort</Badge>
+                  ) : (
+                    <Badge variant="destructive">{s.done}/{s.total} rengjort</Badge>
+                  )}
+                </div>
+              ))}
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {!isAdmin && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

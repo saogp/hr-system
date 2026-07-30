@@ -21,12 +21,30 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ChevronRight, MessageSquare } from 'lucide-react'
+import { ChevronRight, MessageSquare, MoreHorizontal } from 'lucide-react'
 import { IconBadge } from '@/components/ui/icon-badge'
+import { useToastManager } from '@/components/ui/toast'
+import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 
 type PersonOption = {
@@ -54,6 +72,7 @@ type ReviewRow = {
 
 export default function ReviewsPage() {
   const router = useRouter()
+  const toastManager = useToastManager()
   const [role, setRole] = useState<'admin' | 'manager' | 'employee' | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [people, setPeople] = useState<PersonOption[]>([])
@@ -66,12 +85,15 @@ export default function ReviewsPage() {
   const [search, setSearch] = useState('')
   const [companyFilter, setCompanyFilter] = useState('all')
   const [monthFilter, setMonthFilter] = useState('')
+  const [page, setPage] = useState(1)
 
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
   const [selectedLeaderId, setSelectedLeaderId] = useState('')
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [scheduledDate, setScheduledDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const load = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -140,6 +162,10 @@ export default function ReviewsPage() {
     load()
   }, [])
 
+  useEffect(() => {
+    setPage(1)
+  }, [search, companyFilter, monthFilter])
+
   const handleSchedule = async (e: React.FormEvent) => {
     e.preventDefault()
     const template = templates.find(t => t.id === selectedTemplateId)
@@ -156,12 +182,25 @@ export default function ReviewsPage() {
       setScheduleOpen(false)
       const dateLabel = new Date(scheduledDate).toLocaleDateString('no-NO', { day: 'numeric', month: 'long', year: 'numeric' })
       sendPushNotification(selectedEmployeeId, 'Medarbeidersamtale planlagt', `Du har fått en medarbeidersamtale ${dateLabel}.`, '/reviews')
+      toastManager.add({ title: 'Medarbeidersamtale planlagt', description: `Planlagt ${dateLabel}.` })
       setSelectedEmployeeId('')
       setSelectedLeaderId('')
       setSelectedTemplateId('')
       setScheduledDate(new Date().toISOString().slice(0, 10))
       load()
     }
+  }
+
+  const handleDeleteReview = async () => {
+    if (!deleteTargetId) return
+    setDeleting(true)
+
+    const { error } = await supabase.from('reviews').delete().eq('id', deleteTargetId)
+    if (!error) {
+      setReviews(prev => prev.filter(r => r.id !== deleteTargetId))
+      setDeleteTargetId(null)
+    }
+    setDeleting(false)
   }
 
   const formatDate = (dateStr: string) =>
@@ -180,9 +219,11 @@ export default function ReviewsPage() {
     if (monthFilter && !r.scheduled_date.startsWith(monthFilter)) return false
     return true
   })
+  const totalPages = Math.max(1, Math.ceil(filteredReviews.length / PAGE_SIZE))
+  const pagedReviews = filteredReviews.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
-    <div className="max-w-4xl p-6 md:p-12">
+    <div className="max-w-4xl p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
           <IconBadge icon={<MessageSquare className="size-4" />} />
@@ -194,7 +235,7 @@ export default function ReviewsPage() {
       </div>
 
       {isAdminLike(role) && (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <Input
               placeholder="Søk etter ansatt..."
@@ -236,30 +277,67 @@ export default function ReviewsPage() {
             Ingen medarbeidersamtaler funnet.
           </p>
         ) : (
-          filteredReviews.map((r) => (
-            <Link
-              key={r.id}
-              href={`/reviews/${r.id}`}
-              className="flex items-center justify-between gap-3 rounded-xl border border-border p-4 hover:bg-muted/50"
-            >
-              <div className="min-w-0">
-                <p className="font-medium text-base md:text-sm truncate">
-                  {r.profiles?.full_name || r.profiles?.email || '—'}
-                </p>
-                <p className="text-xs text-muted-foreground">{formatDate(r.scheduled_date)}</p>
+          pagedReviews.map((r) => {
+            const rowContent = (
+              <>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-base md:text-sm truncate">
+                    {r.profiles?.full_name || r.profiles?.email || '—'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{formatDate(r.scheduled_date)}</p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  {r.status === 'completed' ? (
+                    <Badge className="bg-green-600 hover:bg-green-700">Fullført</Badge>
+                  ) : (
+                    <Badge variant="secondary">Åpen</Badge>
+                  )}
+                  {role === 'admin' && (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button variant="ghost" size="icon-sm">
+                              <MoreHorizontal />
+                              <span className="sr-only">Handlinger</span>
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem variant="destructive" onClick={() => setDeleteTargetId(r.id)}>
+                            Slett
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  )}
+                  {!isAdminLike(role) && <ChevronRight className="size-4 text-muted-foreground" />}
+                </div>
+              </>
+            )
+
+            return isAdminLike(role) ? (
+              <div
+                key={r.id}
+                onClick={() => router.push(`/reviews/${r.id}`)}
+                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50 cursor-pointer"
+              >
+                {rowContent}
               </div>
-              <div className="flex items-center gap-3 shrink-0">
-                {r.status === 'completed' ? (
-                  <Badge className="bg-green-600 hover:bg-green-700">Fullført</Badge>
-                ) : (
-                  <Badge variant="secondary">Åpen</Badge>
-                )}
-                <ChevronRight className="size-4 text-muted-foreground" />
-              </div>
-            </Link>
-          ))
+            ) : (
+              <Link
+                key={r.id}
+                href={`/reviews/${r.id}`}
+                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50"
+              >
+                {rowContent}
+              </Link>
+            )
+          })
         )}
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
         <DialogContent>
@@ -272,7 +350,7 @@ export default function ReviewsPage() {
             <div className="flex flex-col gap-1.5">
               <Label>Ansatt</Label>
               <Select value={selectedEmployeeId} onValueChange={(val) => val && setSelectedEmployeeId(val)}>
-                <SelectTrigger className="w-full h-8">
+                <SelectTrigger className="w-full h-9">
                   <SelectValue placeholder="Velg ansatt" />
                 </SelectTrigger>
                 <SelectContent>
@@ -288,7 +366,7 @@ export default function ReviewsPage() {
             <div className="flex flex-col gap-1.5">
               <Label>Leder (vert)</Label>
               <Select value={selectedLeaderId} onValueChange={(val) => val && setSelectedLeaderId(val)}>
-                <SelectTrigger className="w-full h-8">
+                <SelectTrigger className="w-full h-9">
                   <SelectValue placeholder="Velg leder" />
                 </SelectTrigger>
                 <SelectContent>
@@ -304,7 +382,7 @@ export default function ReviewsPage() {
             <div className="flex flex-col gap-1.5">
               <Label>Mal</Label>
               <Select value={selectedTemplateId} onValueChange={(val) => val && setSelectedTemplateId(val)}>
-                <SelectTrigger className="w-full h-8">
+                <SelectTrigger className="w-full h-9">
                   <SelectValue placeholder="Velg mal" />
                 </SelectTrigger>
                 <SelectContent>
@@ -340,6 +418,27 @@ export default function ReviewsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteTargetId !== null} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dette vil slette medarbeidersamtalen permanent. Handlingen kan ikke angres.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={deleting}
+              onClick={handleDeleteReview}
+            >
+              {deleting ? 'Sletter...' : 'Slett'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -3,12 +3,29 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Package } from 'lucide-react'
+import { ArrowLeft, Package, MoreHorizontal } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { needsCardCredentials, type UniformIssuance } from '@/lib/uniform-items'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 type PersonInfo = { full_name: string | null; email: string | null }
 
@@ -19,6 +36,9 @@ export default function PersonUniformHistoryPage() {
   const [loading, setLoading] = useState(true)
   const [person, setPerson] = useState<PersonInfo | null>(null)
   const [issuances, setIssuances] = useState<UniformIssuance[]>([])
+  const [isRealAdmin, setIsRealAdmin] = useState(false)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -34,10 +54,12 @@ export default function PersonUniformHistoryPage() {
         .eq('id', user.id)
         .single()
 
-      if (!isAdminLike(applyRoleOverride(viewerProfile?.role ?? 'employee'))) {
+      const viewerRole = applyRoleOverride(viewerProfile?.role ?? 'employee')
+      if (!isAdminLike(viewerRole)) {
         router.replace('/')
         return
       }
+      setIsRealAdmin(viewerRole === 'admin')
 
       const { data: personData } = await supabase
         .from('profiles')
@@ -60,6 +82,18 @@ export default function PersonUniformHistoryPage() {
     load()
   }, [id, router])
 
+  const handleDeleteIssuance = async () => {
+    if (!deleteTargetId) return
+    setDeleting(true)
+
+    const { error } = await supabase.from('uniform_issuances').delete().eq('id', deleteTargetId)
+    if (!error) {
+      setIssuances(prev => prev.filter(i => i.id !== deleteTargetId))
+      setDeleteTargetId(null)
+    }
+    setDeleting(false)
+  }
+
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -68,7 +102,7 @@ export default function PersonUniformHistoryPage() {
   }
 
   return (
-    <div className="p-6 md:p-12 max-w-lg">
+    <div className="p-6 max-w-lg">
       <Link
         href="/uniformer"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
@@ -88,10 +122,29 @@ export default function PersonUniformHistoryPage() {
       ) : (
         <div className="space-y-4">
           {issuances.map((i) => (
-            <div key={i.id} className="space-y-2 rounded-xl border border-border p-3">
-              <div className="flex items-center gap-2">
-                <Badge className="bg-green-600 hover:bg-green-700">Signert</Badge>
-                <span className="text-xs text-muted-foreground">{formatDate(i.employee_signed_at!)}</span>
+            <div key={i.id} className="space-y-2 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-green-600 hover:bg-green-700">Signert</Badge>
+                  <span className="text-xs text-muted-foreground">{formatDate(i.employee_signed_at!)}</span>
+                </div>
+                {isRealAdmin && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button variant="ghost" size="icon-sm">
+                          <MoreHorizontal />
+                          <span className="sr-only">Handlinger</span>
+                        </Button>
+                      }
+                    />
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem variant="destructive" onClick={() => setDeleteTargetId(i.id)}>
+                        Slett
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
               <div className="flex flex-col gap-1">
                 {i.items.map((item) => (
@@ -111,6 +164,27 @@ export default function PersonUniformHistoryPage() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={deleteTargetId !== null} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dette vil slette utleveringen permanent. Handlingen kan ikke angres.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={deleting}
+              onClick={handleDeleteIssuance}
+            >
+              {deleting ? 'Sletter...' : 'Slett'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

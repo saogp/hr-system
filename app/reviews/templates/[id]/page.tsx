@@ -10,6 +10,15 @@ import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 type Question = { id: string; text: string }
 
@@ -23,6 +32,7 @@ export default function ReviewTemplateEditorPage() {
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -108,7 +118,7 @@ export default function ReviewTemplateEditorPage() {
   }
 
   return (
-    <div className="p-6 md:p-12 max-w-2xl">
+    <div className="p-6 max-w-2xl">
       <Link
         href="/settings"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
@@ -130,6 +140,13 @@ export default function ReviewTemplateEditorPage() {
               Lagret {savedAt.toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })}
             </span>
           )}
+          <Button
+            variant="outline"
+            onClick={() => setPreviewOpen(true)}
+            disabled={questions.every((q) => !q.text.trim())}
+          >
+            Forhåndsvis
+          </Button>
           <Button
             onClick={handleSave}
             disabled={saving || !name}
@@ -168,6 +185,29 @@ export default function ReviewTemplateEditorPage() {
           Legg til spørsmål
         </Button>
       </div>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-lg flex flex-col overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Forhåndsvisning</DialogTitle>
+            <DialogDescription>Slik ser medarbeidersamtalen ut.</DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 min-h-0 space-y-4 overflow-y-auto -mx-4 px-4">
+            <h2 className="text-lg font-bold">{name || 'Uten navn'}</h2>
+            {questions.filter((q) => q.text.trim()).map((q, i) => (
+              <div key={q.id} className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
+                <p className="font-medium text-sm">{i + 1}. {q.text}</p>
+                <Textarea disabled placeholder="Skriv svaret ditt her..." />
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewOpen(false)}>Lukk</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

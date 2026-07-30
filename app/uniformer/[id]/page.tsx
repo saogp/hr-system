@@ -10,12 +10,14 @@ import { needsCardCredentials, type UniformIssuance } from '@/lib/uniform-items'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Badge } from '@/components/ui/badge'
 import { SignaturePad } from '@/components/signature-pad'
+import { useToastManager } from '@/components/ui/toast'
 
 type PersonInfo = { full_name: string | null; email: string | null }
 
 export default function UniformIssuancePage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const toastManager = useToastManager()
 
   const [issuance, setIssuance] = useState<UniformIssuance | null>(null)
   const [employee, setEmployee] = useState<PersonInfo | null>(null)
@@ -77,6 +79,7 @@ export default function UniformIssuancePage() {
 
     if (!error) {
       setIssuance(prev => prev ? { ...prev, employee_signed_at: nowIso, employee_signature: signatureDataUrl } : prev)
+      toastManager.add({ title: 'Mottak bekreftet', description: 'Signaturen din er registrert.' })
     }
     setSigning(false)
   }
@@ -91,7 +94,7 @@ export default function UniformIssuancePage() {
   const isOwner = currentUserId === issuance.profile_id
 
   return (
-    <div className="p-6 md:p-12 max-w-lg">
+    <div className="p-6 max-w-lg">
       <Link
         href={isAdmin ? '/uniformer' : '/'}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"

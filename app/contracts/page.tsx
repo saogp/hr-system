@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { getAdminTokens, extractChoiceFields, usesCompanyTokens } from '@/lib/contract-tokens'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+import { useToastManager } from '@/components/ui/toast'
+import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 
 import {
   Select,
@@ -84,6 +86,7 @@ type ContractRow = {
 
 export default function ContractsPage() {
   const router = useRouter()
+  const toastManager = useToastManager()
   const [role, setRole] = useState<'admin' | 'manager' | 'employee' | null>(null)
   const [templates, setTemplates] = useState<Template[]>([])
   const [employees, setEmployees] = useState<EmployeeOption[]>([])
@@ -102,6 +105,7 @@ export default function ContractsPage() {
   const [search, setSearch] = useState('')
   const [companyFilter, setCompanyFilter] = useState('all')
   const [monthFilter, setMonthFilter] = useState('')
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     async function load() {
@@ -159,6 +163,10 @@ export default function ContractsPage() {
     load()
   }, [router])
 
+  useEffect(() => {
+    setPage(1)
+  }, [search, companyFilter, monthFilter])
+
   const refetchContracts = async () => {
     if (isAdminLike(role)) {
       const { data } = await supabase
@@ -190,6 +198,7 @@ export default function ContractsPage() {
       setSelectedCompanyId('')
       setAdminFieldValues({})
       refetchContracts()
+      toastManager.add({ title: 'Kontrakt sendt', description: 'Den ansatte kan nå signere kontrakten.' })
     }
   }
 
@@ -253,9 +262,11 @@ export default function ContractsPage() {
     if (monthFilter && !c.sent_at.startsWith(monthFilter)) return false
     return true
   })
+  const totalPages = Math.max(1, Math.ceil(filteredContracts.length / PAGE_SIZE))
+  const pagedContracts = filteredContracts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
-    <div className="max-w-4xl p-6 md:p-12 space-y-8">
+    <div className="max-w-4xl p-6 space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
           <IconBadge icon={<FileText className="size-4" />} />
@@ -270,7 +281,7 @@ export default function ContractsPage() {
 
       <div>
         {isAdminLike(role) && (
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <Input
                 placeholder="Søk etter ansatt eller mal..."
@@ -310,7 +321,7 @@ export default function ContractsPage() {
           {filteredContracts.length === 0 ? (
             <p className="text-center text-muted-foreground text-sm py-8">Ingen kontrakter funnet.</p>
           ) : (
-            filteredContracts.map((c) => {
+            pagedContracts.map((c) => {
               const rowContent = (
                 <>
                   <div className="min-w-0 flex-1">
@@ -322,6 +333,11 @@ export default function ContractsPage() {
                     <p className={isAdminLike(role) ? 'text-xs text-muted-foreground truncate' : 'font-medium text-base md:text-sm truncate'}>
                       {c.contract_templates?.name || '—'}
                     </p>
+                    {c.company_id && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {companies.find((comp) => comp.id === c.company_id)?.name || '—'}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground">Sendt {formatDate(c.sent_at)}</p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
@@ -364,7 +380,7 @@ export default function ContractsPage() {
                 <div
                   key={c.id}
                   onClick={() => router.push(`/contracts/${c.id}`)}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border p-4 hover:bg-muted/50 cursor-pointer"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50 cursor-pointer"
                 >
                   {rowContent}
                 </div>
@@ -372,7 +388,7 @@ export default function ContractsPage() {
                 <Link
                   key={c.id}
                   href={`/contracts/${c.id}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border p-4 hover:bg-muted/50"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50"
                 >
                   {rowContent}
                 </Link>
@@ -380,6 +396,8 @@ export default function ContractsPage() {
             })
           )}
         </div>
+
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
       </div>
 
       <Dialog open={sendOpen} onOpenChange={setSendOpen}>
@@ -395,7 +413,7 @@ export default function ContractsPage() {
             <div className="flex flex-col gap-1.5">
               <Label>Ansatt</Label>
               <Select value={selectedEmployeeId} onValueChange={(val) => val && setSelectedEmployeeId(val)}>
-                <SelectTrigger className="w-full h-8">
+                <SelectTrigger className="w-full h-9">
                   <SelectValue placeholder="Velg ansatt" />
                 </SelectTrigger>
                 <SelectContent>
@@ -426,7 +444,7 @@ export default function ContractsPage() {
                   }
                 }}
               >
-                <SelectTrigger className="w-full h-8">
+                <SelectTrigger className="w-full h-9">
                   <SelectValue placeholder="Velg mal" />
                 </SelectTrigger>
                 <SelectContent>
@@ -443,7 +461,7 @@ export default function ContractsPage() {
               <div className="flex flex-col gap-1.5">
                 <Label>Bedrift</Label>
                 <Select value={selectedCompanyId} onValueChange={(val) => val && setSelectedCompanyId(val)}>
-                  <SelectTrigger className="w-full h-8">
+                  <SelectTrigger className="w-full h-9">
                     <SelectValue placeholder="Velg bedrift" />
                   </SelectTrigger>
                   <SelectContent>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, LogOut, FileText, Users, Settings, MessageSquare, ShieldAlert, ClipboardList, Package, Moon, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, LogOut, FileText, Users, Settings, MessageSquare, ShieldAlert, ClipboardList, Package, SprayCan, Moon, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getStoredTheme, applyTheme, type Theme } from '@/lib/theme'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
@@ -35,8 +35,12 @@ const navigation = [
   { name: 'Ansatte', href: '/people', icon: Users },
   { name: 'Personalutstyr', href: '/uniformer', icon: Package, adminOnly: true },
   { name: 'Kontrakter', href: '/contracts', icon: FileText },
-  { name: 'Medarbeidersamtaler', href: '/reviews', icon: MessageSquare },
   { name: 'Undersøkelser', href: '/surveys', icon: ClipboardList },
+  { name: 'Medarbeidersamtaler', href: '/reviews', icon: MessageSquare },
+]
+
+const facilitiesNavigation = [
+  { name: 'Renhold', href: '/renhold', icon: SprayCan, adminOnly: true },
 ]
 
 const secondaryNavigation = [
@@ -143,7 +147,28 @@ export function Sidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className="mt-4">
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {facilitiesNavigation
+                .filter((item) => !item.adminOnly || isAdminLike(applyRoleOverride(currentUser?.role ?? 'employee')))
+                .map((item) => (
+                <SidebarMenuItem key={item.name}>
+                  <SidebarMenuButton
+                    render={<Link href={item.href} onClick={closeMobileSidebar} />}
+                    isActive={pathname === item.href}
+                    tooltip={item.name}
+                  >
+                    <item.icon />
+                    <span>{item.name}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
               {secondaryNavigation.map((item) => (

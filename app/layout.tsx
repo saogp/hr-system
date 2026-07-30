@@ -4,6 +4,7 @@ import { Sidebar } from '@/components/sidebar'
 import { MobileSidebarTrigger } from '@/components/mobile-sidebar-trigger'
 import { TestRoleSwitcher } from '@/components/test-role-switcher'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { ToastProvider, Toaster } from '@/components/ui/toast'
 
 export const metadata: Metadata = {
   title: 'Zest',
@@ -30,14 +31,19 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-background antialiased">
-        <SidebarProvider>
-          <Sidebar />
-          <SidebarInset>
-            <TestRoleSwitcher />
-            <MobileSidebarTrigger />
-            <main className="flex-1 overflow-y-auto">{children}</main>
-          </SidebarInset>
-        </SidebarProvider>
+        <ToastProvider>
+          <SidebarProvider>
+            <Sidebar />
+            <SidebarInset>
+              <div className="sticky top-0 z-30 bg-background md:static">
+                <TestRoleSwitcher />
+                <MobileSidebarTrigger />
+              </div>
+              <main className="flex-1 overflow-y-auto">{children}</main>
+            </SidebarInset>
+          </SidebarProvider>
+          <Toaster />
+        </ToastProvider>
       </body>
     </html>
   )

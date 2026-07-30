@@ -7,6 +7,7 @@ import { ArrowLeft, CalendarPlus, Plus, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { generateReviewIcs, downloadIcs } from '@/lib/ics'
 import { sendPushNotification } from '@/lib/push-client'
+import { useToastManager } from '@/components/ui/toast'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -59,6 +60,7 @@ type Task = {
 export default function ReviewDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const toastManager = useToastManager()
 
   const [review, setReview] = useState<Review | null>(null)
   const [employeeInfo, setEmployeeInfo] = useState<PersonInfo | null>(null)
@@ -203,6 +205,8 @@ export default function ReviewDetailPage() {
         .from('profiles')
         .update({ next_review_date: nextReviewDate.toISOString().slice(0, 10) })
         .eq('id', review.employee_id)
+
+      toastManager.add({ title: 'Medarbeidersamtale fullført', description: 'Neste samtale er automatisk satt om 6 måneder.' })
     }
     setCompleting(false)
   }
@@ -231,7 +235,7 @@ export default function ReviewDetailPage() {
   }
 
   return (
-    <div className="p-6 md:p-12 max-w-2xl">
+    <div className="p-6 max-w-2xl">
       <div className="flex items-center justify-between mb-6">
         <Link
           href="/reviews"
@@ -317,7 +321,7 @@ export default function ReviewDetailPage() {
                       <div className="flex flex-col gap-1.5">
                         <Label className="text-xs">Tildelt til</Label>
                         <Select value={newTaskAssignee} onValueChange={(val) => val && setNewTaskAssignee(val)}>
-                          <SelectTrigger className="w-full h-8">
+                          <SelectTrigger className="w-full h-9">
                             <SelectValue placeholder="Velg person" />
                           </SelectTrigger>
                           <SelectContent>

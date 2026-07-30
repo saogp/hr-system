@@ -15,12 +15,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { OrganicBlob } from '@/components/decorative/organic-blobs'
 import { IconBadge } from '@/components/ui/icon-badge'
-import { ChevronRight, ClipboardList } from 'lucide-react'
+import { ChevronRight, ClipboardList, MoreHorizontal } from 'lucide-react'
+import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 
 type Person = { id: string; full_name: string | null; email: string | null }
 
@@ -44,16 +61,21 @@ type MySurveyRow = {
 export default function SurveysPage() {
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isRealAdmin, setIsRealAdmin] = useState(false)
   const [people, setPeople] = useState<Person[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [surveys, setSurveys] = useState<SurveyRow[]>([])
   const [surveyCounts, setSurveyCounts] = useState<Record<string, { total: number; submitted: number }>>({})
+  const [surveyRespondents, setSurveyRespondents] = useState<Record<string, string[]>>({})
   const [mySurveys, setMySurveys] = useState<MySurveyRow[]>([])
   const [loading, setLoading] = useState(true)
 
   const [search, setSearch] = useState('')
   const [companyFilter, setCompanyFilter] = useState('all')
   const [monthFilter, setMonthFilter] = useState('')
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [page, setPage] = useState(1)
 
   const load = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -67,8 +89,10 @@ export default function SurveysPage() {
       .select('role')
       .eq('id', user.id)
       .single()
-    const admin = isAdminLike(applyRoleOverride(viewerProfile?.role ?? 'employee'))
+    const viewerRole = applyRoleOverride(viewerProfile?.role ?? 'employee')
+    const admin = isAdminLike(viewerRole)
     setIsAdmin(admin)
+    setIsRealAdmin(viewerRole === 'admin')
 
     if (admin) {
       const { data: peopleData } = await supabase
@@ -91,17 +115,23 @@ export default function SurveysPage() {
 
       const { data: recipientsData } = await supabase
         .from('survey_recipients')
-        .select('survey_id, submitted_at')
+        .select('survey_id, submitted_at, profiles!survey_recipients_profile_id_fkey(full_name, email)')
 
       if (recipientsData) {
         const counts: Record<string, { total: number; submitted: number }> = {}
-        for (const r of recipientsData) {
+        const respondents: Record<string, string[]> = {}
+        for (const r of recipientsData as unknown as { survey_id: string; submitted_at: string | null; profiles: { full_name: string | null; email: string | null } | null }[]) {
           const c = counts[r.survey_id] ?? { total: 0, submitted: 0 }
           c.total += 1
-          if (r.submitted_at) c.submitted += 1
+          if (r.submitted_at) {
+            c.submitted += 1
+            const name = r.profiles?.full_name || r.profiles?.email || 'Ukjent'
+            respondents[r.survey_id] = [...(respondents[r.survey_id] ?? []), name]
+          }
           counts[r.survey_id] = c
         }
         setSurveyCounts(counts)
+        setSurveyRespondents(respondents)
       }
     } else {
       const { data: mySurveysData } = await supabase
@@ -119,6 +149,22 @@ export default function SurveysPage() {
     load()
   }, [])
 
+  useEffect(() => {
+    setPage(1)
+  }, [search, companyFilter, monthFilter])
+
+  const handleDeleteSurvey = async () => {
+    if (!deleteTargetId) return
+    setDeleting(true)
+
+    const { error } = await supabase.from('surveys').delete().eq('id', deleteTargetId)
+    if (!error) {
+      setSurveys(prev => prev.filter(s => s.id !== deleteTargetId))
+      setDeleteTargetId(null)
+    }
+    setDeleting(false)
+  }
+
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -132,9 +178,11 @@ export default function SurveysPage() {
     if (monthFilter && !s.created_at.startsWith(monthFilter)) return false
     return true
   })
+  const totalPages = Math.max(1, Math.ceil(filteredSurveys.length / PAGE_SIZE))
+  const pagedSurveys = filteredSurveys.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
-    <div className="relative max-w-4xl p-6 md:p-12 overflow-hidden">
+    <div className="relative max-w-4xl p-6 overflow-hidden">
       <OrganicBlob className="pointer-events-none absolute -right-20 -top-24 -z-10 h-72 w-72 opacity-90" />
       <OrganicBlob className="pointer-events-none absolute -left-24 top-72 -z-10 h-56 w-56 opacity-60 rotate-45" />
       <OrganicBlob className="pointer-events-none absolute right-10 bottom-0 -z-10 h-48 w-48 opacity-40 -rotate-12" />
@@ -150,7 +198,7 @@ export default function SurveysPage() {
       </div>
 
       {isAdmin && (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <Input
               placeholder="Søk etter undersøkelse..."
@@ -191,23 +239,46 @@ export default function SurveysPage() {
           filteredSurveys.length === 0 ? (
             <p className="text-center text-muted-foreground text-sm py-8">Ingen undersøkelser funnet.</p>
           ) : (
-            filteredSurveys.map((s) => {
+            pagedSurveys.map((s) => {
               const counts = surveyCounts[s.id] ?? { total: 0, submitted: 0 }
+              const respondents = surveyRespondents[s.id] ?? []
               return (
-                <Link
+                <div
                   key={s.id}
-                  href={`/surveys/${s.id}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50"
+                  onClick={() => router.push(`/surveys/${s.id}`)}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50 cursor-pointer"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-base md:text-sm truncate">{s.title}</p>
                     <p className="text-xs text-muted-foreground">Opprettet {formatDate(s.created_at)}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {respondents.length > 0 ? `Fullført: ${respondents.join(', ')}` : 'Ingen har svart enda'}
+                    </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="text-sm text-muted-foreground">{counts.submitted} av {counts.total}</span>
+                    {isRealAdmin && (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button variant="ghost" size="icon-sm">
+                                <MoreHorizontal />
+                                <span className="sr-only">Handlinger</span>
+                              </Button>
+                            }
+                          />
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem variant="destructive" onClick={() => setDeleteTargetId(s.id)}>
+                              Slett
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    )}
                     <ChevronRight className="size-4 text-muted-foreground" />
                   </div>
-                </Link>
+                </div>
               )
             })
           )
@@ -220,7 +291,7 @@ export default function SurveysPage() {
               <Link
                 key={s.id}
                 href={`/surveys/${s.survey_id}`}
-                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50"
+                className="flex items-center justify-between gap-3 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50"
               >
                 <p className="font-medium text-base md:text-sm truncate">{s.surveys?.title || '—'}</p>
                 <div className="flex items-center gap-3 shrink-0">
@@ -236,6 +307,29 @@ export default function SurveysPage() {
           })
         )}
       </div>
+
+      {isAdmin && <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />}
+
+      <AlertDialog open={deleteTargetId !== null} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dette vil slette undersøkelsen og alle svar permanent. Handlingen kan ikke angres.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={deleting}
+              onClick={handleDeleteSurvey}
+            >
+              {deleting ? 'Sletter...' : 'Slett'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

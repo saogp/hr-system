@@ -14,7 +14,14 @@ import {
 import { downloadContractPdf } from '@/lib/contract-pdf'
 import { RenderedContractText } from '@/components/rendered-contract-text'
 import { SignaturePad } from '@/components/signature-pad'
+import { PhoneInput } from '@/components/phone-input'
+import { useToastManager } from '@/components/ui/toast'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+
+function formatBankAccount(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 11)
+  return [digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 11)].filter(Boolean).join('.')
+}
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -69,6 +76,7 @@ export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
 
+  const toastManager = useToastManager()
   const [contract, setContract] = useState<Contract | null>(null)
   const [profile, setProfile] = useState<ProfileFields | null>(null)
   const [company, setCompany] = useState<CompanyFields | null>(null)
@@ -195,6 +203,7 @@ export default function ContractDetailPage() {
 
     if (!error) {
       setContract(prev => prev ? { ...prev, employee_signed_at: nowIso, employee_signature: signatureDataUrl } : prev)
+      toastManager.add({ title: 'Kontrakt signert', description: 'Signaturen din er registrert.' })
     }
     setSigning(false)
   }
@@ -223,6 +232,7 @@ export default function ContractDetailPage() {
         .eq('id', currentUserId)
         .single()
       if (me) setAdminSignerInfo(me)
+      toastManager.add({ title: 'Kontrakt signert', description: 'Signaturen din er registrert.' })
     }
     setSigning(false)
   }
@@ -287,7 +297,7 @@ export default function ContractDetailPage() {
   }
 
   return (
-    <div className="p-6 md:p-12 max-w-4xl space-y-6">
+    <div className="p-6 max-w-4xl space-y-6">
       <div className="grid gap-8 lg:grid-cols-[1fr_320px] items-start">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -371,12 +381,35 @@ export default function ContractDetailPage() {
           <div className="rounded-md border border-input p-4 space-y-4">
             <h2 className="font-medium">Fyll ut din informasjon</h2>
             <div className="grid gap-4 sm:grid-cols-2">
-              {editableFields.map((f) => (
-                <div key={f.token} className="flex flex-col gap-1.5">
-                  <Label htmlFor={f.token}>{f.label}</Label>
-                  <Input id={f.token} value={f.value} onChange={(e) => f.setValue(e.target.value)} />
-                </div>
-              ))}
+              {editableFields.map((f) => {
+                const bankAccountDigits = f.token === 'kontonummer' ? f.value.replace(/\D/g, '') : ''
+                const bankAccountError =
+                  f.token === 'kontonummer' && bankAccountDigits.length > 0 && bankAccountDigits.length !== 11
+                    ? `Kontonummer skal ha 11 siffer (har ${bankAccountDigits.length}).`
+                    : null
+
+                return (
+                  <div key={f.token} className="flex flex-col gap-1.5">
+                    <Label htmlFor={f.token}>{f.label}</Label>
+                    {f.token === 'telefon' ? (
+                      <PhoneInput value={f.value || null} onCommit={(val) => f.setValue(val ?? '')} />
+                    ) : f.token === 'kontonummer' ? (
+                      <>
+                        <Input
+                          id={f.token}
+                          value={f.value}
+                          onChange={(e) => f.setValue(formatBankAccount(e.target.value))}
+                          placeholder="1234.56.78903"
+                          aria-invalid={!!bankAccountError}
+                        />
+                        {bankAccountError && <p className="text-xs text-destructive">{bankAccountError}</p>}
+                      </>
+                    ) : (
+                      <Input id={f.token} value={f.value} onChange={(e) => f.setValue(e.target.value)} />
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
@@ -389,8 +422,8 @@ export default function ContractDetailPage() {
           <div className="space-y-2">
             <h2 className="font-medium text-sm">Din signatur</h2>
             {missingFields.length > 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Fyll ut informasjonen over før du kan signere.
+              <p className="text-sm text-destructive">
+                Fyll ut følgende før du kan signere: {missingFields.join(', ')}.
               </p>
             ) : (
               <SignaturePad onSave={handleEmployeeSign} saving={signing} />

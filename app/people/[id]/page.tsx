@@ -568,16 +568,15 @@ function PersonDetailPageInner() {
               <div className="py-3">
                 <p className="text-xs text-muted-foreground mb-1">Nærmeste pårørende</p>
                 {editing && canEditField('emergency_contact_name') ? (
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2">
                     <Input
                       placeholder="Navn"
                       defaultValue={person.emergency_contact_name ?? ''}
                       onBlur={(e) => handleFieldChange('emergency_contact_name', e.target.value || null)}
                     />
-                    <Input
-                      placeholder="Telefon"
-                      defaultValue={person.emergency_contact_phone ?? ''}
-                      onBlur={(e) => handleFieldChange('emergency_contact_phone', e.target.value || null)}
+                    <PhoneInput
+                      value={person.emergency_contact_phone}
+                      onCommit={(val) => handleFieldChange('emergency_contact_phone', val)}
                     />
                   </div>
                 ) : (
@@ -721,7 +720,7 @@ function PersonDetailPageInner() {
                     value={person.manager_id ?? 'none'}
                     onValueChange={(val) => val && handleFieldChange('manager_id', val === 'none' ? null : val)}
                   >
-                    <SelectTrigger className="w-full h-8">
+                    <SelectTrigger className="w-full h-9">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

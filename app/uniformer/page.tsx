@@ -11,6 +11,24 @@ import { IconBadge } from '@/components/ui/icon-badge'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { MoreHorizontal } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 
 type IssuanceWithPerson = UniformIssuance & {
   profiles: { full_name: string | null; email: string | null } | null
@@ -21,6 +39,10 @@ export default function UniformerPage() {
   const [loading, setLoading] = useState(true)
   const [issuances, setIssuances] = useState<IssuanceWithPerson[]>([])
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [isRealAdmin, setIsRealAdmin] = useState(false)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const loadIssuances = async () => {
     const { data } = await supabase
@@ -44,10 +66,12 @@ export default function UniformerPage() {
         .eq('id', user.id)
         .single()
 
-      if (!isAdminLike(applyRoleOverride(profile?.role ?? 'employee'))) {
+      const viewerRole = applyRoleOverride(profile?.role ?? 'employee')
+      if (!isAdminLike(viewerRole)) {
         router.replace('/')
         return
       }
+      setIsRealAdmin(viewerRole === 'admin')
 
       await loadIssuances()
       setLoading(false)
@@ -55,6 +79,10 @@ export default function UniformerPage() {
 
     load()
   }, [router])
+
+  useEffect(() => {
+    setPage(1)
+  }, [search])
 
   const handleMarkReturned = async (issuanceId: string, itemId: string) => {
     const issuance = issuances.find(i => i.id === issuanceId)
@@ -67,6 +95,18 @@ export default function UniformerPage() {
     if (!error) {
       setIssuances(prev => prev.map(i => (i.id === issuanceId ? { ...i, items: nextItems } : i)))
     }
+  }
+
+  const handleDeleteIssuance = async () => {
+    if (!deleteTargetId) return
+    setDeleting(true)
+
+    const { error } = await supabase.from('uniform_issuances').delete().eq('id', deleteTargetId)
+    if (!error) {
+      setIssuances(prev => prev.filter(i => i.id !== deleteTargetId))
+      setDeleteTargetId(null)
+    }
+    setDeleting(false)
   }
 
   if (loading) {
@@ -110,8 +150,19 @@ export default function UniformerPage() {
     }
   }
 
+  const signedGroupsArr = Array.from(signedGroups.entries())
+  const totalRows = unsignedIssuances.length + signedGroupsArr.length
+  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE))
+  const startIdx = (page - 1) * PAGE_SIZE
+  const endIdx = startIdx + PAGE_SIZE
+  const pagedUnsigned = unsignedIssuances.slice(startIdx, endIdx)
+  const pagedSignedGroups = signedGroupsArr.slice(
+    Math.max(0, startIdx - unsignedIssuances.length),
+    Math.max(0, endIdx - unsignedIssuances.length)
+  )
+
   return (
-    <div className="max-w-3xl p-6 md:p-12 space-y-8">
+    <div className="max-w-3xl p-6 space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
           <IconBadge icon={<Package className="size-4" />} />
@@ -150,16 +201,14 @@ export default function UniformerPage() {
       </div>
 
       <div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <div className="flex flex-row items-center gap-3">
-            <h2 className="text-lg font-semibold shrink-0">Utleveringer</h2>
-            <Input
-              placeholder="Finn ansatt..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="max-w-sm"
-            />
-          </div>
+        <h2 className="text-lg font-semibold mb-3">Utleveringer</h2>
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <Input
+            placeholder="Finn ansatt..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="sm:max-w-xs"
+          />
           <Button
             render={<Link href="/uniformer/new" />}
             className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium shrink-0"
@@ -174,17 +223,38 @@ export default function UniformerPage() {
           </p>
         ) : (
           <div className="flex flex-col gap-2">
-            {unsignedIssuances.map((issuance) => (
+            {pagedUnsigned.map((issuance) => (
               <Link
                 key={issuance.id}
                 href={`/uniformer/${issuance.id}`}
-                className="flex flex-col gap-2 rounded-xl border border-border p-4 hover:bg-muted/50"
+                className="flex flex-col gap-2 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50"
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-medium text-base md:text-sm truncate">
                     {issuance.profiles?.full_name || issuance.profiles?.email || '—'}
                   </p>
-                  <Badge variant="secondary" className="shrink-0">Venter på signering</Badge>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="secondary">Venter på signering</Badge>
+                    {isRealAdmin && (
+                      <div onClick={(e) => { e.preventDefault(); e.stopPropagation() }}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button variant="ghost" size="icon-sm">
+                                <MoreHorizontal />
+                                <span className="sr-only">Handlinger</span>
+                              </Button>
+                            }
+                          />
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem variant="destructive" onClick={() => setDeleteTargetId(issuance.id)}>
+                              Slett
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   {issuance.items.filter(item => !item.returned).map((item) => (
@@ -198,11 +268,11 @@ export default function UniformerPage() {
               </Link>
             ))}
 
-            {Array.from(signedGroups.entries()).map(([profileId, group]) => (
+            {pagedSignedGroups.map(([profileId, group]) => (
               <Link
                 key={profileId}
                 href={`/uniformer/person/${profileId}`}
-                className="flex flex-col gap-2 rounded-xl border border-border p-4 hover:bg-muted/50"
+                className="flex flex-col gap-2 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50"
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-medium text-base md:text-sm truncate">{group.profileName}</p>
@@ -235,7 +305,30 @@ export default function UniformerPage() {
             ))}
           </div>
         )}
+
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
       </div>
+
+      <AlertDialog open={deleteTargetId !== null} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dette vil slette utleveringen permanent. Handlingen kan ikke angres.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={deleting}
+              onClick={handleDeleteIssuance}
+            >
+              {deleting ? 'Sletter...' : 'Slett'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

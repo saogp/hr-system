@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ScaleInput } from '@/components/survey-scale-input'
+import { useToastManager } from '@/components/ui/toast'
 import { ArrowLeft } from 'lucide-react'
 
 type Person = { id: string; full_name: string | null; email: string | null }
@@ -46,6 +47,7 @@ export default function NewSurveyPage() {
 
 function NewSurveyPageInner() {
   const router = useRouter()
+  const toastManager = useToastManager()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [people, setPeople] = useState<Person[]>([])
@@ -163,7 +165,8 @@ function NewSurveyPageInner() {
         sendPushNotification(profileId, 'Ny undersøkelse', title, `/surveys/${survey.id}`)
       }
 
-      router.push(`/surveys/${survey.id}`)
+      toastManager.add({ title: 'Undersøkelse sendt', description: `Sendt til ${selectedRecipients.length} ansatte.` })
+      router.push('/surveys')
       return
     }
     setCreating(false)
@@ -174,7 +177,7 @@ function NewSurveyPageInner() {
   }
 
   return (
-    <div className="p-6 md:p-12 max-w-2xl">
+    <div className="p-6 max-w-2xl">
       <Link
         href="/surveys"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
@@ -196,7 +199,7 @@ function NewSurveyPageInner() {
               applyTemplate(val)
             }}
           >
-            <SelectTrigger className="w-full h-8">
+            <SelectTrigger className="w-full h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -216,7 +219,7 @@ function NewSurveyPageInner() {
         <div className="flex flex-col gap-1.5">
           <Label>Restaurant</Label>
           <Select value={companyId} onValueChange={(val) => val && setCompanyId(val)}>
-            <SelectTrigger className="w-full h-8">
+            <SelectTrigger className="w-full h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

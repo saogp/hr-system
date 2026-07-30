@@ -140,7 +140,7 @@ export default function SiFraPage() {
       <div className="flex flex-col gap-1.5">
         <Label>Send til</Label>
         <Select value={recipientId} onValueChange={(val) => val && setRecipientId(val)}>
-          <SelectTrigger className="w-full h-8">
+          <SelectTrigger className="w-full h-9">
             <SelectValue placeholder="Velg mottaker" />
           </SelectTrigger>
           <SelectContent>
@@ -178,7 +178,7 @@ export default function SiFraPage() {
   )
 
   return (
-    <div className={isAdmin ? 'p-6 md:p-12 max-w-4xl' : 'p-6 md:p-12 max-w-lg space-y-10'}>
+    <div className={isAdmin ? 'p-6 max-w-4xl' : 'p-6 max-w-lg space-y-10'}>
       <div className={isAdmin ? 'mb-6' : ''}>
         <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
           <IconBadge icon={<ShieldAlert className="size-4" />} />

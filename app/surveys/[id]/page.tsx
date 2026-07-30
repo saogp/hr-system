@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { OrganicBlob } from '@/components/decorative/organic-blobs'
 import { ScaleInput } from '@/components/survey-scale-input'
+import { useToastManager } from '@/components/ui/toast'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { computeResponseScore } from '@/lib/survey-score'
 import type { SurveyCategory } from '@/lib/survey-categories'
@@ -35,6 +36,7 @@ type RecipientResult = {
 export default function SurveyDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const toastManager = useToastManager()
 
   const [survey, setSurvey] = useState<Survey | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -114,6 +116,7 @@ export default function SurveyDetailPage() {
 
     if (!error) {
       setMySubmittedAt(nowIso)
+      toastManager.add({ title: 'Skjema innsendt', description: 'Svarene dine er registrert.' })
     }
     setSubmitting(false)
   }
@@ -128,7 +131,7 @@ export default function SurveyDetailPage() {
   }
 
   return (
-    <div className="container relative mx-auto p-6 md:p-12 max-w-2xl overflow-hidden">
+    <div className="container relative mx-auto p-6 max-w-2xl overflow-hidden">
       <OrganicBlob className="pointer-events-none absolute -right-16 -top-16 -z-10 h-56 w-56 opacity-90" />
       <OrganicBlob className="pointer-events-none absolute -left-20 bottom-10 -z-10 h-48 w-48 opacity-50 rotate-45" />
 

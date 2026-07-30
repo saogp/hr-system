@@ -34,6 +34,8 @@ import { Badge } from '@/components/ui/badge'
 import { ChevronRight } from 'lucide-react'
 import { getAdminTokens, extractChoiceFields, usesCompanyTokens } from '@/lib/contract-tokens'
 import { UNIFORM_TYPES, UNIFORM_SIZES, needsCardCredentials } from '@/lib/uniform-items'
+import { useToastManager } from '@/components/ui/toast'
+import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 
 type Person = {
   id: string
@@ -73,12 +75,14 @@ function getInitials(name: string) {
 
 export default function PeoplePage() {
   const router = useRouter()
+  const toastManager = useToastManager()
   const [people, setPeople] = useState<Person[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [showInactive, setShowInactive] = useState(false)
+  const [page, setPage] = useState(1)
 
   const [addOpen, setAddOpen] = useState(false)
   const [newName, setNewName] = useState('')
@@ -161,6 +165,10 @@ export default function PeoplePage() {
     load()
   }, [])
 
+  useEffect(() => {
+    setPage(1)
+  }, [search, showInactive])
+
   const selectedTemplate = templates.find(t => t.id === contractTemplateId) ?? null
   const contractAdminTokens = selectedTemplate ? getAdminTokens(selectedTemplate.content) : []
   const contractChoiceFields = selectedTemplate ? extractChoiceFields(selectedTemplate.content) : []
@@ -237,6 +245,7 @@ export default function PeoplePage() {
     resetAddForm()
     load()
     setInviting(false)
+    toastManager.add({ title: 'Ansatt lagt til', description: 'Invitasjon sendt på e-post.' })
   }
 
   if (loading) {
@@ -250,9 +259,11 @@ export default function PeoplePage() {
       const cmp = (a.full_name ?? '').localeCompare(b.full_name ?? '', 'no')
       return sortDir === 'asc' ? cmp : -cmp
     })
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
-    <div className="max-w-4xl p-6 md:p-12">
+    <div className="max-w-4xl p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
           <IconBadge icon={<Users className="size-4" />} />
@@ -261,13 +272,13 @@ export default function PeoplePage() {
         <p className="text-muted-foreground text-sm">Oversikt over alle ansatte.</p>
       </div>
 
-      <div className="flex flex-row items-center justify-between gap-4 mb-4">
+      <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex flex-row items-center gap-3">
           <Input
             placeholder="Finn person..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="max-w-sm"
+            className="w-full sm:max-w-sm"
           />
           <Tooltip>
             <TooltipTrigger
@@ -307,7 +318,7 @@ export default function PeoplePage() {
         {filtered.length === 0 ? (
           <p className="text-muted-foreground text-sm py-8 text-center">Ingen treff.</p>
         ) : (
-          filtered.map((p) => (
+          paged.map((p) => (
             <Link
               key={p.id}
               href={`/people/${p.id}`}
@@ -337,6 +348,8 @@ export default function PeoplePage() {
           ))
         )}
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) resetAddForm() }}>
         <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden">

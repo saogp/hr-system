@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { MoreHorizontal, FileText, MessageSquare, ClipboardList, Settings } from 'lucide-react'
+import { MoreHorizontal, FileText, MessageSquare, ClipboardList, Settings, Plus, X, Bell, SprayCan } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import type { CleaningRecipient } from '@/lib/cleaning'
 import { Card, CardContent } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
@@ -91,6 +93,12 @@ export default function SettingsPage() {
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
 
+  const [cleaningRecipients, setCleaningRecipients] = useState<CleaningRecipient[]>([])
+  const [cleaningGroups, setCleaningGroups] = useState<{ id: string; name: string }[]>([])
+  const [newCleaningRecipientEmail, setNewCleaningRecipientEmail] = useState('')
+  const [sendingCleaningSummary, setSendingCleaningSummary] = useState(false)
+  const [cleaningSummaryMessage, setCleaningSummaryMessage] = useState('')
+
   const [editTarget, setEditTarget] = useState<Company | null>(null)
   const [editName, setEditName] = useState('')
   const [editOrgNumber, setEditOrgNumber] = useState('')
@@ -168,6 +176,18 @@ export default function SettingsPage() {
         if (reviewTemplatesData) setReviewTemplates(reviewTemplatesData)
 
         await loadBroadcastHistory()
+
+        const { data: recipientsData } = await supabase
+          .from('cleaning_notification_recipients')
+          .select('id, email')
+          .order('email')
+        if (recipientsData) setCleaningRecipients(recipientsData)
+
+        const { data: cleaningGroupsData } = await supabase
+          .from('cleaning_room_groups')
+          .select('id, name')
+          .order('sort_order')
+        if (cleaningGroupsData) setCleaningGroups(cleaningGroupsData)
       }
 
       if (isPushSupported()) {
@@ -369,6 +389,36 @@ export default function SettingsPage() {
     setSendingBroadcast(false)
   }
 
+  const handleAddCleaningRecipient = async () => {
+    if (!newCleaningRecipientEmail.trim()) return
+    const { error } = await supabase.from('cleaning_notification_recipients').insert({ email: newCleaningRecipientEmail.trim() })
+    if (!error) {
+      setNewCleaningRecipientEmail('')
+      const { data } = await supabase.from('cleaning_notification_recipients').select('id, email').order('email')
+      if (data) setCleaningRecipients(data)
+    }
+  }
+
+  const handleRemoveCleaningRecipient = async (id: string) => {
+    await supabase.from('cleaning_notification_recipients').delete().eq('id', id)
+    setCleaningRecipients((prev) => prev.filter((r) => r.id !== id))
+  }
+
+  const handleSendCleaningSummaryNow = async () => {
+    setSendingCleaningSummary(true)
+    setCleaningSummaryMessage('')
+
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/cleaning/daily-summary', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+    })
+    const result = await res.json().catch(() => ({}))
+
+    setCleaningSummaryMessage(res.ok ? (result.message || 'Sendt.') : (result.error || 'Noe gikk galt.'))
+    setSendingCleaningSummary(false)
+  }
+
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
@@ -377,7 +427,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-4xl p-6 md:p-12">
+    <div className="max-w-4xl p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
           <IconBadge icon={<Settings className="size-4" />} />
@@ -397,30 +447,92 @@ export default function SettingsPage() {
         </TabsList>
 
         <TabsContent value="varsler" className="pt-4 max-w-md">
-          <h2 className="text-lg font-semibold mb-2">Push-varsler</h2>
-          <p className="text-muted-foreground text-sm mb-4">
-            Få varsler direkte på denne enheten (mobil eller PC) for ting som medarbeidersamtaler,
-            nye oppgaver og si fra-meldinger. Du må aktivere dette på hver enhet du vil bruke.
-            {' '}
-            <span className="font-medium">På iPhone må siden være lagt til på Hjem-skjermen</span> for at
-            varsler skal fungere i Safari.
-          </p>
+          <h2 className="text-lg font-semibold mb-3">Varsler</h2>
+
           {pushError && (
             <Alert variant="destructive" className="mb-4">
               <AlertDescription>{pushError}</AlertDescription>
             </Alert>
           )}
+
           {!isPushSupported() ? (
             <p className="text-sm text-muted-foreground">Push-varsler støttes ikke i denne nettleseren.</p>
           ) : (
-            <Button
-              onClick={handleTogglePush}
-              disabled={pushBusy}
-              variant={pushEnabled ? 'outline' : 'default'}
-              className={pushEnabled ? '' : 'bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium'}
-            >
-              {pushBusy ? 'Vent...' : pushEnabled ? 'Skru av varsler på denne enheten' : 'Aktiver varsler på denne enheten'}
-            </Button>
+            <div className="flex items-center gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-orange/15">
+                <Bell className="size-4 text-brand-navy dark:text-brand-orange" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">Push-varsler på denne enheten</p>
+                <p className="text-xs text-muted-foreground">
+                  Varsler om medarbeidersamtaler, nye oppgaver og si fra-meldinger.
+                </p>
+              </div>
+              <Switch checked={pushEnabled} onCheckedChange={() => handleTogglePush()} disabled={pushBusy} />
+            </div>
+          )}
+
+          <p className="text-xs text-muted-foreground mt-3">
+            Du må aktivere dette på hver enhet du vil bruke.{' '}
+            <span className="font-medium">På iPhone må siden være lagt til på Hjem-skjermen</span> for at
+            varsler skal fungere i Safari.
+          </p>
+
+          {isAdmin && (
+            <div className="mt-8">
+              <h2 className="text-lg font-semibold mb-3">Renhold – daglig oppsummering</h2>
+              <div className="rounded-xl border border-border bg-white dark:bg-white/5 p-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-orange/15">
+                    <SprayCan className="size-4 text-brand-navy dark:text-brand-orange" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">Mottakere av oppsummeringen</p>
+                    <p className="text-xs text-muted-foreground">
+                      Får e-post om hvilke rom som ikke er rengjort i dag.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 mb-4">
+                  {cleaningRecipients.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Ingen mottakere lagt til enda.</p>
+                  ) : (
+                    cleaningRecipients.map((r) => (
+                      <div key={r.id} className="flex items-center justify-between gap-2 rounded-md border border-input p-2">
+                        <span className="text-sm truncate">{r.email}</span>
+                        <Button variant="ghost" size="icon-sm" onClick={() => handleRemoveCleaningRecipient(r.id)}>
+                          <X />
+                          <span className="sr-only">Fjern</span>
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 mb-4">
+                  <Input
+                    type="email"
+                    placeholder="navn@firma.no"
+                    value={newCleaningRecipientEmail}
+                    onChange={(e) => setNewCleaningRecipientEmail(e.target.value)}
+                  />
+                  <Button variant="outline" onClick={handleAddCleaningRecipient} className="shrink-0">
+                    <Plus />
+                    Legg til
+                  </Button>
+                </div>
+
+                {cleaningSummaryMessage && <p className="text-sm text-muted-foreground mb-2">{cleaningSummaryMessage}</p>}
+                <Button
+                  onClick={handleSendCleaningSummaryNow}
+                  disabled={sendingCleaningSummary || cleaningRecipients.length === 0}
+                  variant="outline"
+                >
+                  {sendingCleaningSummary ? 'Sender...' : 'Send oppsummering nå'}
+                </Button>
+              </div>
+            </div>
           )}
         </TabsContent>
 
@@ -684,6 +796,22 @@ export default function SettingsPage() {
                   </CardContent>
                 </Card>
               ))}
+
+              {cleaningGroups.map((g) => (
+                <Card
+                  key={`cleaning-${g.id}`}
+                  className="shadow-none cursor-pointer hover:bg-muted/50"
+                  onClick={() => router.push(`/renhold/sjekkliste/${g.id}`)}
+                >
+                  <CardContent className="flex items-start gap-3">
+                    <SprayCan className="size-5 text-muted-foreground shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{g.name} – sjekkliste</p>
+                      <p className="text-xs text-muted-foreground">Vises når noen skanner QR-koden</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </TabsContent>
@@ -723,7 +851,7 @@ export default function SettingsPage() {
             <div className="flex flex-col gap-1.5">
               <Label>Start fra</Label>
               <Select value={newMalBasis} onValueChange={(val) => val && setNewMalBasis(val)}>
-                <SelectTrigger className="w-full h-8">
+                <SelectTrigger className="w-full h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
