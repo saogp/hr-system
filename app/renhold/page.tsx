@@ -11,6 +11,7 @@ import { printGroupQrCode } from '@/lib/cleaning-qr'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -19,7 +20,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
-import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
+import { RenholdPageSkeleton } from '@/components/ui/loading-skeletons'
+import { FilterButton, FilterField } from '@/components/ui/filter-button'
 
 type Company = { id: string; name: string }
 type CheckWithRoom = CleaningCheck & { cleaning_rooms: { name: string } | null }
@@ -37,6 +39,9 @@ export default function RenholdPage() {
   const [historyPage, setHistoryPage] = useState(1)
   const [expandedCheckId, setExpandedCheckId] = useState<string | null>(null)
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
+  const [roomFilter, setRoomFilter] = useState('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   const loadGroups = async () => {
     const { data } = await supabase.from('cleaning_room_groups').select('id, name, sort_order, questions, company_id').order('sort_order')
@@ -100,6 +105,10 @@ export default function RenholdPage() {
 
   const handlePrintGroup = (group: CleaningRoomGroup) => printGroupQrCode(group)
 
+  useEffect(() => {
+    setHistoryPage(1)
+  }, [roomFilter, dateFrom, dateTo])
+
   const handleToggleExpand = async (check: CheckWithRoom) => {
     if (expandedCheckId === check.id) {
       setExpandedCheckId(null)
@@ -124,12 +133,19 @@ export default function RenholdPage() {
     new Date(dateStr).toLocaleString('no-NO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   if (loading) {
-    return <ListPageSkeleton />
+    return <RenholdPageSkeleton />
   }
 
   const checkedRoomIds = new Set(todaysChecks.map((c) => c.room_id))
-  const totalHistoryPages = Math.max(1, Math.ceil(recentChecks.length / PAGE_SIZE))
-  const pagedHistory = recentChecks.slice((historyPage - 1) * PAGE_SIZE, historyPage * PAGE_SIZE)
+  const filteredHistory = recentChecks.filter((c) => {
+    if (roomFilter !== 'all' && c.room_id !== roomFilter) return false
+    if (dateFrom && c.check_date < dateFrom) return false
+    if (dateTo && c.check_date > dateTo) return false
+    return true
+  })
+  const historyFilterCount = [roomFilter !== 'all', !!dateFrom, !!dateTo].filter(Boolean).length
+  const totalHistoryPages = Math.max(1, Math.ceil(filteredHistory.length / PAGE_SIZE))
+  const pagedHistory = filteredHistory.slice((historyPage - 1) * PAGE_SIZE, historyPage * PAGE_SIZE)
 
   return (
     <div className="max-w-[1440px] p-6">
@@ -194,9 +210,47 @@ export default function RenholdPage() {
         })}
       </div>
 
-      <h2 className="text-lg font-semibold mb-3">Historikk</h2>
-      {recentChecks.length === 0 ? (
-        <p className="text-center text-muted-foreground text-sm py-8">Ingen registreringer enda.</p>
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h2 className="text-lg font-semibold">Historikk</h2>
+        {recentChecks.length > 0 && (
+          <FilterButton activeCount={historyFilterCount}>
+            <FilterField label="Rom">
+              <Select value={roomFilter} onValueChange={(val) => val && setRoomFilter(val)}>
+                <SelectTrigger className="w-full h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle rom</SelectItem>
+                  {rooms.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FilterField>
+            <FilterField label="Fra dato">
+              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full" />
+            </FilterField>
+            <FilterField label="Til dato">
+              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full" />
+            </FilterField>
+            {historyFilterCount > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-fit self-start -mt-1"
+                onClick={() => { setRoomFilter('all'); setDateFrom(''); setDateTo('') }}
+              >
+                Nullstill filter
+              </Button>
+            )}
+          </FilterButton>
+        )}
+      </div>
+      {filteredHistory.length === 0 ? (
+        <p className="text-center text-muted-foreground text-sm py-8">
+          {recentChecks.length === 0 ? 'Ingen registreringer enda.' : 'Ingen treff på filteret.'}
+        </p>
       ) : (
         <>
           <div className="flex flex-col divide-y divide-border rounded-md border border-input mb-3">

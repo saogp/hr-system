@@ -7,7 +7,15 @@ import { supabase } from '@/lib/supabase'
 import { Package, Search } from 'lucide-react'
 import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
-import { getUniformTypeIcon, needsCardCredentials, type UniformIssuance } from '@/lib/uniform-items'
+import { getUniformTypeIcon, needsCardCredentials, UNIFORM_TYPES, type UniformIssuance } from '@/lib/uniform-items'
+import { FilterButton, FilterField } from '@/components/ui/filter-button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -41,6 +49,8 @@ export default function UniformerPage() {
   const [issuances, setIssuances] = useState<IssuanceWithPerson[]>([])
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'signed'>('all')
+  const [typeFilter, setTypeFilter] = useState('all')
   const [isRealAdmin, setIsRealAdmin] = useState(false)
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -83,7 +93,7 @@ export default function UniformerPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [search])
+  }, [search, statusFilter, typeFilter])
 
   const handleMarkReturned = async (issuanceId: string, itemId: string) => {
     const issuance = issuances.find(i => i.id === issuanceId)
@@ -124,30 +134,34 @@ export default function UniformerPage() {
   }
 
   const matchesSearch = (name: string) => name.toLowerCase().includes(search.toLowerCase())
+  const matchesType = (type: string) => typeFilter === 'all' || type === typeFilter
+  const activeFilterCount = [statusFilter !== 'all', typeFilter !== 'all'].filter(Boolean).length
 
-  const unsignedIssuances = issuances.filter(
-    i => !i.employee_signed_at && i.items.some(item => !item.returned)
+  const unsignedIssuances = statusFilter === 'signed' ? [] : issuances.filter(
+    i => !i.employee_signed_at && i.items.some(item => !item.returned && matchesType(item.type))
        && matchesSearch(i.profiles?.full_name || i.profiles?.email || '')
   )
 
   type FlatItem = (typeof issuances)[number]['items'][number] & { issuanceId: string }
   const signedGroups = new Map<string, { profileName: string; items: FlatItem[] }>()
-  for (const issuance of issuances) {
-    if (!issuance.employee_signed_at) continue
-    const profileName = issuance.profiles?.full_name || issuance.profiles?.email || '—'
-    if (!matchesSearch(profileName)) continue
-    const outstandingItems = issuance.items.filter(item => !item.returned)
-    if (outstandingItems.length === 0) continue
+  if (statusFilter !== 'pending') {
+    for (const issuance of issuances) {
+      if (!issuance.employee_signed_at) continue
+      const profileName = issuance.profiles?.full_name || issuance.profiles?.email || '—'
+      if (!matchesSearch(profileName)) continue
+      const outstandingItems = issuance.items.filter(item => !item.returned && matchesType(item.type))
+      if (outstandingItems.length === 0) continue
 
-    const flatItems: FlatItem[] = outstandingItems.map(item => ({ ...item, issuanceId: issuance.id }))
-    const existing = signedGroups.get(issuance.profile_id)
-    if (existing) {
-      existing.items.push(...flatItems)
-    } else {
-      signedGroups.set(issuance.profile_id, {
-        profileName,
-        items: flatItems,
-      })
+      const flatItems: FlatItem[] = outstandingItems.map(item => ({ ...item, issuanceId: issuance.id }))
+      const existing = signedGroups.get(issuance.profile_id)
+      if (existing) {
+        existing.items.push(...flatItems)
+      } else {
+        signedGroups.set(issuance.profile_id, {
+          profileName,
+          items: flatItems,
+        })
+      }
     }
   }
 
@@ -204,14 +218,54 @@ export default function UniformerPage() {
       <div>
         <h2 className="text-lg font-semibold mb-3">Utleveringer</h2>
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <div className="relative sm:max-w-xs w-full">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input
-              placeholder="Finn ansatt..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8"
-            />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative sm:max-w-xs w-full">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                placeholder="Finn ansatt..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <FilterButton activeCount={activeFilterCount}>
+              <FilterField label="Status">
+                <Select value={statusFilter} onValueChange={(val) => val && setStatusFilter(val as typeof statusFilter)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle statuser</SelectItem>
+                    <SelectItem value="pending">Venter på signering</SelectItem>
+                    <SelectItem value="signed">Signert</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FilterField>
+              <FilterField label="Utstyrstype">
+                <Select value={typeFilter} onValueChange={(val) => val && setTypeFilter(val)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle typer</SelectItem>
+                    {UNIFORM_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FilterField>
+              {activeFilterCount > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-fit self-start -mt-1"
+                  onClick={() => { setStatusFilter('all'); setTypeFilter('all') }}
+                >
+                  Nullstill filter
+                </Button>
+              )}
+            </FilterButton>
           </div>
           <Button
             render={<Link href="/uniformer/new" />}

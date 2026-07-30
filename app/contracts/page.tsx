@@ -35,10 +35,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { MoreHorizontal, ChevronRight, FileText, Download, Send, Search } from 'lucide-react'
+import { MoreHorizontal, ChevronRight, FileText, Download, Send, Search, Mail } from 'lucide-react'
 import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { fetchAndDownloadContractPdf } from '@/lib/contract-pdf'
+import { FilterButton, FilterField } from '@/components/ui/filter-button'
 
 type Template = {
   id: string
@@ -82,6 +83,8 @@ export default function ContractsPage() {
   const [search, setSearch] = useState('')
   const [companyFilter, setCompanyFilter] = useState('all')
   const [monthFilter, setMonthFilter] = useState('')
+  const [templateFilter, setTemplateFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'signed' | 'pending'>('all')
   const [page, setPage] = useState(1)
 
   useEffect(() => {
@@ -136,7 +139,7 @@ export default function ContractsPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [search, companyFilter, monthFilter])
+  }, [search, companyFilter, monthFilter, templateFilter, statusFilter])
 
   const handleDeleteContract = async () => {
     if (!deleteTargetId) return
@@ -151,6 +154,18 @@ export default function ContractsPage() {
       alert('Kunne ikke slette kontrakten.')
     }
     setDeleting(false)
+  }
+
+  const handleResendEmail = async (contractId: string) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/contracts/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ contractId }),
+    })
+    if (!res.ok) {
+      alert('Kunne ikke sende e-posten på nytt.')
+    }
   }
 
   const handleSendToAccountant = async (contractId: string) => {
@@ -211,8 +226,16 @@ export default function ContractsPage() {
     }
     if (companyFilter !== 'all' && c.company_id !== companyFilter) return false
     if (monthFilter && !c.sent_at.startsWith(monthFilter)) return false
+    if (templateFilter !== 'all' && c.template_id !== templateFilter) return false
+    if (statusFilter !== 'all') {
+      const signedCount = [c.employee_signed_at, c.admin_signed_at].filter(Boolean).length
+      const isSigned = signedCount === 2
+      if (statusFilter === 'signed' && !isSigned) return false
+      if (statusFilter === 'pending' && isSigned) return false
+    }
     return true
   })
+  const activeFilterCount = [companyFilter !== 'all', !!monthFilter, templateFilter !== 'all', statusFilter !== 'all'].filter(Boolean).length
   const totalPages = Math.max(1, Math.ceil(filteredContracts.length / PAGE_SIZE))
   const pagedContracts = filteredContracts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
@@ -243,23 +266,65 @@ export default function ContractsPage() {
                   className="pl-8"
                 />
               </div>
-              <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
-                <SelectTrigger className="w-full sm:w-48 h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Alle restauranter</SelectItem>
-                  {companies.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input
-                type="month"
-                value={monthFilter}
-                onChange={(e) => setMonthFilter(e.target.value)}
-                className="w-full sm:w-40"
-              />
+              <FilterButton activeCount={activeFilterCount}>
+                <FilterField label="Restaurant">
+                  <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Alle restauranter</SelectItem>
+                      {companies.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FilterField>
+                <FilterField label="Mal">
+                  <Select value={templateFilter} onValueChange={(val) => val && setTemplateFilter(val)}>
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Alle maler</SelectItem>
+                      {templates.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FilterField>
+                <FilterField label="Status">
+                  <Select value={statusFilter} onValueChange={(val) => val && setStatusFilter(val as typeof statusFilter)}>
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Alle statuser</SelectItem>
+                      <SelectItem value="signed">Signert</SelectItem>
+                      <SelectItem value="pending">Venter på signering</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FilterField>
+                <FilterField label="Måned sendt">
+                  <Input
+                    type="month"
+                    value={monthFilter}
+                    onChange={(e) => setMonthFilter(e.target.value)}
+                    className="w-full"
+                  />
+                </FilterField>
+                {activeFilterCount > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="w-fit self-start -mt-1"
+                    onClick={() => { setCompanyFilter('all'); setTemplateFilter('all'); setStatusFilter('all'); setMonthFilter('') }}
+                  >
+                    Nullstill filter
+                  </Button>
+                )}
+              </FilterButton>
             </div>
             <Button
               onClick={() => router.push('/contracts/new')}
@@ -311,6 +376,12 @@ export default function ContractsPage() {
                             <Download />
                             Last ned som PDF
                           </DropdownMenuItem>
+                          {isAdminLike(role) && !c.employee_signed_at && (
+                            <DropdownMenuItem onClick={() => handleResendEmail(c.id)}>
+                              <Mail />
+                              Send e-post på nytt
+                            </DropdownMenuItem>
+                          )}
                           {isAdminLike(role) && (
                             <DropdownMenuItem onClick={() => handleSendToAccountant(c.id)}>
                               <Send />

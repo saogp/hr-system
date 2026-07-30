@@ -21,6 +21,10 @@ export function renderEmailHtml(opts: {
   return `
 <!doctype html>
 <html lang="no">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  </head>
   <body style="margin: 0; padding: 0; background-color: #faf6ee; font-family: Arial, Helvetica, sans-serif;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #faf6ee; padding: 24px 0;">
       <tr>

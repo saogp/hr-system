@@ -103,17 +103,25 @@ function NewReviewPageInner() {
     setScheduling(true)
     const template = templates.find(t => t.id === selectedTemplateId)
 
-    const { error } = await supabase.from('reviews').insert({
+    const { data: review, error } = await supabase.from('reviews').insert({
       employee_id: selectedEmployeeId,
       leader_id: selectedLeaderId || null,
       template_id: selectedTemplateId || null,
       scheduled_date: scheduledDate,
       questions: template?.questions ?? [],
-    })
+    }).select().single()
 
-    if (!error) {
+    if (!error && review) {
       const dateLabel = new Date(scheduledDate).toLocaleDateString('no-NO', { day: 'numeric', month: 'long', year: 'numeric' })
       sendPushNotification(selectedEmployeeId, 'Medarbeidersamtale planlagt', `Du har fått en medarbeidersamtale ${dateLabel}.`, '/reviews')
+
+      const { data: { session } } = await supabase.auth.getSession()
+      fetch('/api/reviews/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+        body: JSON.stringify({ reviewId: review.id, employeeId: selectedEmployeeId, leaderId: selectedLeaderId || null, dateLabel }),
+      }).catch(() => {})
+
       toastManager.add({ title: 'Medarbeidersamtale planlagt', description: `Planlagt ${dateLabel}.` })
       router.push('/reviews')
       return

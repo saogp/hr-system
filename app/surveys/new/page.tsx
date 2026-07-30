@@ -182,6 +182,13 @@ function NewSurveyPageInner() {
         sendPushNotification(profileId, 'Ny undersøkelse', title, `/surveys/${survey.id}`)
       }
 
+      const { data: { session } } = await supabase.auth.getSession()
+      fetch('/api/surveys/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+        body: JSON.stringify({ surveyId: survey.id, title, recipientIds: selectedRecipients }),
+      }).catch(() => {})
+
       toastManager.add({ title: 'Undersøkelse sendt', description: `Sendt til ${selectedRecipients.length} ansatte.` })
       router.push('/surveys')
       return

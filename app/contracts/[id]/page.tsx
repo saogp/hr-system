@@ -251,6 +251,21 @@ export default function ContractDetailPage() {
     }
   }
 
+  const handleResendEmail = async () => {
+    if (!contract) return
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/contracts/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ contractId: contract.id }),
+    })
+    if (res.ok) {
+      toastManager.add({ title: 'E-post sendt på nytt' })
+    } else {
+      toastManager.add({ title: 'Kunne ikke sende e-posten på nytt' })
+    }
+  }
+
   const handleSendToAccountant = async () => {
     if (!contract) return
     setSendingToAccountant(true)
@@ -337,6 +352,12 @@ export default function ContractDetailPage() {
                   <Download />
                   Last ned som PDF
                 </DropdownMenuItem>
+                {isAdmin && !contract.employee_signed_at && (
+                  <DropdownMenuItem onClick={handleResendEmail}>
+                    <Send />
+                    Send e-post på nytt
+                  </DropdownMenuItem>
+                )}
                 {isAdmin && (
                   <DropdownMenuItem onClick={handleSendToAccountant} disabled={sendingToAccountant}>
                     <Send />

@@ -39,6 +39,7 @@ import { IconBadge } from '@/components/ui/icon-badge'
 import { ClipboardList, MoreHorizontal, Search } from 'lucide-react'
 import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
+import { FilterButton, FilterField } from '@/components/ui/filter-button'
 
 type Person = { id: string; full_name: string | null; email: string | null }
 
@@ -49,6 +50,7 @@ type SurveyRow = {
   title: string
   created_at: string
   company_id: string | null
+  anonymous: boolean
 }
 
 type MySurveyRow = {
@@ -73,6 +75,8 @@ export default function SurveysPage() {
   const [search, setSearch] = useState('')
   const [companyFilter, setCompanyFilter] = useState('all')
   const [monthFilter, setMonthFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'answered' | 'none'>('all')
+  const [anonymousFilter, setAnonymousFilter] = useState<'all' | 'yes' | 'no'>('all')
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [page, setPage] = useState(1)
@@ -109,7 +113,7 @@ export default function SurveysPage() {
 
       const { data: surveysData } = await supabase
         .from('surveys')
-        .select('id, title, created_at, company_id')
+        .select('id, title, created_at, company_id, anonymous')
         .order('created_at', { ascending: false })
       if (surveysData) setSurveys(surveysData)
 
@@ -145,7 +149,7 @@ export default function SurveysPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [search, companyFilter, monthFilter])
+  }, [search, companyFilter, monthFilter, statusFilter, anonymousFilter])
 
   const handleDeleteSurvey = async () => {
     if (!deleteTargetId) return
@@ -170,8 +174,15 @@ export default function SurveysPage() {
     if (search && !s.title.toLowerCase().includes(search.toLowerCase())) return false
     if (companyFilter !== 'all' && s.company_id !== companyFilter) return false
     if (monthFilter && !s.created_at.startsWith(monthFilter)) return false
+    if (statusFilter !== 'all') {
+      const hasResponses = (surveyRespondents[s.id] ?? []).length > 0
+      if (statusFilter === 'answered' && !hasResponses) return false
+      if (statusFilter === 'none' && hasResponses) return false
+    }
+    if (anonymousFilter !== 'all' && s.anonymous !== (anonymousFilter === 'yes')) return false
     return true
   })
+  const activeFilterCount = [companyFilter !== 'all', !!monthFilter, statusFilter !== 'all', anonymousFilter !== 'all'].filter(Boolean).length
   const totalPages = Math.max(1, Math.ceil(filteredSurveys.length / PAGE_SIZE))
   const pagedSurveys = filteredSurveys.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
@@ -203,23 +214,64 @@ export default function SurveysPage() {
                 className="pl-8"
               />
             </div>
-            <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
-              <SelectTrigger className="w-full sm:w-48 h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle restauranter</SelectItem>
-                {companies.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              type="month"
-              value={monthFilter}
-              onChange={(e) => setMonthFilter(e.target.value)}
-              className="w-full sm:w-40"
-            />
+            <FilterButton activeCount={activeFilterCount}>
+              <FilterField label="Restaurant">
+                <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle restauranter</SelectItem>
+                    {companies.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FilterField>
+              <FilterField label="Status">
+                <Select value={statusFilter} onValueChange={(val) => val && setStatusFilter(val as typeof statusFilter)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle statuser</SelectItem>
+                    <SelectItem value="answered">Noen har svart</SelectItem>
+                    <SelectItem value="none">Ingen har svart</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FilterField>
+              <FilterField label="Anonym">
+                <Select value={anonymousFilter} onValueChange={(val) => val && setAnonymousFilter(val as typeof anonymousFilter)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle</SelectItem>
+                    <SelectItem value="yes">Anonym</SelectItem>
+                    <SelectItem value="no">Ikke anonym</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FilterField>
+              <FilterField label="Måned">
+                <Input
+                  type="month"
+                  value={monthFilter}
+                  onChange={(e) => setMonthFilter(e.target.value)}
+                  className="w-full"
+                />
+              </FilterField>
+              {activeFilterCount > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-fit self-start -mt-1"
+                  onClick={() => { setCompanyFilter('all'); setStatusFilter('all'); setAnonymousFilter('all'); setMonthFilter('') }}
+                >
+                  Nullstill filter
+                </Button>
+              )}
+            </FilterButton>
           </div>
           <Button
             render={<Link href="/surveys/new" />}

@@ -37,6 +37,7 @@ import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+import { FilterButton, FilterField } from '@/components/ui/filter-button'
 
 type PersonOption = {
   id: string
@@ -68,6 +69,8 @@ export default function ReviewsPage() {
   const [search, setSearch] = useState('')
   const [companyFilter, setCompanyFilter] = useState('all')
   const [monthFilter, setMonthFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'completed'>('all')
+  const [leaderFilter, setLeaderFilter] = useState('all')
   const [page, setPage] = useState(1)
 
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
@@ -136,7 +139,7 @@ export default function ReviewsPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [search, companyFilter, monthFilter])
+  }, [search, companyFilter, monthFilter, statusFilter, leaderFilter])
 
   const handleDeleteReview = async () => {
     if (!deleteTargetId) return
@@ -164,8 +167,11 @@ export default function ReviewsPage() {
     }
     if (companyFilter !== 'all' && !(employeeCompanies[r.employee_id] ?? []).includes(companyFilter)) return false
     if (monthFilter && !r.scheduled_date.startsWith(monthFilter)) return false
+    if (statusFilter !== 'all' && r.status !== statusFilter) return false
+    if (leaderFilter !== 'all' && r.leader_id !== leaderFilter) return false
     return true
   })
+  const activeFilterCount = [companyFilter !== 'all', !!monthFilter, statusFilter !== 'all', leaderFilter !== 'all'].filter(Boolean).length
   const totalPages = Math.max(1, Math.ceil(filteredReviews.length / PAGE_SIZE))
   const pagedReviews = filteredReviews.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
@@ -193,23 +199,65 @@ export default function ReviewsPage() {
                 className="pl-8"
               />
             </div>
-            <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
-              <SelectTrigger className="w-full sm:w-48 h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Alle restauranter</SelectItem>
-                {companies.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              type="month"
-              value={monthFilter}
-              onChange={(e) => setMonthFilter(e.target.value)}
-              className="w-full sm:w-40"
-            />
+            <FilterButton activeCount={activeFilterCount}>
+              <FilterField label="Restaurant">
+                <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle restauranter</SelectItem>
+                    {companies.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FilterField>
+              <FilterField label="Status">
+                <Select value={statusFilter} onValueChange={(val) => val && setStatusFilter(val as typeof statusFilter)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle statuser</SelectItem>
+                    <SelectItem value="open">Åpen</SelectItem>
+                    <SelectItem value="completed">Fullført</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FilterField>
+              <FilterField label="Leder">
+                <Select value={leaderFilter} onValueChange={(val) => val && setLeaderFilter(val)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle ledere</SelectItem>
+                    {people.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FilterField>
+              <FilterField label="Måned">
+                <Input
+                  type="month"
+                  value={monthFilter}
+                  onChange={(e) => setMonthFilter(e.target.value)}
+                  className="w-full"
+                />
+              </FilterField>
+              {activeFilterCount > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-fit self-start -mt-1"
+                  onClick={() => { setCompanyFilter('all'); setStatusFilter('all'); setLeaderFilter('all'); setMonthFilter('') }}
+                >
+                  Nullstill filter
+                </Button>
+              )}
+            </FilterButton>
           </div>
           <Button
             onClick={() => router.push('/reviews/new')}

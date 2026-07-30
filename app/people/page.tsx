@@ -43,6 +43,7 @@ import { getAdminTokens, extractChoiceFields, usesCompanyTokens } from '@/lib/co
 import { UNIFORM_TYPES, UNIFORM_SIZES, needsCardCredentials } from '@/lib/uniform-items'
 import { useToastManager } from '@/components/ui/toast'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
+import { FilterButton, FilterField } from '@/components/ui/filter-button'
 
 type Person = {
   id: string
@@ -87,6 +88,9 @@ export default function PeoplePage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [showInactive, setShowInactive] = useState(false)
   const [page, setPage] = useState(1)
+  const [roleFilter, setRoleFilter] = useState('all')
+  const [companyFilter, setCompanyFilter] = useState('all')
+  const [profileCompanies, setProfileCompanies] = useState<Record<string, string[]>>({})
 
   const [addOpen, setAddOpen] = useState(false)
   const [newName, setNewName] = useState('')
@@ -142,6 +146,17 @@ export default function PeoplePage() {
         .select('id, name')
         .order('name')
       if (companiesData) setCompanies(companiesData)
+
+      const { data: pcData } = await supabase
+        .from('profile_companies')
+        .select('profile_id, company_id')
+      if (pcData) {
+        const map: Record<string, string[]> = {}
+        for (const row of pcData) {
+          map[row.profile_id] = [...(map[row.profile_id] ?? []), row.company_id]
+        }
+        setProfileCompanies(map)
+      }
     } else {
       const { data } = await supabase.rpc('get_people_directory')
       if (data) setPeople(data.map((p: Person) => ({ ...p, end_date: null, is_active: true })))
@@ -179,7 +194,7 @@ export default function PeoplePage() {
 
   useEffect(() => {
     setPage(1)
-  }, [search, showInactive])
+  }, [search, showInactive, roleFilter, companyFilter])
 
   const selectedTemplate = templates.find(t => t.id === contractTemplateId) ?? null
   const contractAdminTokens = selectedTemplate ? getAdminTokens(selectedTemplate.content) : []
@@ -267,10 +282,13 @@ export default function PeoplePage() {
   const filtered = people
     .filter((p) => (showInactive ? !p.is_active : p.is_active))
     .filter((p) => (p.full_name ?? '').toLowerCase().includes(search.toLowerCase()))
+    .filter((p) => roleFilter === 'all' || p.role === roleFilter)
+    .filter((p) => companyFilter === 'all' || (profileCompanies[p.id] ?? []).includes(companyFilter))
     .sort((a, b) => {
       const cmp = (a.full_name ?? '').localeCompare(b.full_name ?? '', 'no')
       return sortDir === 'asc' ? cmp : -cmp
     })
+  const activeFilterCount = [roleFilter !== 'all', companyFilter !== 'all'].filter(Boolean).length
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
@@ -312,6 +330,47 @@ export default function PeoplePage() {
               {sortDir === 'asc' ? 'Sortert A-Å — klikk for Å-A' : 'Sortert Å-A — klikk for A-Å'}
             </TooltipContent>
           </Tooltip>
+          {isAdmin && (
+            <FilterButton activeCount={activeFilterCount}>
+              <FilterField label="Rolle">
+                <Select value={roleFilter} onValueChange={(val) => val && setRoleFilter(val)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle roller</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="manager">Leder</SelectItem>
+                    <SelectItem value="employee">Ansatt</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FilterField>
+              <FilterField label="Bedrift">
+                <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
+                  <SelectTrigger className="w-full h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle bedrifter</SelectItem>
+                    {companies.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FilterField>
+              {activeFilterCount > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-fit self-start -mt-1"
+                  onClick={() => { setRoleFilter('all'); setCompanyFilter('all') }}
+                >
+                  Nullstill filter
+                </Button>
+              )}
+            </FilterButton>
+          )}
         </div>
         {isAdmin && (
           <div className="flex items-center gap-2 shrink-0">

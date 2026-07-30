@@ -67,7 +67,7 @@ export default function LoginPage() {
     <div className="min-h-dvh flex items-center justify-center bg-brand-cream dark:bg-brand-cream-dark px-4">
       <Card className="w-full max-w-sm shadow-none border-brand-navy/10 py-8">
         <CardHeader className="space-y-1 items-center text-center px-8">
-          <GreetingIllustration className="size-24 mb-1" />
+          <GreetingIllustration className="size-24 mb-1 mx-auto" />
           <CardTitle className="text-xl font-bold text-brand-navy dark:text-white">Logg inn</CardTitle>
         </CardHeader>
 
@@ -89,7 +89,6 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="navn@firma.no"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
