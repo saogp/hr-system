@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, SprayCan, Plus, X, ImagePlus } from 'lucide-react'
+import { ArrowLeft, SprayCan, Plus, X, ImagePlus, Printer } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+import { printGroupQrCode } from '@/lib/cleaning-qr'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -95,10 +96,16 @@ export default function CleaningChecklistTemplatePage() {
         Tilbake til innstillinger
       </Link>
 
-      <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2 mb-1">
-        <IconBadge icon={<SprayCan className="size-4" />} />
-        {groupName} – sjekkliste
-      </h1>
+      <div className="flex items-start justify-between gap-4 mb-1">
+        <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
+          <IconBadge icon={<SprayCan className="size-4" />} />
+          {groupName} – sjekkliste
+        </h1>
+        <Button variant="outline" size="sm" className="shrink-0" onClick={() => printGroupQrCode({ id, name: groupName })}>
+          <Printer />
+          Skriv ut QR-kode
+        </Button>
+      </div>
       <p className="text-muted-foreground text-sm mb-6">
         Sjekkpunktene som vises når noen skanner QR-koden for {groupName.toLowerCase()}.
       </p>
