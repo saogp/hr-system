@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Package, Search } from 'lucide-react'
+import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { getUniformTypeIcon, needsCardCredentials, type UniformIssuance } from '@/lib/uniform-items'
 import { IconBadge } from '@/components/ui/icon-badge'
@@ -110,7 +111,7 @@ export default function UniformerPage() {
   }
 
   if (loading) {
-    return <div className="p-8">Laster uniformer...</div>
+    return <ListPageSkeleton />
   }
 
   const stockByType = new Map<string, number>()

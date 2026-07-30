@@ -1,13 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { sendPushNotification } from '@/lib/push-client'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { useToastManager } from '@/components/ui/toast'
 import { ArrowLeft } from 'lucide-react'
+import { FormPageSkeleton } from '@/components/ui/loading-skeletons'
 
 import {
   Select,
@@ -33,8 +34,17 @@ type ReviewTemplate = {
 }
 
 export default function NewReviewPage() {
+  return (
+    <Suspense fallback={<FormPageSkeleton />}>
+      <NewReviewPageInner />
+    </Suspense>
+  )
+}
+
+function NewReviewPageInner() {
   const router = useRouter()
   const toastManager = useToastManager()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [people, setPeople] = useState<PersonOption[]>([])
   const [templates, setTemplates] = useState<ReviewTemplate[]>([])
@@ -74,7 +84,13 @@ export default function NewReviewPage() {
         .from('review_templates')
         .select('id, name, questions')
         .order('name')
-      if (templatesData) setTemplates(templatesData)
+      if (templatesData) {
+        setTemplates(templatesData)
+        const templateParam = searchParams.get('template')
+        if (templatesData.some((t) => t.id === templateParam)) {
+          setSelectedTemplateId(templateParam!)
+        }
+      }
 
       setLoading(false)
     }
@@ -106,17 +122,19 @@ export default function NewReviewPage() {
   }
 
   if (loading) {
-    return <div className="p-8">Laster...</div>
+    return <FormPageSkeleton />
   }
+
+  const cameFromTemplate = !!searchParams.get('template')
 
   return (
     <div className="p-6 max-w-[1440px]">
       <Link
-        href="/reviews"
+        href={cameFromTemplate ? '/settings' : '/reviews'}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
       >
         <ArrowLeft className="size-4" />
-        Tilbake til medarbeidersamtaler
+        {cameFromTemplate ? 'Tilbake til innstillinger' : 'Tilbake til medarbeidersamtaler'}
       </Link>
 
       <h1 className="text-2xl font-bold text-brand-navy dark:text-white mb-1">Ny medarbeidersamtale</h1>

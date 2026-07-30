@@ -9,6 +9,7 @@ import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { sendPushNotification } from '@/lib/push-client'
 import { UNIFORM_TYPES, UNIFORM_SIZES, needsCardCredentials } from '@/lib/uniform-items'
 import { useToastManager } from '@/components/ui/toast'
+import { FormPageSkeleton } from '@/components/ui/loading-skeletons'
 
 import {
   Select,
@@ -134,7 +135,7 @@ export default function NewUniformIssuancePage() {
   }
 
   if (loading) {
-    return <div className="p-8">Laster...</div>
+    return <FormPageSkeleton />
   }
 
   return (

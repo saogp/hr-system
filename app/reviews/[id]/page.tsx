@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { generateReviewIcs, downloadIcs } from '@/lib/ics'
 import { sendPushNotification } from '@/lib/push-client'
 import { useToastManager } from '@/components/ui/toast'
+import { DetailPageSkeleton } from '@/components/ui/loading-skeletons'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -231,7 +232,7 @@ export default function ReviewDetailPage() {
   }
 
   if (loading || !review) {
-    return <div className="p-8">Laster medarbeidersamtale...</div>
+    return <DetailPageSkeleton />
   }
 
   return (

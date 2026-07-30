@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
+import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 
 type Company = { id: string; name: string }
 type CheckWithRoom = CleaningCheck & { cleaning_rooms: { name: string } | null }
@@ -123,7 +124,7 @@ export default function RenholdPage() {
     new Date(dateStr).toLocaleString('no-NO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   if (loading) {
-    return <div className="p-8">Laster renhold...</div>
+    return <ListPageSkeleton />
   }
 
   const checkedRoomIds = new Set(todaysChecks.map((c) => c.room_id))
@@ -200,13 +201,12 @@ export default function RenholdPage() {
         <>
           <div className="flex flex-col divide-y divide-border rounded-md border border-input mb-3">
             {pagedHistory.map((c) => {
-              const hasDetails = !!c.deviation_note || c.deviation_photos.length > 0
               const isExpanded = expandedCheckId === c.id
               return (
                 <div key={c.id} className="p-3">
                   <div
-                    className={`flex items-center justify-between gap-3 ${hasDetails ? 'cursor-pointer' : ''}`}
-                    onClick={() => hasDetails && handleToggleExpand(c)}
+                    className="flex items-center justify-between gap-3 cursor-pointer"
+                    onClick={() => handleToggleExpand(c)}
                   >
                     <div className="min-w-0">
                       <p className="font-medium text-base md:text-sm truncate">{c.cleaning_rooms?.name || '—'}</p>
@@ -214,15 +214,27 @@ export default function RenholdPage() {
                         {formatDateTime(c.checked_at)}{c.checked_by_name ? ` · ${c.checked_by_name}` : ''}
                       </p>
                     </div>
-                    {hasDetails && (
-                      <div className="flex items-center gap-1 shrink-0 text-muted-foreground">
-                        {c.deviation_photos.length > 0 && <ImageIcon className="size-4" />}
-                        {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1 shrink-0 text-muted-foreground">
+                      {c.deviation_photos.length > 0 && <ImageIcon className="size-4" />}
+                      {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                    </div>
                   </div>
-                  {isExpanded && hasDetails && (
-                    <div className="mt-3 space-y-2 rounded-md bg-muted/40 p-3">
+                  {isExpanded && (
+                    <div className="mt-3 space-y-3 rounded-md bg-muted/40 p-3">
+                      {c.checklist.length > 0 && (
+                        <div className="flex flex-col gap-1.5">
+                          {c.checklist.map((item, i) => (
+                            <div key={i} className="flex items-center justify-between gap-2 text-sm">
+                              <span>{item.question}</span>
+                              {item.checked ? (
+                                <Badge className="bg-green-600 hover:bg-green-700 shrink-0">utført</Badge>
+                              ) : (
+                                <Badge variant="destructive" className="shrink-0">ikke utført</Badge>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {c.deviation_note && <p className="text-sm">{c.deviation_note}</p>}
                       {c.deviation_photos.length > 0 && (
                         <div className="flex gap-2 flex-wrap">

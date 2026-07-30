@@ -2,7 +2,7 @@ import { SURVEY_CATEGORIES, type SurveyCategory } from '@/lib/survey-categories'
 
 export type ScoredQuestion = {
   id: string
-  type?: 'text' | 'scale'
+  type?: 'text' | 'scale' | 'heading'
   category?: SurveyCategory
 }
 

@@ -50,7 +50,7 @@ export function TestRoleSwitcher() {
     load()
   }, [])
 
-  if (pathname === '/login' || pathname === '/onboarding') return null
+  if (pathname === '/login' || pathname === '/onboarding' || pathname.startsWith('/renhold/gruppe')) return null
   if (!impersonating && people.length === 0) return null
 
   const handleSwitchUser = async (targetUserId: string) => {

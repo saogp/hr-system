@@ -99,7 +99,7 @@ export function Sidebar() {
   }, [pathname, router])
 
   // Skjul sidebaren på innloggings- og onboardingsiden
-  if (pathname === '/login' || pathname === '/onboarding') return null
+  if (pathname === '/login' || pathname === '/onboarding' || pathname.startsWith('/renhold/gruppe')) return null
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -187,52 +187,50 @@ export function Sidebar() {
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="rounded-xl border border-sidebar-border overflow-hidden group-data-[collapsible=icon]:rounded-none group-data-[collapsible=icon]:border-none">
-          <div className="flex items-center justify-between gap-2 px-3 py-2.5 group-data-[collapsible=icon]:hidden">
-            <div className="flex items-center gap-2 text-sm">
-              <Moon className="size-4 text-muted-foreground" />
-              <span>Dark Mode</span>
-            </div>
-            <Switch checked={theme === 'dark'} onCheckedChange={handleThemeToggle} />
+        <div className="flex items-center justify-between gap-2 px-3 py-2.5 group-data-[collapsible=icon]:hidden">
+          <div className="flex items-center gap-2 text-sm">
+            <Moon className="size-4 text-muted-foreground" />
+            <span>Dark Mode</span>
           </div>
-
-          <SidebarMenu className="border-t border-sidebar-border group-data-[collapsible=icon]:border-t-0">
-            <SidebarMenuItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <SidebarMenuButton
-                      size="lg"
-                      className="rounded-none data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground"
-                    >
-                      <Avatar className="size-8 rounded-lg">
-                        {currentUser?.avatarUrl && <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />}
-                        <AvatarFallback className="rounded-lg">
-                          {getInitials(currentUser?.name ?? '?')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="grid flex-1 text-left text-sm leading-tight">
-                        <span className="truncate font-medium">
-                          {currentUser?.name ?? 'Laster...'}
-                        </span>
-                        <span className="truncate text-xs text-muted-foreground">
-                          {currentUser?.email ?? ''}
-                        </span>
-                      </div>
-                      <ChevronRight className="size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
-                    </SidebarMenuButton>
-                  }
-                />
-                <DropdownMenuContent side="top" align="end" className="w-(--anchor-width) min-w-56">
-                  <DropdownMenuItem onClick={handleLogout} variant="destructive">
-                    <LogOut />
-                    Logg ut
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </SidebarMenuItem>
-          </SidebarMenu>
+          <Switch checked={theme === 'dark'} onCheckedChange={handleThemeToggle} />
         </div>
+
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <SidebarMenuButton
+                    size="lg"
+                    className="rounded-none data-popup-open:bg-sidebar-accent data-popup-open:text-sidebar-accent-foreground"
+                  >
+                    <Avatar className="size-8 rounded-lg">
+                      {currentUser?.avatarUrl && <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />}
+                      <AvatarFallback className="rounded-lg">
+                        {getInitials(currentUser?.name ?? '?')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-medium">
+                        {currentUser?.name ?? 'Laster...'}
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {currentUser?.email ?? ''}
+                      </span>
+                    </div>
+                    <ChevronRight className="size-4 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+                  </SidebarMenuButton>
+                }
+              />
+              <DropdownMenuContent side="top" align="end" className="w-(--anchor-width) min-w-56">
+                <DropdownMenuItem onClick={handleLogout} variant="destructive">
+                  <LogOut />
+                  Logg ut
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
 
       <SidebarRail />

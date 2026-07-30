@@ -1,8 +1,21 @@
 import QRCode from 'qrcode'
 
-export async function printGroupQrCode(group: { id: string; name: string }) {
+function groupQrUrl(group: { id: string }) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || window.location.origin
-  const url = `${siteUrl}/renhold/gruppe/${group.id}`
+  return `${siteUrl}/renhold/gruppe/${group.id}`
+}
+
+export async function downloadGroupQrCode(group: { id: string; name: string }) {
+  const dataUrl = await QRCode.toDataURL(groupQrUrl(group), { width: 320, margin: 2 })
+
+  const link = document.createElement('a')
+  link.href = dataUrl
+  link.download = `qr-${group.name.toLowerCase().replace(/\s+/g, '-')}.png`
+  link.click()
+}
+
+export async function printGroupQrCode(group: { id: string; name: string }) {
+  const url = groupQrUrl(group)
   const dataUrl = await QRCode.toDataURL(url, { width: 320, margin: 2 })
 
   const win = window.open('', '_blank')

@@ -3,13 +3,15 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { MoreHorizontal, FileText, MessageSquare, ClipboardList, Settings, Plus, X, Bell, SprayCan } from 'lucide-react'
+import { MoreHorizontal, FileText, MessageSquare, ClipboardList, Settings, Plus, X, Bell, SprayCan, Download } from 'lucide-react'
+import { downloadGroupQrCode } from '@/lib/cleaning-qr'
 import { Switch } from '@/components/ui/switch'
 import type { CleaningRecipient } from '@/lib/cleaning'
 import { Card, CardContent } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { SURVEY_TEMPLATES } from '@/lib/survey-templates'
+import { PageHeaderSkeleton, CardGridSkeleton } from '@/components/ui/loading-skeletons'
 
 import {
   Dialog,
@@ -530,7 +532,12 @@ export default function SettingsPage() {
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
   if (loading) {
-    return <div className="p-8">Laster innstillinger...</div>
+    return (
+      <div className="max-w-[1440px] p-6">
+        <PageHeaderSkeleton />
+        <CardGridSkeleton />
+      </div>
+    )
   }
 
   return (
@@ -809,7 +816,7 @@ export default function SettingsPage() {
                       <FileText className="size-5 text-muted-foreground shrink-0 mt-0.5" />
                       <div className="min-w-0">
                         <p className="font-medium truncate">{t.name}</p>
-                        <p className="text-xs text-muted-foreground">{formatDate(t.created_at)}</p>
+                        <p className="text-xs text-muted-foreground">Kontraktmal</p>
                       </div>
                     </div>
                     <div onClick={(e) => e.stopPropagation()}>
@@ -823,8 +830,8 @@ export default function SettingsPage() {
                           }
                         />
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => router.push(`/contracts/templates/${t.id}`)}>
-                            Rediger
+                          <DropdownMenuItem onClick={() => router.push(`/contracts/new?template=${t.id}`)}>
+                            Bruk mal
                           </DropdownMenuItem>
                           {isRealAdmin && (
                             <DropdownMenuItem variant="destructive" onClick={() => setTemplateDeleteId(t.id)}>
@@ -849,7 +856,7 @@ export default function SettingsPage() {
                       <MessageSquare className="size-5 text-muted-foreground shrink-0 mt-0.5" />
                       <div className="min-w-0">
                         <p className="font-medium truncate">{t.name}</p>
-                        <p className="text-xs text-muted-foreground">{formatDate(t.created_at)}</p>
+                        <p className="text-xs text-muted-foreground">Medarbeidersamtalemal</p>
                       </div>
                     </div>
                     <div onClick={(e) => e.stopPropagation()}>
@@ -863,8 +870,8 @@ export default function SettingsPage() {
                           }
                         />
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => router.push(`/reviews/templates/${t.id}`)}>
-                            Rediger
+                          <DropdownMenuItem onClick={() => router.push(`/reviews/new?template=${t.id}`)}>
+                            Bruk mal
                           </DropdownMenuItem>
                           {isRealAdmin && (
                             <DropdownMenuItem variant="destructive" onClick={() => setReviewTemplateDeleteId(t.id)}>
@@ -889,7 +896,7 @@ export default function SettingsPage() {
                       <ClipboardList className="size-5 text-muted-foreground shrink-0 mt-0.5" />
                       <div className="min-w-0">
                         <p className="font-medium truncate">{t.name}</p>
-                        <p className="text-xs text-muted-foreground">{formatDate(t.created_at)}</p>
+                        <p className="text-xs text-muted-foreground">Undersøkelsesmal</p>
                       </div>
                     </div>
                     <div onClick={(e) => e.stopPropagation()}>
@@ -903,8 +910,8 @@ export default function SettingsPage() {
                           }
                         />
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => router.push(`/surveys/templates/${t.id}`)}>
-                            Rediger
+                          <DropdownMenuItem onClick={() => router.push(`/surveys/new?template=${t.id}`)}>
+                            Bruk mal
                           </DropdownMenuItem>
                           {isRealAdmin && (
                             <DropdownMenuItem variant="destructive" onClick={() => setSurveyTemplateDeleteId(t.id)}>
@@ -929,7 +936,7 @@ export default function SettingsPage() {
                       <ClipboardList className="size-5 text-muted-foreground shrink-0 mt-0.5" />
                       <div className="min-w-0">
                         <p className="font-medium truncate">{t.label}</p>
-                        <p className="text-xs text-muted-foreground">Innebygd undersøkelsesmal</p>
+                        <p className="text-xs text-muted-foreground">Undersøkelsesmal</p>
                       </div>
                     </div>
                     <div onClick={(e) => e.stopPropagation()}>
@@ -963,8 +970,8 @@ export default function SettingsPage() {
                     <div className="flex items-start gap-3 min-w-0">
                       <SprayCan className="size-5 text-muted-foreground shrink-0 mt-0.5" />
                       <div className="min-w-0">
-                        <p className="font-medium truncate">{g.name} – sjekkliste</p>
-                        <p className="text-xs text-muted-foreground">Vises når noen skanner QR-koden</p>
+                        <p className="font-medium truncate">{g.name}</p>
+                        <p className="text-xs text-muted-foreground">Renholdsmal</p>
                       </div>
                     </div>
                     <div onClick={(e) => e.stopPropagation()}>
@@ -979,7 +986,11 @@ export default function SettingsPage() {
                         />
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => router.push(`/renhold/sjekkliste/${g.id}`)}>
-                            Rediger
+                            Bruk mal
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => downloadGroupQrCode(g)}>
+                            <Download />
+                            QR-kode
                           </DropdownMenuItem>
                           {isRealAdmin && (
                             <DropdownMenuItem variant="destructive" onClick={() => setCleaningGroupDeleteId(g.id)}>

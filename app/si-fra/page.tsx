@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { sendPushNotification } from '@/lib/push-client'
 import { applyRoleOverride } from '@/lib/role-override'
+import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 
 import {
   Select,
@@ -126,7 +127,7 @@ export default function SiFraPage() {
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
   if (loading) {
-    return <div className="p-8">Laster...</div>
+    return <ListPageSkeleton />
   }
 
   const sendForm = (

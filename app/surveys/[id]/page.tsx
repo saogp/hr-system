@@ -14,9 +14,10 @@ import { ScaleInput } from '@/components/survey-scale-input'
 import { useToastManager } from '@/components/ui/toast'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { computeResponseScore } from '@/lib/survey-score'
+import { DetailPageSkeleton } from '@/components/ui/loading-skeletons'
 import type { SurveyCategory } from '@/lib/survey-categories'
 
-type Question = { id: string; text: string; type?: 'text' | 'scale'; category?: SurveyCategory }
+type Question = { id: string; text: string; type?: 'text' | 'scale' | 'heading'; category?: SurveyCategory }
 
 type Survey = {
   id: string
@@ -127,7 +128,7 @@ export default function SurveyDetailPage() {
   const shuffled = <T,>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5)
 
   if (loading || !survey) {
-    return <div className="p-8">Laster undersøkelse...</div>
+    return <DetailPageSkeleton />
   }
 
   return (
@@ -187,7 +188,7 @@ export default function SurveyDetailPage() {
               <p className="text-sm text-muted-foreground">Ingen har svart enda.</p>
             ) : survey.anonymous ? (
               <div className="space-y-4">
-                {survey.questions.map((q) => {
+                {survey.questions.filter((q) => q.type !== 'heading').map((q) => {
                   const answers = shuffled(
                     results.filter((r) => r.submitted_at && r.responses?.[q.id]).map((r) => r.responses[q.id])
                   )
@@ -214,7 +215,7 @@ export default function SurveyDetailPage() {
                 {results.filter((r) => r.submitted_at).map((r) => (
                   <div key={r.id} className="rounded-md border border-border bg-white dark:bg-white/5 p-4 space-y-2">
                     <p className="font-medium text-sm">{r.profiles?.full_name || r.profiles?.email || '—'}</p>
-                    {survey.questions.map((q) => (
+                    {survey.questions.filter((q) => q.type !== 'heading').map((q) => (
                       <div key={q.id}>
                         <p className="text-xs text-muted-foreground">{q.text}</p>
                         <p className="text-sm">
@@ -237,26 +238,37 @@ export default function SurveyDetailPage() {
               </p>
             </div>
           )}
-          {survey.questions.map((q, i) => (
-            <div key={q.id} className="space-y-2">
-              <p className="font-medium">{i + 1}. {q.text}</p>
-              {q.type === 'scale' ? (
-                <ScaleInput
-                  value={myAnswers[q.id] ?? ''}
-                  onChange={(val) => setMyAnswers(prev => ({ ...prev, [q.id]: val }))}
-                  disabled={!!mySubmittedAt}
-                />
-              ) : (
-                <Textarea
-                  value={myAnswers[q.id] ?? ''}
-                  onChange={(e) => setMyAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
-                  placeholder="Skriv svaret ditt her..."
-                  disabled={!!mySubmittedAt}
-                  className="bg-white dark:bg-white/5"
-                />
-              )}
-            </div>
-          ))}
+          {(() => {
+            let questionNumber = 0
+            return survey.questions.map((q) => {
+              if (q.type === 'heading') {
+                return (
+                  <p key={q.id} className="text-base font-semibold pt-2">{q.text}</p>
+                )
+              }
+              questionNumber += 1
+              return (
+                <div key={q.id} className="space-y-2">
+                  <p className="font-medium">{questionNumber}. {q.text}</p>
+                  {q.type === 'scale' ? (
+                    <ScaleInput
+                      value={myAnswers[q.id] ?? ''}
+                      onChange={(val) => setMyAnswers(prev => ({ ...prev, [q.id]: val }))}
+                      disabled={!!mySubmittedAt}
+                    />
+                  ) : (
+                    <Textarea
+                      value={myAnswers[q.id] ?? ''}
+                      onChange={(e) => setMyAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+                      placeholder="Skriv svaret ditt her..."
+                      disabled={!!mySubmittedAt}
+                      className="bg-white dark:bg-white/5"
+                    />
+                  )}
+                </div>
+              )
+            })
+          })()}
 
           {mySubmittedAt ? (
             <Badge className="bg-green-600 hover:bg-green-700">

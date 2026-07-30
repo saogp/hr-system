@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { SURVEY_CATEGORIES, type SurveyCategory } from '@/lib/survey-categories'
 import { ScaleInput } from '@/components/survey-scale-input'
+import { FormPageSkeleton } from '@/components/ui/loading-skeletons'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,7 +31,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
-type Question = { id: string; text: string; type: 'text' | 'scale'; category?: SurveyCategory }
+type Question = { id: string; text: string; type: 'text' | 'scale' | 'heading'; category?: SurveyCategory }
 
 export default function SurveyTemplateEditorPage() {
   const { id } = useParams<{ id: string }>()
@@ -85,8 +86,8 @@ export default function SurveyTemplateEditorPage() {
     load()
   }, [id, isNew, router])
 
-  const addQuestion = () => {
-    setQuestions(prev => [...prev, { id: `q${prev.length + 1}-${Date.now()}`, text: '', type: 'text' }])
+  const addQuestion = (type: 'text' | 'heading' = 'text') => {
+    setQuestions(prev => [...prev, { id: `q${prev.length + 1}-${Date.now()}`, text: '', type }])
   }
 
   const removeQuestion = (index: number) => {
@@ -134,7 +135,7 @@ export default function SurveyTemplateEditorPage() {
   }
 
   if (loading) {
-    return <div className="p-8">Laster mal...</div>
+    return <FormPageSkeleton />
   }
 
   return (
@@ -198,18 +199,20 @@ export default function SurveyTemplateEditorPage() {
             <Input
               value={q.text}
               onChange={(e) => updateQuestion(i, e.target.value)}
-              placeholder="Skriv et spørsmål..."
-              className="flex-1 min-w-40"
+              placeholder={q.type === 'heading' ? 'Skriv en overskrift...' : 'Skriv et spørsmål...'}
+              className={`flex-1 min-w-40 ${q.type === 'heading' ? 'font-semibold' : ''}`}
             />
-            <Select value={q.type} onValueChange={(val) => val && updateQuestionType(i, val as 'text' | 'scale')}>
-              <SelectTrigger className="w-32 h-9 shrink-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="text">Fritekst</SelectItem>
-                <SelectItem value="scale">Skala 1-5</SelectItem>
-              </SelectContent>
-            </Select>
+            {q.type !== 'heading' && (
+              <Select value={q.type} onValueChange={(val) => val && updateQuestionType(i, val as 'text' | 'scale')}>
+                <SelectTrigger className="w-32 h-9 shrink-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text">Fritekst</SelectItem>
+                  <SelectItem value="scale">Skala 1-5</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
             {q.type === 'scale' && (
               <Select value={q.category ?? ''} onValueChange={(val) => val && updateQuestionCategory(i, val as SurveyCategory)}>
                 <SelectTrigger className="w-36 h-9 shrink-0">
@@ -235,10 +238,16 @@ export default function SurveyTemplateEditorPage() {
             </Button>
           </div>
         ))}
-        <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addQuestion}>
-          <Plus className="size-4" />
-          Legg til spørsmål
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => addQuestion('text')}>
+            <Plus className="size-4" />
+            Legg til spørsmål
+          </Button>
+          <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => addQuestion('heading')}>
+            <Plus className="size-4" />
+            Legg til overskrift
+          </Button>
+        </div>
       </div>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>

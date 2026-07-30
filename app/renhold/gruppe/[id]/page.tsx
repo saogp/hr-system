@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { SprayCan, CheckCircle2, ImagePlus, X } from 'lucide-react'
 import { normalizeCleaningQuestions, type CleaningQuestionBlock } from '@/lib/cleaning'
+import { CenteredCardSkeleton } from '@/components/ui/loading-skeletons'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -91,7 +92,7 @@ export default function GroupCheckinPage() {
     new Date().toLocaleDateString('no-NO', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
   if (loading) {
-    return <div className="p-8 text-center">Laster...</div>
+    return <CenteredCardSkeleton />
   }
 
   if (!info) {

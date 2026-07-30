@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ArrowLeft, Plus, X, ChevronUp, ChevronDown } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+import { FormPageSkeleton } from '@/components/ui/loading-skeletons'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -124,7 +125,7 @@ export default function ReviewTemplateEditorPage() {
   }
 
   if (loading) {
-    return <div className="p-8">Laster mal...</div>
+    return <FormPageSkeleton />
   }
 
   return (

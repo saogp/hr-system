@@ -7,6 +7,7 @@ import { ArrowLeft, MoreHorizontal, FileText } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { EditableAvatar } from '@/components/editable-avatar'
+import { ProfilePageSkeleton } from '@/components/ui/loading-skeletons'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { Button } from '@/components/ui/button'
@@ -117,7 +118,7 @@ function getInitials(name: string) {
 
 export default function PersonDetailPage() {
   return (
-    <Suspense fallback={<div className="p-8">Laster profil...</div>}>
+    <Suspense fallback={<ProfilePageSkeleton />}>
       <PersonDetailPageInner />
     </Suspense>
   )
@@ -375,14 +376,14 @@ function PersonDetailPageInner() {
   }
 
   if (loading) {
-    return <div className="p-8">Laster profil...</div>
+    return <ProfilePageSkeleton />
   }
 
   const isDirectoryOnly = !isAdmin && !isSelf
 
   if (isDirectoryOnly) {
     if (!directoryPerson) {
-      return <div className="p-8">Laster profil...</div>
+      return <ProfilePageSkeleton />
     }
 
     return (
@@ -425,7 +426,7 @@ function PersonDetailPageInner() {
   }
 
   if (!person) {
-    return <div className="p-8">Laster profil...</div>
+    return <ProfilePageSkeleton />
   }
 
   const isPendingInvite = inviteStatus?.invited_at && !inviteStatus?.confirmed_at
@@ -476,7 +477,7 @@ function PersonDetailPageInner() {
           profileId={person.id}
           avatarUrl={person.avatar_url}
           initials={getInitials(person.full_name || '?')}
-          editable={isAdmin || isSelf}
+          editable={isAdmin}
           onUploaded={(url) => setPerson(prev => prev ? { ...prev, avatar_url: url } : prev)}
         />
         <div className="flex-1">

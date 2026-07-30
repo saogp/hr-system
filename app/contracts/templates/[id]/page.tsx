@@ -9,6 +9,7 @@ import { extractTokens, extractChoiceFields, renderContract, RESERVED_TOKENS, CO
 import { RichTextEditor } from '@/components/template-editor/rich-text-editor'
 import { RenderedContractText } from '@/components/rendered-contract-text'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+import { FormPageSkeleton } from '@/components/ui/loading-skeletons'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -118,7 +119,7 @@ export default function TemplateEditorPage() {
   }
 
   if (loading) {
-    return <div className="p-8">Laster mal...</div>
+    return <FormPageSkeleton />
   }
 
   const fillTokens = extractTokens(content).filter(

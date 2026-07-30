@@ -1,13 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { getAdminTokens, extractChoiceFields, usesCompanyTokens } from '@/lib/contract-tokens'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { useToastManager } from '@/components/ui/toast'
 import { ArrowLeft } from 'lucide-react'
+import { FormPageSkeleton } from '@/components/ui/loading-skeletons'
 
 import {
   Select,
@@ -42,8 +43,17 @@ type Company = {
 }
 
 export default function NewContractPage() {
+  return (
+    <Suspense fallback={<FormPageSkeleton />}>
+      <NewContractPageInner />
+    </Suspense>
+  )
+}
+
+function NewContractPageInner() {
   const router = useRouter()
   const toastManager = useToastManager()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [templates, setTemplates] = useState<Template[]>([])
   const [employees, setEmployees] = useState<EmployeeOption[]>([])
@@ -78,7 +88,19 @@ export default function NewContractPage() {
         .from('contract_templates')
         .select('*')
         .order('created_at', { ascending: false })
-      if (templatesData) setTemplates(templatesData)
+      if (templatesData) {
+        setTemplates(templatesData)
+        const templateParam = searchParams.get('template')
+        const preselected = templatesData.find((t) => t.id === templateParam)
+        if (preselected) {
+          setSelectedTemplateId(preselected.id)
+          const defaults: Record<string, string> = {}
+          for (const f of extractChoiceFields(preselected.content)) {
+            defaults[f.key] = f.optionA
+          }
+          setAdminFieldValues(defaults)
+        }
+      }
 
       const { data: employeesData } = await supabase
         .from('profiles')
@@ -122,17 +144,19 @@ export default function NewContractPage() {
   }
 
   if (loading) {
-    return <div className="p-8">Laster...</div>
+    return <FormPageSkeleton />
   }
+
+  const cameFromTemplate = !!searchParams.get('template')
 
   return (
     <div className="p-6 max-w-[1440px]">
       <Link
-        href="/contracts"
+        href={cameFromTemplate ? '/settings' : '/contracts'}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
       >
         <ArrowLeft className="size-4" />
-        Tilbake til kontrakter
+        {cameFromTemplate ? 'Tilbake til innstillinger' : 'Tilbake til kontrakter'}
       </Link>
 
       <h1 className="text-2xl font-bold text-brand-navy dark:text-white mb-1">Send kontrakt</h1>

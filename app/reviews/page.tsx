@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ChevronRight, MessageSquare, MoreHorizontal, Search } from 'lucide-react'
+import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
@@ -153,7 +154,7 @@ export default function ReviewsPage() {
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
   if (loading) {
-    return <div className="p-8">Laster medarbeidersamtaler...</div>
+    return <ListPageSkeleton />
   }
 
   const filteredReviews = reviews.filter((r) => {

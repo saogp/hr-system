@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { GreetingIllustration } from "@/components/decorative/greeting-illustration"
+import { CenteredCardSkeleton } from "@/components/ui/loading-skeletons"
 
 export default function OnboardingPage() {
   const [checkingSession, setCheckingSession] = useState(true)
@@ -74,7 +75,7 @@ export default function OnboardingPage() {
   }
 
   if (checkingSession) {
-    return <div className="min-h-screen flex items-center justify-center bg-brand-cream dark:bg-brand-cream-dark">Laster...</div>
+    return <CenteredCardSkeleton />
   }
 
   return (

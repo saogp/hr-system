@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -18,6 +18,7 @@ import { computeCategoryScores, computeResponseScore, type ScoredQuestion } from
 import type { SurveyCategory } from '@/lib/survey-categories'
 import { computeProfileCompletion } from '@/lib/profile-completion'
 import { StatTile } from '@/components/ui/stat-tile'
+import { DashboardSkeleton } from '@/components/ui/loading-skeletons'
 
 function getTimeOfDayGreeting() {
   const hour = new Date().getHours()
@@ -345,7 +346,7 @@ export default function DashboardPage() {
   }
 
   if (loading) {
-    return <div className="p-8 text-center">Laster inn dashbord...</div>
+    return <DashboardSkeleton />
   }
 
   const daysUntilReview = nextReviewDate
@@ -446,16 +447,6 @@ export default function DashboardPage() {
       })
     }
 
-    const uncleanedGroups = cleaningStatus.filter((s) => s.done < s.total)
-    if (uncleanedGroups.length > 0) {
-      actionItems.push({
-        id: 'renhold',
-        icon: SprayCan,
-        label: 'Renhold ikke fullført i dag',
-        sublabel: uncleanedGroups.map((s) => `${s.name} (${s.done}/${s.total})`).join(', '),
-        href: '/renhold',
-      })
-    }
   }
 
   return (
@@ -493,12 +484,14 @@ export default function DashboardPage() {
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <IconBadge icon={<ClipboardCheck className="size-4" />} />
               Gjøremål
-              {actionItems.length > 0 && (
+            </CardTitle>
+            {actionItems.length > 0 && (
+              <CardAction>
                 <Badge className="bg-brand-orange/15 text-brand-navy dark:text-brand-orange hover:bg-brand-orange/15">
                   {actionItems.length}
                 </Badge>
-              )}
-            </CardTitle>
+              </CardAction>
+            )}
           </CardHeader>
           <CardContent>
             {actionItems.length === 0 ? (

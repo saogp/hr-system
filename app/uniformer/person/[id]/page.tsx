@@ -10,6 +10,7 @@ import { needsCardCredentials, type UniformIssuance } from '@/lib/uniform-items'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { DetailPageSkeleton } from '@/components/ui/loading-skeletons'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -98,7 +99,7 @@ export default function PersonUniformHistoryPage() {
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
   if (loading) {
-    return <div className="p-8">Laster...</div>
+    return <DetailPageSkeleton />
   }
 
   return (

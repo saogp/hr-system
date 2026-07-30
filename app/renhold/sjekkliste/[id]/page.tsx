@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { printGroupQrCode } from '@/lib/cleaning-qr'
 import { normalizeCleaningQuestions, type CleaningQuestionBlock } from '@/lib/cleaning'
+import { FormPageSkeleton } from '@/components/ui/loading-skeletons'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -120,7 +121,7 @@ export default function CleaningChecklistTemplatePage() {
   }
 
   if (loading) {
-    return <div className="p-8">Laster...</div>
+    return <FormPageSkeleton />
   }
 
   const previewQuestions = questions.filter((q) => q.type === 'question' && q.text.trim())
@@ -157,10 +158,20 @@ export default function CleaningChecklistTemplatePage() {
               Skriv ut QR-kode
             </Button>
           )}
+          <Button
+            variant="outline"
+            onClick={() => setPreviewOpen(true)}
+            disabled={questions.every((q) => !q.text.trim())}
+          >
+            Forhåndsvis
+          </Button>
+          <Button onClick={handleSave} disabled={saving || !groupName} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
+            {saving ? 'Lagrer...' : 'Lagre'}
+          </Button>
         </div>
       </div>
       <p className="text-muted-foreground text-sm mb-6">
-        Tittelen og sjekkpunktene som vises når noen skanner QR-koden. Legg til overskrifter for å dele opp listen i seksjoner.
+        Tittelen og sjekkpunktene som vises når noen skanner QR-koden.
       </p>
 
       <div className="flex flex-col gap-2 mb-4">
@@ -211,28 +222,9 @@ export default function CleaningChecklistTemplatePage() {
         ))}
         {questions.length === 0 && <p className="text-sm text-muted-foreground py-2">Ingen sjekkpunkter enda.</p>}
 
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => addBlock('question')}>
-            <Plus className="size-4" />
-            Legg til sjekkpunkt
-          </Button>
-          <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => addBlock('heading')}>
-            <Plus className="size-4" />
-            Legg til overskrift
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <Button
-          variant="outline"
-          onClick={() => setPreviewOpen(true)}
-          disabled={questions.every((q) => !q.text.trim())}
-        >
-          Forhåndsvis
-        </Button>
-        <Button onClick={handleSave} disabled={saving || !groupName} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
-          {saving ? 'Lagrer...' : 'Lagre'}
+        <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => addBlock('question')}>
+          <Plus className="size-4" />
+          Legg til sjekkpunkt
         </Button>
       </div>
 

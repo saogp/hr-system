@@ -32,14 +32,16 @@ import { Textarea } from '@/components/ui/textarea'
 import { ScaleInput } from '@/components/survey-scale-input'
 import { useToastManager } from '@/components/ui/toast'
 import { ArrowLeft } from 'lucide-react'
+import { FormPageSkeleton } from '@/components/ui/loading-skeletons'
 
 type Person = { id: string; full_name: string | null; email: string | null }
 type Company = { id: string; name: string }
-type Question = { id: string; text: string; type: 'text' | 'scale'; category?: SurveyCategory }
+type Question = { id: string; text: string; type: 'text' | 'scale' | 'heading'; category?: SurveyCategory }
+type DbSurveyTemplate = { id: string; name: string; questions: Question[]; anonymous: boolean }
 
 export default function NewSurveyPage() {
   return (
-    <Suspense fallback={<div className="p-8">Laster...</div>}>
+    <Suspense fallback={<FormPageSkeleton />}>
       <NewSurveyPageInner />
     </Suspense>
   )
@@ -52,6 +54,7 @@ function NewSurveyPageInner() {
   const [loading, setLoading] = useState(true)
   const [people, setPeople] = useState<Person[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
+  const [dbTemplates, setDbTemplates] = useState<DbSurveyTemplate[]>([])
 
   const [previewOpen, setPreviewOpen] = useState(false)
   const [templateChoice, setTemplateChoice] = useState('blank')
@@ -93,6 +96,12 @@ function NewSurveyPageInner() {
         .order('name')
       if (companiesData) setCompanies(companiesData)
 
+      const { data: dbTemplatesData } = await supabase
+        .from('survey_templates')
+        .select('id, name, questions, anonymous')
+        .order('name')
+      if (dbTemplatesData) setDbTemplates(dbTemplatesData)
+
       setLoading(false)
     }
 
@@ -101,27 +110,35 @@ function NewSurveyPageInner() {
 
   useEffect(() => {
     const templateParam = searchParams.get('template')
-    if (templateParam && SURVEY_TEMPLATES.some((t) => t.id === templateParam)) {
+    if (!templateParam) return
+    if (SURVEY_TEMPLATES.some((t) => t.id === templateParam) || dbTemplates.some((t) => t.id === templateParam)) {
       setTemplateChoice(templateParam)
       applyTemplate(templateParam)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
+  }, [searchParams, dbTemplates])
 
   const applyTemplate = (templateId: string) => {
     if (templateId === 'blank') {
       setAnonymous(false)
       return
     }
-    const template = SURVEY_TEMPLATES.find((t) => t.id === templateId)
-    if (!template) return
-    setTitle(template.title)
-    setQuestions(template.questions.map((q, i) => ({ id: `q${i + 1}`, text: q.text, type: q.type, category: q.category })))
-    setAnonymous(template.anonymous ?? false)
+    const builtin = SURVEY_TEMPLATES.find((t) => t.id === templateId)
+    if (builtin) {
+      setTitle(builtin.title)
+      setQuestions(builtin.questions.map((q, i) => ({ id: `q${i + 1}`, text: q.text, type: q.type, category: q.category })))
+      setAnonymous(builtin.anonymous ?? false)
+      return
+    }
+    const custom = dbTemplates.find((t) => t.id === templateId)
+    if (!custom) return
+    setTitle(custom.name)
+    setQuestions(custom.questions.length ? custom.questions : [{ id: 'q1', text: '', type: 'text' }])
+    setAnonymous(custom.anonymous ?? false)
   }
 
-  const addQuestion = () => {
-    setQuestions(prev => [...prev, { id: `q${prev.length + 1}`, text: '', type: 'text' }])
+  const addQuestion = (type: 'text' | 'heading' = 'text') => {
+    setQuestions(prev => [...prev, { id: `q${prev.length + 1}-${Date.now()}`, text: '', type }])
   }
 
   const updateQuestion = (index: number, text: string) => {
@@ -173,7 +190,7 @@ function NewSurveyPageInner() {
   }
 
   if (loading) {
-    return <div className="p-8">Laster...</div>
+    return <FormPageSkeleton />
   }
 
   const cameFromTemplate = !!searchParams.get('template')
@@ -209,6 +226,9 @@ function NewSurveyPageInner() {
               {SURVEY_TEMPLATES.map((t) => (
                 <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
               ))}
+              {dbTemplates.map((t) => (
+                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -240,18 +260,20 @@ function NewSurveyPageInner() {
               <Input
                 value={q.text}
                 onChange={(e) => updateQuestion(i, e.target.value)}
-                placeholder="Skriv et spørsmål..."
-                className="flex-1 min-w-40"
+                placeholder={q.type === 'heading' ? 'Skriv en overskrift...' : 'Skriv et spørsmål...'}
+                className={`flex-1 min-w-40 ${q.type === 'heading' ? 'font-semibold' : ''}`}
               />
-              <Select value={q.type} onValueChange={(val) => val && updateQuestionType(i, val as 'text' | 'scale')}>
-                <SelectTrigger className="w-32 h-8 shrink-0">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="text">Fritekst</SelectItem>
-                  <SelectItem value="scale">Skala 1-5</SelectItem>
-                </SelectContent>
-              </Select>
+              {q.type !== 'heading' && (
+                <Select value={q.type} onValueChange={(val) => val && updateQuestionType(i, val as 'text' | 'scale')}>
+                  <SelectTrigger className="w-32 h-8 shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="text">Fritekst</SelectItem>
+                    <SelectItem value="scale">Skala 1-5</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
               {q.type === 'scale' && (
                 <Select value={q.category ?? ''} onValueChange={(val) => val && updateQuestionCategory(i, val as SurveyCategory)}>
                   <SelectTrigger className="w-36 h-8 shrink-0">
@@ -275,9 +297,14 @@ function NewSurveyPageInner() {
               </Button>
             </div>
           ))}
-          <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addQuestion}>
-            Legg til spørsmål
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => addQuestion('text')}>
+              Legg til spørsmål
+            </Button>
+            <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => addQuestion('heading')}>
+              Legg til overskrift
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -340,16 +367,25 @@ function NewSurveyPageInner() {
 
           <div className="flex-1 min-h-0 space-y-4 overflow-y-auto -mx-4 px-4">
             <h2 className="text-lg font-bold">{title || 'Uten tittel'}</h2>
-            {questions.filter((q) => q.text.trim()).map((q, i) => (
-              <div key={q.id} className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
-                <p className="font-medium text-sm">{i + 1}. {q.text}</p>
-                {q.type === 'scale' ? (
-                  <ScaleInput value="" disabled />
-                ) : (
-                  <Textarea disabled placeholder="Skriv svaret ditt her..." />
-                )}
-              </div>
-            ))}
+            {(() => {
+              let questionNumber = 0
+              return questions.filter((q) => q.text.trim()).map((q) => {
+                if (q.type === 'heading') {
+                  return <p key={q.id} className="text-sm font-semibold pt-1">{q.text}</p>
+                }
+                questionNumber += 1
+                return (
+                  <div key={q.id} className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
+                    <p className="font-medium text-sm">{questionNumber}. {q.text}</p>
+                    {q.type === 'scale' ? (
+                      <ScaleInput value="" disabled />
+                    ) : (
+                      <Textarea disabled placeholder="Skriv svaret ditt her..." />
+                    )}
+                  </div>
+                )
+              })
+            })()}
           </div>
 
           <DialogFooter>

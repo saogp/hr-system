@@ -17,6 +17,7 @@ import { SignaturePad } from '@/components/signature-pad'
 import { PhoneInput } from '@/components/phone-input'
 import { useToastManager } from '@/components/ui/toast'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+import { DetailPageSkeleton } from '@/components/ui/loading-skeletons'
 
 function formatBankAccount(raw: string): string {
   const digits = raw.replace(/\D/g, '').slice(0, 11)
@@ -274,7 +275,7 @@ export default function ContractDetailPage() {
     })
 
   if (loading || !contract || !profile) {
-    return <div className="p-8">Laster kontrakt...</div>
+    return <DetailPageSkeleton />
   }
 
   const usedTokens = extractTokens(contract.contract_templates.content)

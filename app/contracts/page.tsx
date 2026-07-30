@@ -36,6 +36,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { MoreHorizontal, ChevronRight, FileText, Download, Send, Search } from 'lucide-react'
+import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { fetchAndDownloadContractPdf } from '@/lib/contract-pdf'
 
@@ -184,7 +185,7 @@ export default function ContractsPage() {
   }
 
   if (loading) {
-    return <div className="p-8">Laster kontrakter...</div>
+    return <ListPageSkeleton />
   }
 
   const filteredContracts = contracts.filter((c) => {

@@ -37,6 +37,7 @@ import { Input } from '@/components/ui/input'
 import { OrganicBlob } from '@/components/decorative/organic-blobs'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { ClipboardList, MoreHorizontal, Search } from 'lucide-react'
+import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 
 type Person = { id: string; full_name: string | null; email: string | null }
@@ -162,7 +163,7 @@ export default function SurveysPage() {
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
   if (loading) {
-    return <div className="p-8">Laster undersøkelser...</div>
+    return <ListPageSkeleton />
   }
 
   const filteredSurveys = surveys.filter((s) => {

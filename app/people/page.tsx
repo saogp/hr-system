@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ArrowUpAZ, ArrowDownAZ, Users, Search } from 'lucide-react'
+import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -249,7 +250,7 @@ export default function PeoplePage() {
   }
 
   if (loading) {
-    return <div className="p-8">Laster ansatte...</div>
+    return <ListPageSkeleton />
   }
 
   const filtered = people

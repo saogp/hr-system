@@ -11,6 +11,7 @@ import { IconBadge } from '@/components/ui/icon-badge'
 import { Badge } from '@/components/ui/badge'
 import { SignaturePad } from '@/components/signature-pad'
 import { useToastManager } from '@/components/ui/toast'
+import { DetailPageSkeleton } from '@/components/ui/loading-skeletons'
 
 type PersonInfo = { full_name: string | null; email: string | null }
 
@@ -88,7 +89,7 @@ export default function UniformIssuancePage() {
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
   if (loading || !issuance) {
-    return <div className="p-8">Laster...</div>
+    return <DetailPageSkeleton />
   }
 
   const isOwner = currentUserId === issuance.profile_id

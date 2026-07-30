@@ -9,7 +9,7 @@ export function MobileSidebarTrigger() {
   const { toggleSidebar } = useSidebar()
   const pathname = usePathname()
 
-  if (pathname === '/login' || pathname === '/onboarding') return null
+  if (pathname === '/login' || pathname === '/onboarding' || pathname.startsWith('/renhold/gruppe')) return null
 
   return (
     <Button
