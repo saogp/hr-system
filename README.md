@@ -1,6 +1,6 @@
 # ZEST – internportal for ansatte
 
-En intern HR-portal for Peppes Pizza-restaurantene (kontrakter, medarbeidersamtaler, undersøkelser, personalutstyr, renhold, si-fra). Denne filen forklarer teknologiene appen er bygget med, så du kan lese tilbake og forstå hva som faktisk skjer under panseret.
+En intern HR-portal (kontrakter, medarbeidersamtaler, undersøkelser, personalutstyr, renhold, si-fra). Denne filen forklarer teknologiene appen er bygget med, så du kan lese tilbake og forstå hva som faktisk skjer under panseret.
 
 ## Oversikt over teknologiene
 
