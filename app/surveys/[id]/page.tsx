@@ -131,7 +131,7 @@ export default function SurveyDetailPage() {
   }
 
   return (
-    <div className="container relative mx-auto p-6 max-w-2xl overflow-hidden">
+    <div className="container relative mx-auto p-6 max-w-[1440px] overflow-hidden">
       <OrganicBlob className="pointer-events-none absolute -right-16 -top-16 -z-10 h-56 w-56 opacity-90" />
       <OrganicBlob className="pointer-events-none absolute -left-20 bottom-10 -z-10 h-48 w-48 opacity-50 rotate-45" />
 

@@ -1,8 +1,18 @@
+export type CleaningQuestionBlock = { type: 'heading' | 'question'; text: string }
+
+export function normalizeCleaningQuestions(raw: unknown[]): CleaningQuestionBlock[] {
+  return raw.map((item) =>
+    typeof item === 'string'
+      ? { type: 'question', text: item }
+      : { type: (item as CleaningQuestionBlock).type === 'heading' ? 'heading' : 'question', text: (item as CleaningQuestionBlock).text }
+  )
+}
+
 export type CleaningRoomGroup = {
   id: string
   name: string
   sort_order: number
-  questions: string[]
+  questions: CleaningQuestionBlock[]
   company_id: string | null
 }
 

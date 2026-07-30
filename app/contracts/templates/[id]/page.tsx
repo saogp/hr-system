@@ -66,7 +66,7 @@ export default function TemplateEditorPage() {
         .single()
 
       if (!isAdminLike(applyRoleOverride(viewerProfile?.role ?? 'employee'))) {
-        router.replace('/contracts')
+        router.replace('/settings')
         return
       }
 
@@ -78,7 +78,7 @@ export default function TemplateEditorPage() {
           .single()
 
         if (!data) {
-          router.replace('/contracts')
+          router.replace('/settings')
           return
         }
         setName(data.name)
@@ -134,22 +134,25 @@ export default function TemplateEditorPage() {
   const previewText = renderContract(content, PREVIEW_PROFILE, previewAdminFields, PREVIEW_COMPANY)
 
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="p-6 max-w-[1440px]">
       <Link
-        href="/contracts"
+        href="/settings"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
       >
         <ArrowLeft className="size-4" />
-        Tilbake til kontrakter
+        Tilbake til innstillinger
       </Link>
 
-      <div className="flex flex-row items-center justify-between gap-4 mb-6">
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Navn på mal"
-          className="text-lg font-semibold h-10 border-none px-0 shadow-none focus-visible:ring-0"
-        />
+      <div className="flex flex-row items-end justify-between gap-4 mb-6">
+        <div className="flex flex-col gap-1.5 flex-1 max-w-sm">
+          <Label htmlFor="template-name">Navn på mal</Label>
+          <Input
+            id="template-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Navn på mal"
+          />
+        </div>
         <div className="flex items-center gap-3 shrink-0">
           {savedAt && (
             <span className="text-xs text-muted-foreground">

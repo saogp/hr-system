@@ -3,14 +3,24 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus, X, ChevronUp, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Plus, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+import { SURVEY_CATEGORIES, type SurveyCategory } from '@/lib/survey-categories'
+import { ScaleInput } from '@/components/survey-scale-input'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
@@ -20,15 +30,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
-type Question = { id: string; text: string; type?: 'heading' | 'question' }
+type Question = { id: string; text: string; type: 'text' | 'scale'; category?: SurveyCategory }
 
-export default function ReviewTemplateEditorPage() {
+export default function SurveyTemplateEditorPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const isNew = id === 'new'
 
   const [name, setName] = useState('')
-  const [questions, setQuestions] = useState<Question[]>([{ id: 'q1', text: '' }])
+  const [questions, setQuestions] = useState<Question[]>([{ id: 'q1', text: '', type: 'text' }])
+  const [anonymous, setAnonymous] = useState(false)
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
@@ -55,8 +66,8 @@ export default function ReviewTemplateEditorPage() {
 
       if (!isNew) {
         const { data } = await supabase
-          .from('review_templates')
-          .select('name, questions')
+          .from('survey_templates')
+          .select('name, questions, anonymous')
           .eq('id', id)
           .single()
 
@@ -65,7 +76,8 @@ export default function ReviewTemplateEditorPage() {
           return
         }
         setName(data.name)
-        setQuestions(data.questions?.length ? data.questions : [{ id: 'q1', text: '' }])
+        setQuestions(data.questions?.length ? data.questions : [{ id: 'q1', text: '', type: 'text' }])
+        setAnonymous(data.anonymous ?? false)
         setLoading(false)
       }
     }
@@ -73,8 +85,8 @@ export default function ReviewTemplateEditorPage() {
     load()
   }, [id, isNew, router])
 
-  const addQuestion = (type: 'heading' | 'question' = 'question') => {
-    setQuestions(prev => [...prev, { id: `q${prev.length + 1}-${Date.now()}`, text: '', type }])
+  const addQuestion = () => {
+    setQuestions(prev => [...prev, { id: `q${prev.length + 1}-${Date.now()}`, text: '', type: 'text' }])
   }
 
   const removeQuestion = (index: number) => {
@@ -85,14 +97,12 @@ export default function ReviewTemplateEditorPage() {
     setQuestions(prev => prev.map((q, i) => (i === index ? { ...q, text } : q)))
   }
 
-  const moveQuestion = (index: number, direction: -1 | 1) => {
-    setQuestions((prev) => {
-      const target = index + direction
-      if (target < 0 || target >= prev.length) return prev
-      const next = [...prev]
-      ;[next[index], next[target]] = [next[target], next[index]]
-      return next
-    })
+  const updateQuestionType = (index: number, type: 'text' | 'scale') => {
+    setQuestions(prev => prev.map((q, i) => (i === index ? { ...q, type } : q)))
+  }
+
+  const updateQuestionCategory = (index: number, category: SurveyCategory) => {
+    setQuestions(prev => prev.map((q, i) => (i === index ? { ...q, category } : q)))
   }
 
   const handleSave = async () => {
@@ -101,18 +111,18 @@ export default function ReviewTemplateEditorPage() {
 
     if (isNew) {
       const { data, error } = await supabase
-        .from('review_templates')
-        .insert({ name, questions: cleanQuestions })
+        .from('survey_templates')
+        .insert({ name, questions: cleanQuestions, anonymous })
         .select()
         .single()
 
       if (!error && data) {
-        router.replace(`/reviews/templates/${data.id}`)
+        router.replace(`/surveys/templates/${data.id}`)
       }
     } else {
       const { error } = await supabase
-        .from('review_templates')
-        .update({ name, questions: cleanQuestions })
+        .from('survey_templates')
+        .update({ name, questions: cleanQuestions, anonymous })
         .eq('id', id)
 
       if (!error) {
@@ -170,40 +180,48 @@ export default function ReviewTemplateEditorPage() {
         </div>
       </div>
 
+      <div className="flex items-center gap-2 mb-6">
+        <Checkbox
+          id="template-anonymous"
+          checked={anonymous}
+          onCheckedChange={(val) => setAnonymous(val === true)}
+        />
+        <Label htmlFor="template-anonymous" className="font-normal">
+          Anonym undersøkelse — svarene vises ikke koblet til navn, kun hvem som har svart
+        </Label>
+      </div>
+
       <div className="flex flex-col gap-3 mb-4">
         <Label>Spørsmål</Label>
         {questions.map((q, i) => (
-          <div key={q.id} className="flex items-center gap-2">
-            <div className="flex flex-col shrink-0">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="h-4"
-                onClick={() => moveQuestion(i, -1)}
-                disabled={i === 0}
-              >
-                <ChevronUp className="size-3" />
-                <span className="sr-only">Flytt opp</span>
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="h-4"
-                onClick={() => moveQuestion(i, 1)}
-                disabled={i === questions.length - 1}
-              >
-                <ChevronDown className="size-3" />
-                <span className="sr-only">Flytt ned</span>
-              </Button>
-            </div>
+          <div key={q.id} className="flex items-center gap-2 flex-wrap">
             <Input
               value={q.text}
               onChange={(e) => updateQuestion(i, e.target.value)}
-              placeholder={q.type === 'heading' ? 'Skriv en overskrift...' : 'Skriv et spørsmål...'}
-              className={q.type === 'heading' ? 'font-semibold' : ''}
+              placeholder="Skriv et spørsmål..."
+              className="flex-1 min-w-40"
             />
+            <Select value={q.type} onValueChange={(val) => val && updateQuestionType(i, val as 'text' | 'scale')}>
+              <SelectTrigger className="w-32 h-9 shrink-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="text">Fritekst</SelectItem>
+                <SelectItem value="scale">Skala 1-5</SelectItem>
+              </SelectContent>
+            </Select>
+            {q.type === 'scale' && (
+              <Select value={q.category ?? ''} onValueChange={(val) => val && updateQuestionCategory(i, val as SurveyCategory)}>
+                <SelectTrigger className="w-36 h-9 shrink-0">
+                  <SelectValue placeholder="Kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SURVEY_CATEGORIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Button
               type="button"
               variant="ghost"
@@ -213,46 +231,35 @@ export default function ReviewTemplateEditorPage() {
               disabled={questions.length === 1}
             >
               <X className="size-4" />
-              <span className="sr-only">Fjern</span>
+              <span className="sr-only">Fjern spørsmål</span>
             </Button>
           </div>
         ))}
-        <div className="flex items-center gap-2">
-          <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => addQuestion('question')}>
-            <Plus className="size-4" />
-            Legg til spørsmål
-          </Button>
-          <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => addQuestion('heading')}>
-            <Plus className="size-4" />
-            Legg til overskrift
-          </Button>
-        </div>
+        <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addQuestion}>
+          <Plus className="size-4" />
+          Legg til spørsmål
+        </Button>
       </div>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-lg flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Forhåndsvisning</DialogTitle>
-            <DialogDescription>Slik ser medarbeidersamtalen ut.</DialogDescription>
+            <DialogDescription>Slik ser undersøkelsen ut for mottakeren.</DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 min-h-0 space-y-4 overflow-y-auto -mx-4 px-4">
             <h2 className="text-lg font-bold">{name || 'Uten navn'}</h2>
-            {(() => {
-              let questionNumber = 0
-              return questions.filter((q) => q.text.trim()).map((q) => {
-                if (q.type === 'heading') {
-                  return <p key={q.id} className="text-sm font-semibold pt-1">{q.text}</p>
-                }
-                questionNumber += 1
-                return (
-                  <div key={q.id} className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
-                    <p className="font-medium text-sm">{questionNumber}. {q.text}</p>
-                    <Textarea disabled placeholder="Skriv svaret ditt her..." />
-                  </div>
-                )
-              })
-            })()}
+            {questions.filter((q) => q.text.trim()).map((q, i) => (
+              <div key={q.id} className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">
+                <p className="font-medium text-sm">{i + 1}. {q.text}</p>
+                {q.type === 'scale' ? (
+                  <ScaleInput value="" disabled />
+                ) : (
+                  <Textarea disabled placeholder="Skriv svaret ditt her..." />
+                )}
+              </div>
+            ))}
           </div>
 
           <DialogFooter>

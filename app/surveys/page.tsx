@@ -36,7 +36,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { OrganicBlob } from '@/components/decorative/organic-blobs'
 import { IconBadge } from '@/components/ui/icon-badge'
-import { ChevronRight, ClipboardList, MoreHorizontal } from 'lucide-react'
+import { ClipboardList, MoreHorizontal, Search } from 'lucide-react'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 
 type Person = { id: string; full_name: string | null; email: string | null }
@@ -65,7 +65,6 @@ export default function SurveysPage() {
   const [people, setPeople] = useState<Person[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [surveys, setSurveys] = useState<SurveyRow[]>([])
-  const [surveyCounts, setSurveyCounts] = useState<Record<string, { total: number; submitted: number }>>({})
   const [surveyRespondents, setSurveyRespondents] = useState<Record<string, string[]>>({})
   const [mySurveys, setMySurveys] = useState<MySurveyRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -118,19 +117,13 @@ export default function SurveysPage() {
         .select('survey_id, submitted_at, profiles!survey_recipients_profile_id_fkey(full_name, email)')
 
       if (recipientsData) {
-        const counts: Record<string, { total: number; submitted: number }> = {}
         const respondents: Record<string, string[]> = {}
         for (const r of recipientsData as unknown as { survey_id: string; submitted_at: string | null; profiles: { full_name: string | null; email: string | null } | null }[]) {
-          const c = counts[r.survey_id] ?? { total: 0, submitted: 0 }
-          c.total += 1
           if (r.submitted_at) {
-            c.submitted += 1
             const name = r.profiles?.full_name || r.profiles?.email || 'Ukjent'
             respondents[r.survey_id] = [...(respondents[r.survey_id] ?? []), name]
           }
-          counts[r.survey_id] = c
         }
-        setSurveyCounts(counts)
         setSurveyRespondents(respondents)
       }
     } else {
@@ -182,7 +175,7 @@ export default function SurveysPage() {
   const pagedSurveys = filteredSurveys.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
-    <div className="relative max-w-4xl p-6 overflow-hidden">
+    <div className="relative max-w-[1440px] p-6 overflow-hidden">
       <OrganicBlob className="pointer-events-none absolute -right-20 -top-24 -z-10 h-72 w-72 opacity-90" />
       <OrganicBlob className="pointer-events-none absolute -left-24 top-72 -z-10 h-56 w-56 opacity-60 rotate-45" />
       <OrganicBlob className="pointer-events-none absolute right-10 bottom-0 -z-10 h-48 w-48 opacity-40 -rotate-12" />
@@ -200,12 +193,15 @@ export default function SurveysPage() {
       {isAdmin && (
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div className="flex flex-col sm:flex-row gap-3">
-            <Input
-              placeholder="Søk etter undersøkelse..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="sm:max-w-xs"
-            />
+            <div className="relative sm:max-w-xs w-full">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                placeholder="Søk etter undersøkelse..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
             <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
               <SelectTrigger className="w-full sm:w-48 h-9">
                 <SelectValue />
@@ -240,7 +236,6 @@ export default function SurveysPage() {
             <p className="text-center text-muted-foreground text-sm py-8">Ingen undersøkelser funnet.</p>
           ) : (
             pagedSurveys.map((s) => {
-              const counts = surveyCounts[s.id] ?? { total: 0, submitted: 0 }
               const respondents = surveyRespondents[s.id] ?? []
               return (
                 <div
@@ -256,7 +251,6 @@ export default function SurveysPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-sm text-muted-foreground">{counts.submitted} av {counts.total}</span>
                     {isRealAdmin && (
                       <div onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
@@ -276,7 +270,6 @@ export default function SurveysPage() {
                         </DropdownMenu>
                       </div>
                     )}
-                    <ChevronRight className="size-4 text-muted-foreground" />
                   </div>
                 </div>
               )
@@ -300,7 +293,6 @@ export default function SurveysPage() {
                   ) : (
                     <Badge variant="secondary">Venter</Badge>
                   )}
-                  <ChevronRight className="size-4 text-muted-foreground" />
                 </div>
               </Link>
             )

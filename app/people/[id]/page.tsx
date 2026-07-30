@@ -386,7 +386,7 @@ function PersonDetailPageInner() {
     }
 
     return (
-      <div className="py-6 px-4 max-w-2xl">
+      <div className="py-6 px-4 max-w-[1440px]">
         <Link
           href="/people"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"

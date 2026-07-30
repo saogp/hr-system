@@ -297,7 +297,7 @@ export default function ContractDetailPage() {
   }
 
   return (
-    <div className="p-6 max-w-4xl space-y-6">
+    <div className="p-6 max-w-[1440px] space-y-6">
       <div className="grid gap-8 lg:grid-cols-[1fr_320px] items-start">
         <div className="flex items-start justify-between gap-4">
           <div>

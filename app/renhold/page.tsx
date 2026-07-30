@@ -131,7 +131,7 @@ export default function RenholdPage() {
   const pagedHistory = recentChecks.slice((historyPage - 1) * PAGE_SIZE, historyPage * PAGE_SIZE)
 
   return (
-    <div className="max-w-4xl p-6">
+    <div className="max-w-[1440px] p-6">
       <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">

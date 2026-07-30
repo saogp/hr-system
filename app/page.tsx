@@ -459,7 +459,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-5xl p-6 space-y-6">
+    <div className="max-w-[1440px] p-6 space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 shadow-none border-brand-navy/10 bg-brand-cream dark:bg-white/5 overflow-hidden relative py-0">
           <CardContent className="p-6 flex items-center justify-between gap-4 relative z-10">

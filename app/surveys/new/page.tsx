@@ -176,14 +176,16 @@ function NewSurveyPageInner() {
     return <div className="p-8">Laster...</div>
   }
 
+  const cameFromTemplate = !!searchParams.get('template')
+
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-6 max-w-[1440px]">
       <Link
-        href="/surveys"
+        href={cameFromTemplate ? '/settings' : '/surveys'}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
       >
         <ArrowLeft className="size-4" />
-        Tilbake til undersøkelser
+        {cameFromTemplate ? 'Tilbake til innstillinger' : 'Tilbake til undersøkelser'}
       </Link>
 
       <h1 className="text-2xl font-bold text-brand-navy dark:text-white mb-6">Ny undersøkelse</h1>

@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
 import { MoreHorizontal, FileText, MessageSquare, ClipboardList, Settings, Plus, X, Bell, SprayCan } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import type { CleaningRecipient } from '@/lib/cleaning'
@@ -71,6 +70,20 @@ type ReviewTemplate = {
   created_at: string
 }
 
+type SurveyTemplateRow = {
+  id: string
+  name: string
+  questions: unknown
+  anonymous: boolean
+  created_at: string
+}
+
+type CleaningGroupRow = {
+  id: string
+  name: string
+  questions: unknown
+}
+
 type BroadcastMessage = {
   id: string
   subject: string
@@ -94,7 +107,9 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
 
   const [cleaningRecipients, setCleaningRecipients] = useState<CleaningRecipient[]>([])
-  const [cleaningGroups, setCleaningGroups] = useState<{ id: string; name: string }[]>([])
+  const [cleaningGroups, setCleaningGroups] = useState<CleaningGroupRow[]>([])
+  const [cleaningGroupDeleteId, setCleaningGroupDeleteId] = useState<string | null>(null)
+  const [deletingCleaningGroup, setDeletingCleaningGroup] = useState(false)
   const [newCleaningRecipientEmail, setNewCleaningRecipientEmail] = useState('')
   const [sendingCleaningSummary, setSendingCleaningSummary] = useState(false)
   const [cleaningSummaryMessage, setCleaningSummaryMessage] = useState('')
@@ -115,8 +130,12 @@ export default function SettingsPage() {
   const [reviewTemplateDeleteId, setReviewTemplateDeleteId] = useState<string | null>(null)
   const [deletingReviewTemplate, setDeletingReviewTemplate] = useState(false)
 
+  const [surveyTemplates, setSurveyTemplates] = useState<SurveyTemplateRow[]>([])
+  const [surveyTemplateDeleteId, setSurveyTemplateDeleteId] = useState<string | null>(null)
+  const [deletingSurveyTemplate, setDeletingSurveyTemplate] = useState(false)
+
   const [newMalOpen, setNewMalOpen] = useState(false)
-  const [newMalType, setNewMalType] = useState<'kontrakt' | 'samtale'>('kontrakt')
+  const [newMalType, setNewMalType] = useState<'kontrakt' | 'samtale' | 'undersokelse' | 'renhold'>('kontrakt')
   const [newMalBasis, setNewMalBasis] = useState('blank')
   const [creatingMal, setCreatingMal] = useState(false)
 
@@ -175,6 +194,12 @@ export default function SettingsPage() {
           .order('created_at', { ascending: false })
         if (reviewTemplatesData) setReviewTemplates(reviewTemplatesData)
 
+        const { data: surveyTemplatesData } = await supabase
+          .from('survey_templates')
+          .select('id, name, questions, anonymous, created_at')
+          .order('created_at', { ascending: false })
+        if (surveyTemplatesData) setSurveyTemplates(surveyTemplatesData)
+
         await loadBroadcastHistory()
 
         const { data: recipientsData } = await supabase
@@ -185,7 +210,7 @@ export default function SettingsPage() {
 
         const { data: cleaningGroupsData } = await supabase
           .from('cleaning_room_groups')
-          .select('id, name')
+          .select('id, name, questions')
           .order('sort_order')
         if (cleaningGroupsData) setCleaningGroups(cleaningGroupsData)
       }
@@ -308,8 +333,15 @@ export default function SettingsPage() {
   const handleCreateMal = async () => {
     setCreatingMal(true)
 
+    const blankRoute: Record<typeof newMalType, string> = {
+      kontrakt: '/contracts/templates/new',
+      samtale: '/reviews/templates/new',
+      undersokelse: '/surveys/templates/new',
+      renhold: '/renhold/sjekkliste/new',
+    }
+
     if (newMalBasis === 'blank') {
-      router.push(newMalType === 'kontrakt' ? '/contracts/templates/new' : '/reviews/templates/new')
+      router.push(blankRoute[newMalType])
       return
     }
 
@@ -332,7 +364,7 @@ export default function SettingsPage() {
           return
         }
       }
-    } else {
+    } else if (newMalType === 'samtale') {
       const { data: source } = await supabase
         .from('review_templates')
         .select('name, questions')
@@ -351,9 +383,84 @@ export default function SettingsPage() {
           return
         }
       }
+    } else if (newMalType === 'undersokelse') {
+      const { data: source } = await supabase
+        .from('survey_templates')
+        .select('name, questions, anonymous')
+        .eq('id', newMalBasis)
+        .single()
+
+      if (source) {
+        const { data, error } = await supabase
+          .from('survey_templates')
+          .insert({ name: `${source.name} (kopi)`, questions: source.questions, anonymous: source.anonymous })
+          .select()
+          .single()
+
+        if (!error && data) {
+          router.push(`/surveys/templates/${data.id}`)
+          return
+        }
+      }
+    } else {
+      const { data: source } = await supabase
+        .from('cleaning_room_groups')
+        .select('name, questions')
+        .eq('id', newMalBasis)
+        .single()
+
+      if (source) {
+        const { data: existing } = await supabase
+          .from('cleaning_room_groups')
+          .select('sort_order')
+          .order('sort_order', { ascending: false })
+          .limit(1)
+          .single()
+
+        const { data, error } = await supabase
+          .from('cleaning_room_groups')
+          .insert({ name: `${source.name} (kopi)`, questions: source.questions, sort_order: (existing?.sort_order ?? 0) + 1 })
+          .select()
+          .single()
+
+        if (!error && data) {
+          router.push(`/renhold/sjekkliste/${data.id}`)
+          return
+        }
+      }
     }
 
     setCreatingMal(false)
+  }
+
+  const handleDeleteSurveyTemplate = async () => {
+    if (!surveyTemplateDeleteId) return
+    setDeletingSurveyTemplate(true)
+
+    const { error } = await supabase.from('survey_templates').delete().eq('id', surveyTemplateDeleteId)
+
+    if (!error) {
+      setSurveyTemplates(prev => prev.filter(t => t.id !== surveyTemplateDeleteId))
+      setSurveyTemplateDeleteId(null)
+    } else {
+      alert('Kunne ikke slette malen.')
+    }
+    setDeletingSurveyTemplate(false)
+  }
+
+  const handleDeleteCleaningGroup = async () => {
+    if (!cleaningGroupDeleteId) return
+    setDeletingCleaningGroup(true)
+
+    const { error } = await supabase.from('cleaning_room_groups').delete().eq('id', cleaningGroupDeleteId)
+
+    if (!error) {
+      setCleaningGroups(prev => prev.filter(g => g.id !== cleaningGroupDeleteId))
+      setCleaningGroupDeleteId(null)
+    } else {
+      alert('Kunne ikke slette malen. Den er trolig i bruk av rom eller registreringer.')
+    }
+    setDeletingCleaningGroup(false)
   }
 
   const handleSendBroadcast = async (e: React.FormEvent) => {
@@ -427,7 +534,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="max-w-4xl p-6">
+    <div className="max-w-[1440px] p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
           <IconBadge icon={<Settings className="size-4" />} />
@@ -687,7 +794,7 @@ export default function SettingsPage() {
             </Button>
           </div>
 
-          {templates.length === 0 && reviewTemplates.length === 0 && SURVEY_TEMPLATES.length === 0 ? (
+          {templates.length === 0 && reviewTemplates.length === 0 && surveyTemplates.length === 0 && SURVEY_TEMPLATES.length === 0 && cleaningGroups.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">Ingen maler registrert enda.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -771,9 +878,49 @@ export default function SettingsPage() {
                 </Card>
               ))}
 
-              {SURVEY_TEMPLATES.map((t) => (
+              {surveyTemplates.map((t) => (
                 <Card
                   key={`survey-${t.id}`}
+                  className="shadow-none cursor-pointer hover:bg-muted/50"
+                  onClick={() => router.push(`/surveys/templates/${t.id}`)}
+                >
+                  <CardContent className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <ClipboardList className="size-5 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{t.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatDate(t.created_at)}</p>
+                      </div>
+                    </div>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button variant="ghost" size="icon-sm">
+                              <MoreHorizontal />
+                              <span className="sr-only">Handlinger</span>
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => router.push(`/surveys/templates/${t.id}`)}>
+                            Rediger
+                          </DropdownMenuItem>
+                          {isRealAdmin && (
+                            <DropdownMenuItem variant="destructive" onClick={() => setSurveyTemplateDeleteId(t.id)}>
+                              Slett
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {SURVEY_TEMPLATES.map((t) => (
+                <Card
+                  key={`survey-builtin-${t.id}`}
                   className="shadow-none cursor-pointer hover:bg-muted/50"
                   onClick={() => router.push(`/surveys/new?template=${t.id}`)}
                 >
@@ -782,17 +929,26 @@ export default function SettingsPage() {
                       <ClipboardList className="size-5 text-muted-foreground shrink-0 mt-0.5" />
                       <div className="min-w-0">
                         <p className="font-medium truncate">{t.label}</p>
-                        <p className="text-xs text-muted-foreground">Undersøkelsesmal</p>
+                        <p className="text-xs text-muted-foreground">Innebygd undersøkelsesmal</p>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="shrink-0"
-                      render={<Link href={`/surveys/new?template=${t.id}`} onClick={(e) => e.stopPropagation()} />}
-                    >
-                      Bruk mal
-                    </Button>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button variant="ghost" size="icon-sm">
+                              <MoreHorizontal />
+                              <span className="sr-only">Handlinger</span>
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => router.push(`/surveys/new?template=${t.id}`)}>
+                            Bruk mal
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -803,11 +959,35 @@ export default function SettingsPage() {
                   className="shadow-none cursor-pointer hover:bg-muted/50"
                   onClick={() => router.push(`/renhold/sjekkliste/${g.id}`)}
                 >
-                  <CardContent className="flex items-start gap-3">
-                    <SprayCan className="size-5 text-muted-foreground shrink-0 mt-0.5" />
-                    <div className="min-w-0">
-                      <p className="font-medium truncate">{g.name} – sjekkliste</p>
-                      <p className="text-xs text-muted-foreground">Vises når noen skanner QR-koden</p>
+                  <CardContent className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <SprayCan className="size-5 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{g.name} – sjekkliste</p>
+                        <p className="text-xs text-muted-foreground">Vises når noen skanner QR-koden</p>
+                      </div>
+                    </div>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button variant="ghost" size="icon-sm">
+                              <MoreHorizontal />
+                              <span className="sr-only">Handlinger</span>
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => router.push(`/renhold/sjekkliste/${g.id}`)}>
+                            Rediger
+                          </DropdownMenuItem>
+                          {isRealAdmin && (
+                            <DropdownMenuItem variant="destructive" onClick={() => setCleaningGroupDeleteId(g.id)}>
+                              Slett
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </CardContent>
                 </Card>
@@ -833,7 +1013,7 @@ export default function SettingsPage() {
               <RadioGroup
                 value={newMalType}
                 onValueChange={(val) => {
-                  setNewMalType(val as 'kontrakt' | 'samtale')
+                  setNewMalType(val as 'kontrakt' | 'samtale' | 'undersokelse' | 'renhold')
                   setNewMalBasis('blank')
                 }}
               >
@@ -843,7 +1023,15 @@ export default function SettingsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <RadioGroupItem value="samtale" id="maltype-samtale" />
-                  <Label htmlFor="maltype-samtale" className="font-normal">Samtalemal</Label>
+                  <Label htmlFor="maltype-samtale" className="font-normal">Medarbeidersamtalemal</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="undersokelse" id="maltype-undersokelse" />
+                  <Label htmlFor="maltype-undersokelse" className="font-normal">Undersøkelsesmal</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="renhold" id="maltype-renhold" />
+                  <Label htmlFor="maltype-renhold" className="font-normal">Renholdsmal</Label>
                 </div>
               </RadioGroup>
             </div>
@@ -856,7 +1044,12 @@ export default function SettingsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="blank">Blank mal</SelectItem>
-                  {(newMalType === 'kontrakt' ? templates : reviewTemplates).map((t) => (
+                  {(
+                    newMalType === 'kontrakt' ? templates :
+                    newMalType === 'samtale' ? reviewTemplates :
+                    newMalType === 'undersokelse' ? surveyTemplates :
+                    cleaningGroups
+                  ).map((t) => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.name}
                     </SelectItem>
@@ -967,6 +1160,48 @@ export default function SettingsPage() {
               onClick={handleDeleteReviewTemplate}
             >
               {deletingReviewTemplate ? 'Sletter...' : 'Slett'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={surveyTemplateDeleteId !== null} onOpenChange={(open) => !open && setSurveyTemplateDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dette vil slette malen permanent. Handlingen kan ikke angres.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={deletingSurveyTemplate}
+              onClick={handleDeleteSurveyTemplate}
+            >
+              {deletingSurveyTemplate ? 'Sletter...' : 'Slett'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={cleaningGroupDeleteId !== null} onOpenChange={(open) => !open && setCleaningGroupDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dette vil slette malen permanent. Handlingen kan ikke angres.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={deletingCleaningGroup}
+              onClick={handleDeleteCleaningGroup}
+            >
+              {deletingCleaningGroup ? 'Sletter...' : 'Slett'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

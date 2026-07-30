@@ -32,7 +32,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ChevronRight, MessageSquare, MoreHorizontal } from 'lucide-react'
+import { ChevronRight, MessageSquare, MoreHorizontal, Search } from 'lucide-react'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
@@ -169,7 +169,7 @@ export default function ReviewsPage() {
   const pagedReviews = filteredReviews.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
-    <div className="max-w-4xl p-6">
+    <div className="max-w-[1440px] p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
           <IconBadge icon={<MessageSquare className="size-4" />} />
@@ -183,12 +183,15 @@ export default function ReviewsPage() {
       {isAdminLike(role) && (
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
           <div className="flex flex-col sm:flex-row gap-3">
-            <Input
-              placeholder="Søk etter ansatt..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="sm:max-w-xs"
-            />
+            <div className="relative sm:max-w-xs w-full">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                placeholder="Søk etter ansatt..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
             <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
               <SelectTrigger className="w-full sm:w-48 h-9">
                 <SelectValue />

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { Package } from 'lucide-react'
+import { Package, Search } from 'lucide-react'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { getUniformTypeIcon, needsCardCredentials, type UniformIssuance } from '@/lib/uniform-items'
 import { IconBadge } from '@/components/ui/icon-badge'
@@ -162,7 +162,7 @@ export default function UniformerPage() {
   )
 
   return (
-    <div className="max-w-3xl p-6 space-y-8">
+    <div className="max-w-[1440px] p-6 space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
           <IconBadge icon={<Package className="size-4" />} />
@@ -203,12 +203,15 @@ export default function UniformerPage() {
       <div>
         <h2 className="text-lg font-semibold mb-3">Utleveringer</h2>
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <Input
-            placeholder="Finn ansatt..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="sm:max-w-xs"
-          />
+          <div className="relative sm:max-w-xs w-full">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Finn ansatt..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8"
+            />
+          </div>
           <Button
             render={<Link href="/uniformer/new" />}
             className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium shrink-0"
@@ -227,7 +230,7 @@ export default function UniformerPage() {
               <Link
                 key={issuance.id}
                 href={`/uniformer/${issuance.id}`}
-                className="flex flex-col gap-2 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50"
+                className="flex flex-col gap-2 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50"
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-medium text-base md:text-sm truncate">
@@ -272,7 +275,7 @@ export default function UniformerPage() {
               <Link
                 key={profileId}
                 href={`/uniformer/person/${profileId}`}
-                className="flex flex-col gap-2 rounded-xl border border-border bg-brand-cream dark:bg-white/5 p-4 hover:bg-muted/50"
+                className="flex flex-col gap-2 rounded-xl border border-border bg-white dark:bg-white/5 p-4 hover:bg-muted/50"
               >
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-medium text-base md:text-sm truncate">{group.profileName}</p>

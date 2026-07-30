@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { SprayCan, CheckCircle2, ImagePlus, X } from 'lucide-react'
+import { normalizeCleaningQuestions, type CleaningQuestionBlock } from '@/lib/cleaning'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 
 type Room = { id: string; name: string }
 type GroupInfo = {
-  group: { id: string; name: string; questions: string[] }
+  group: { id: string; name: string; questions: CleaningQuestionBlock[] }
   rooms: Room[]
 }
 
@@ -35,7 +36,9 @@ export default function GroupCheckinPage() {
     async function load() {
       const res = await fetch(`/api/cleaning/group/${id}`)
       const result = await res.json()
-      if (res.ok) setInfo(result)
+      if (res.ok) {
+        setInfo({ ...result, group: { ...result.group, questions: normalizeCleaningQuestions(result.group.questions ?? []) } })
+      }
       setLoading(false)
     }
     load()
@@ -61,7 +64,9 @@ export default function GroupCheckinPage() {
     setSubmitting(true)
     setError('')
 
-    const checklist = info.group.questions.map((q) => ({ question: q, checked: !!checkedMap[q] }))
+    const checklist = info.group.questions
+      .filter((q) => q.type === 'question')
+      .map((q) => ({ question: q.text, checked: !!checkedMap[q.text] }))
 
     const formData = new FormData()
     formData.append('roomId', selectedRoom.id)
@@ -108,7 +113,8 @@ export default function GroupCheckinPage() {
     )
   }
 
-  const allChecked = info.group.questions.length === 0 || info.group.questions.every((q) => checkedMap[q])
+  const checklistQuestions = info.group.questions.filter((q) => q.type === 'question')
+  const allChecked = checklistQuestions.length === 0 || checklistQuestions.every((q) => checkedMap[q.text])
 
   if (!selectedRoom) {
     return (
@@ -145,17 +151,23 @@ export default function GroupCheckinPage() {
 
       {info.group.questions.length > 0 && (
         <div className="mb-6">
-          <Label className="mb-2 block">Sjekkpunkter – huk av etter hvert som det er gjort</Label>
-          <div className="flex flex-col divide-y divide-border rounded-md border border-input">
-            {info.group.questions.map((q) => (
-              <label key={q} className="flex items-center gap-3 p-3 cursor-pointer">
-                <Checkbox
-                  checked={!!checkedMap[q]}
-                  onCheckedChange={(val) => setCheckedMap((prev) => ({ ...prev, [q]: val === true }))}
-                />
-                <span className="text-sm">{q}</span>
-              </label>
-            ))}
+          {checklistQuestions.length > 0 && (
+            <Label className="mb-2 block">Sjekkpunkter – huk av etter hvert som det er gjort</Label>
+          )}
+          <div className="flex flex-col gap-3">
+            {info.group.questions.map((q, i) =>
+              q.type === 'heading' ? (
+                q.text.trim() && <p key={i} className="text-sm font-semibold pt-1">{q.text}</p>
+              ) : (
+                <label key={i} className="flex items-center gap-3 p-3 rounded-md border border-input cursor-pointer">
+                  <Checkbox
+                    checked={!!checkedMap[q.text]}
+                    onCheckedChange={(val) => setCheckedMap((prev) => ({ ...prev, [q.text]: val === true }))}
+                  />
+                  <span className="text-sm">{q.text}</span>
+                </label>
+              )
+            )}
           </div>
         </div>
       )}

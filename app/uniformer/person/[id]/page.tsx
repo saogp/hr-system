@@ -102,7 +102,7 @@ export default function PersonUniformHistoryPage() {
   }
 
   return (
-    <div className="p-6 max-w-lg">
+    <div className="p-6 max-w-[1440px]">
       <Link
         href="/uniformer"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"

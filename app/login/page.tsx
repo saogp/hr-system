@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff } from 'lucide-react'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -69,9 +69,6 @@ export default function LoginPage() {
         <CardHeader className="space-y-1 items-center text-center px-8">
           <GreetingIllustration className="size-24 mb-1" />
           <CardTitle className="text-xl font-bold text-brand-navy dark:text-white">Logg inn</CardTitle>
-          <CardDescription>
-            Skriv inn e-posten din for å logge inn på kontoen din
-          </CardDescription>
         </CardHeader>
 
         <form onSubmit={handleLogin}>

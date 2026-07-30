@@ -110,7 +110,7 @@ export default function NewReviewPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-6 max-w-[1440px]">
       <Link
         href="/reviews"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"

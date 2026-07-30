@@ -33,7 +33,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
-type Question = { id: string; text: string }
+type Question = { id: string; text: string; type?: 'heading' | 'question' }
 
 type Review = {
   id: string
@@ -235,7 +235,7 @@ export default function ReviewDetailPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-6 max-w-[1440px]">
       <div className="flex items-center justify-between mb-6">
         <Link
           href="/reviews"
@@ -269,11 +269,19 @@ export default function ReviewDetailPage() {
       </div>
 
       <div className="space-y-8">
-        {review.questions.map((q, i) => {
-          const questionTasks = tasks.filter(t => t.question_id === q.id)
-          return (
+        {(() => {
+          let questionNumber = 0
+          return review.questions.map((q) => {
+            if (q.type === 'heading') {
+              return (
+                <p key={q.id} className="text-base font-semibold pt-1 -mb-4">{q.text}</p>
+              )
+            }
+            questionNumber += 1
+            const questionTasks = tasks.filter(t => t.question_id === q.id)
+            return (
             <div key={q.id} className="space-y-3">
-              <p className="font-medium">{i + 1}. {q.text}</p>
+              <p className="font-medium">{questionNumber}. {q.text}</p>
               <Textarea
                 value={answers[q.id] ?? ''}
                 onChange={(e) => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
@@ -353,8 +361,9 @@ export default function ReviewDetailPage() {
                 )}
               </div>
             </div>
-          )
-        })}
+            )
+          })
+        })()}
       </div>
 
       {isParticipant && review.status !== 'completed' && (
