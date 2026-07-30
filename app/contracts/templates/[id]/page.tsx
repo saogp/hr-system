@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { extractTokens, extractChoiceFields, renderContract, RESERVED_TOKENS, COMPANY_TOKENS, type ProfileFields, type CompanyFields } from '@/lib/contract-tokens'
+import { extractTokens, extractChoiceFields, renderContract, getAdminTokens, RESERVED_TOKENS, COMPANY_TOKENS, type ProfileFields, type CompanyFields } from '@/lib/contract-tokens'
 import { RichTextEditor } from '@/components/template-editor/rich-text-editor'
 import { RenderedContractText } from '@/components/rendered-contract-text'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
@@ -122,9 +122,7 @@ export default function TemplateEditorPage() {
     return <FormPageSkeleton />
   }
 
-  const fillTokens = extractTokens(content).filter(
-    (t) => !['navn', 'epost', 'fodselsdato', 'adresse', 'telefon', 'kontonummer'].includes(t)
-  )
+  const fillTokens = getAdminTokens(content)
   const choiceFields = extractChoiceFields(content)
 
   const previewAdminFields: Record<string, string> = {}

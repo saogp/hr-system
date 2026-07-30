@@ -147,11 +147,26 @@ export default function ContractsPage() {
     if (!error) {
       setContracts(prev => prev.filter(c => c.id !== deleteTargetId))
       setDeleteTargetId(null)
+    } else {
+      alert('Kunne ikke slette kontrakten.')
     }
     setDeleting(false)
   }
 
   const handleSendToAccountant = async (contractId: string) => {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/contracts/send-to-accountant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ contractId }),
+    })
+
+    if (!res.ok) {
+      const result = await res.json().catch(() => ({}))
+      alert(result.error || 'Kunne ikke sende til regnskapsfører.')
+      return
+    }
+
     const nowIso = new Date().toISOString()
     const { error } = await supabase
       .from('contracts')

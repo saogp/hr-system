@@ -32,7 +32,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { ChevronRight } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { getAdminTokens, extractChoiceFields, usesCompanyTokens } from '@/lib/contract-tokens'
 import { UNIFORM_TYPES, UNIFORM_SIZES, needsCardCredentials } from '@/lib/uniform-items'
 import { useToastManager } from '@/components/ui/toast'
@@ -45,7 +51,6 @@ type Person = {
   role: string
   email: string | null
   end_date: string | null
-  contractStatus: 'signed' | 'pending' | 'none'
   avatar_url: string | null
   is_active: boolean
 }
@@ -66,12 +71,10 @@ type UniformRow = { type: string; size: string; quantity: number; cardNumber: st
 const emptyUniformRow = (): UniformRow => ({ type: UNIFORM_TYPES[0], size: 'Ingen', quantity: 1, cardNumber: '', cardPassword: '' })
 
 function getInitials(name: string) {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('')
+  const parts = name.split(' ').filter(Boolean)
+  if (parts.length === 0) return ''
+  if (parts.length === 1) return parts[0][0]?.toUpperCase() ?? ''
+  return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase()
 }
 
 export default function PeoplePage() {
@@ -103,6 +106,10 @@ export default function PeoplePage() {
   const [uniformRows, setUniformRows] = useState<UniformRow[]>([emptyUniformRow()])
   const [uniformSendEmail, setUniformSendEmail] = useState(false)
 
+  const [deactivateTargetId, setDeactivateTargetId] = useState<string | null>(null)
+  const [deactivateEndDate, setDeactivateEndDate] = useState('')
+  const [deactivating, setDeactivating] = useState(false)
+
   const load = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
@@ -122,27 +129,7 @@ export default function PeoplePage() {
       const { data: profilesData } = await supabase
         .from('profiles')
         .select('id, full_name, title, role, email, end_date, avatar_url, is_active')
-      const { data: contractsData } = await supabase
-        .from('contracts')
-        .select('profile_id, employee_signed_at, admin_signed_at')
-
-      const statusByProfile = new Map<string, 'signed' | 'pending'>()
-      for (const c of contractsData ?? []) {
-        const fullySigned = Boolean(c.employee_signed_at && c.admin_signed_at)
-        const current = statusByProfile.get(c.profile_id)
-        if (!fullySigned) {
-          statusByProfile.set(c.profile_id, 'pending')
-        } else if (current !== 'pending') {
-          statusByProfile.set(c.profile_id, 'signed')
-        }
-      }
-
-      if (profilesData) {
-        setPeople(profilesData.map((p) => ({
-          ...p,
-          contractStatus: statusByProfile.get(p.id) ?? 'none',
-        })))
-      }
+      if (profilesData) setPeople(profilesData)
 
       const { data: templatesData } = await supabase
         .from('contract_templates')
@@ -157,7 +144,7 @@ export default function PeoplePage() {
       if (companiesData) setCompanies(companiesData)
     } else {
       const { data } = await supabase.rpc('get_people_directory')
-      if (data) setPeople(data.map((p: Person) => ({ ...p, end_date: null, contractStatus: 'none', is_active: true })))
+      if (data) setPeople(data.map((p: Person) => ({ ...p, end_date: null, is_active: true })))
     }
     setLoading(false)
   }
@@ -165,6 +152,30 @@ export default function PeoplePage() {
   useEffect(() => {
     load()
   }, [])
+
+  const handleActivate = async (personId: string) => {
+    const { error } = await supabase.from('profiles').update({ is_active: true }).eq('id', personId)
+    if (!error) {
+      setPeople(prev => prev.map(p => (p.id === personId ? { ...p, is_active: true } : p)))
+    }
+  }
+
+  const handleConfirmDeactivate = async () => {
+    if (!deactivateTargetId || !deactivateEndDate) return
+    setDeactivating(true)
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_active: false, end_date: deactivateEndDate })
+      .eq('id', deactivateTargetId)
+
+    if (!error) {
+      setPeople(prev => prev.map(p => (p.id === deactivateTargetId ? { ...p, is_active: false, end_date: deactivateEndDate } : p)))
+      setDeactivateTargetId(null)
+      setDeactivateEndDate('')
+    }
+    setDeactivating(false)
+  }
 
   useEffect(() => {
     setPage(1)
@@ -336,18 +347,32 @@ export default function PeoplePage() {
                 <p className="font-medium text-base md:text-sm truncate">{p.full_name || '—'}</p>
                 <p className="text-xs text-muted-foreground truncate">{p.title || '—'}</p>
               </div>
-              {!p.is_active ? (
-                <Badge variant="secondary">Inaktiv</Badge>
-              ) : isAdmin && (
-                p.contractStatus === 'signed' ? (
-                  <Badge className="bg-green-600 hover:bg-green-700">Kontrakt signert</Badge>
-                ) : p.contractStatus === 'pending' ? (
-                  <Badge variant="secondary">Kontrakt venter</Badge>
-                ) : (
-                  <Badge variant="outline" className="border-brand-orange/50 text-brand-navy dark:text-white">Mangler kontrakt</Badge>
-                )
+              {!p.is_active && <Badge variant="secondary">Inaktiv</Badge>}
+              {isAdmin && (
+                <div onClick={(e) => { e.preventDefault(); e.stopPropagation() }}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button variant="ghost" size="icon-sm">
+                          <MoreHorizontal />
+                          <span className="sr-only">Handlinger</span>
+                        </Button>
+                      }
+                    />
+                    <DropdownMenuContent align="end">
+                      {p.is_active ? (
+                        <DropdownMenuItem onClick={() => { setDeactivateTargetId(p.id); setDeactivateEndDate('') }}>
+                          Gjør inaktiv
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem onClick={() => handleActivate(p.id)}>
+                          Gjør aktiv
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               )}
-              <ChevronRight className="size-4 text-muted-foreground shrink-0" />
             </Link>
           ))
         )}
@@ -589,6 +614,38 @@ export default function PeoplePage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deactivateTargetId !== null} onOpenChange={(open) => { if (!open) { setDeactivateTargetId(null); setDeactivateEndDate('') } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Gjør ansatt inaktiv</DialogTitle>
+            <DialogDescription>
+              Angi sluttdato for den ansatte før du gjør vedkommende inaktiv.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="deactivate-end-date">Sluttdato</Label>
+            <Input
+              id="deactivate-end-date"
+              type="date"
+              value={deactivateEndDate}
+              onChange={(e) => setDeactivateEndDate(e.target.value)}
+              required
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="destructive"
+              disabled={deactivating || !deactivateEndDate}
+              onClick={handleConfirmDeactivate}
+            >
+              {deactivating ? 'Lagrer...' : 'Gjør inaktiv'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
 import { needsCardCredentials } from '@/lib/uniform-items'
+import { renderEmailHtml } from '@/lib/email-template'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -61,6 +62,7 @@ export async function POST(request: Request) {
       .join('\n')
     const firstName = (employee.full_name || '').split(' ')[0] || 'der'
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || ''
+    const confirmUrl = `${siteUrl}/uniformer/${issuance.id}`
 
     try {
       await fetch('https://api.resend.com/emails', {
@@ -73,7 +75,13 @@ export async function POST(request: Request) {
           from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
           to: employee.email,
           subject: 'Du har mottatt personalutstyr',
-          text: `Hei ${firstName}\n\nDu har fått utlevert:\n${itemList}\n\nBekreft mottak og signer her: ${siteUrl}/uniformer/${issuance.id}`,
+          text: `Hei ${firstName}\n\nDu har fått utlevert:\n${itemList}\n\nBekreft mottak og signer her: ${confirmUrl}`,
+          html: renderEmailHtml({
+            heading: 'Du har mottatt personalutstyr',
+            bodyHtml: `<p>Hei ${firstName}</p><p>Du har fått utlevert:</p><ul>${preparedItems.map((i: { type: string; size: string; quantity: number; card_number: string | null }) => `<li>${needsCardCredentials(i.type) ? `${i.type}${i.card_number ? ` (nr. ${i.card_number})` : ''}` : `${i.type}${i.size !== 'Ingen' ? ` (${i.size})` : ''}${i.quantity > 1 ? ` x${i.quantity}` : ''}`}</li>`).join('')}</ul>`,
+            ctaLabel: 'Bekreft mottak og signer',
+            ctaUrl: confirmUrl,
+          }),
         }),
       })
     } catch {

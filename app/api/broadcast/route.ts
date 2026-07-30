@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
+import { renderEmailHtml } from '@/lib/email-template'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -69,6 +70,10 @@ export async function POST(request: Request) {
     recipientList.map((r) => {
       const firstName = (r.full_name || '').split(' ')[0] || 'der'
       const body = `Hei ${firstName}\n\n${message}\n\nHilsen ${senderName}`
+      const html = renderEmailHtml({
+        heading: subject,
+        bodyHtml: `<p>Hei ${firstName}</p><p style="white-space: pre-wrap;">${message}</p><p>Hilsen ${senderName}</p>`,
+      })
       return fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -80,6 +85,7 @@ export async function POST(request: Request) {
           to: r.email,
           subject,
           text: body,
+          html,
           attachments,
         }),
       })

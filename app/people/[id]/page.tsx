@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { ArrowLeft, MoreHorizontal, FileText } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { EditableAvatar } from '@/components/editable-avatar'
 import { ProfilePageSkeleton } from '@/components/ui/loading-skeletons'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
@@ -108,12 +107,10 @@ const SELF_EDITABLE_FIELDS: (keyof PersonProfile)[] = [
 const POSITION_OPTIONS = ['Daglig leder', 'Kokk', 'Servitør', 'Sjåfør']
 
 function getInitials(name: string) {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('')
+  const parts = name.split(' ').filter(Boolean)
+  if (parts.length === 0) return ''
+  if (parts.length === 1) return parts[0][0]?.toUpperCase() ?? ''
+  return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase()
 }
 
 export default function PersonDetailPage() {
@@ -433,7 +430,7 @@ function PersonDetailPageInner() {
   const canEditSomething = isAdmin || isSelf
 
   return (
-    <div className="py-6 px-4 max-w-2xl">
+    <div className="py-6 px-4 max-w-[1440px]">
       <div className="flex items-center justify-between mb-6">
         <Link
           href="/people"
@@ -473,13 +470,10 @@ function PersonDetailPageInner() {
       </div>
 
       <div className="flex items-center gap-4 mb-8">
-        <EditableAvatar
-          profileId={person.id}
-          avatarUrl={person.avatar_url}
-          initials={getInitials(person.full_name || '?')}
-          editable={isAdmin}
-          onUploaded={(url) => setPerson(prev => prev ? { ...prev, avatar_url: url } : prev)}
-        />
+        <Avatar className="size-16">
+          {person.avatar_url && <AvatarImage src={person.avatar_url} alt={person.full_name ?? ''} />}
+          <AvatarFallback className="text-lg bg-brand-navy text-brand-orange">{getInitials(person.full_name || '?')}</AvatarFallback>
+        </Avatar>
         <div className="flex-1">
           <h1 className="text-xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
             {person.full_name || '—'}
@@ -514,9 +508,8 @@ function PersonDetailPageInner() {
         </div>
       )}
 
-      <div className="flex flex-col gap-6">
-        <div className={isAdmin ? 'grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 items-start' : ''}>
-        <Card className="shadow-none border-border py-0 rounded-2xl">
+      <div className={isAdmin ? 'grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 items-start' : 'flex flex-col gap-6'}>
+        <Card className="shadow-none border-border py-0 rounded-2xl lg:col-start-1 lg:row-start-1">
           <CardHeader className="border-b border-border py-4">
             <CardTitle className="text-sm font-semibold">Generell info</CardTitle>
           </CardHeader>
@@ -593,7 +586,7 @@ function PersonDetailPageInner() {
         </Card>
 
         {isAdmin && (
-          <Card className="shadow-none border-border py-0 rounded-2xl">
+          <Card className="shadow-none border-border py-0 rounded-2xl lg:col-start-2 lg:row-start-1 lg:row-span-2">
             <CardHeader className="border-b border-border py-4 flex-row items-center justify-between">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <IconBadge icon={<FileText className="size-4" />} />
@@ -652,9 +645,8 @@ function PersonDetailPageInner() {
             </CardContent>
           </Card>
         )}
-        </div>
 
-        <Card className="shadow-none border-border py-0 rounded-2xl">
+        <Card className="shadow-none border-border py-0 rounded-2xl lg:col-start-1 lg:row-start-2">
           <CardHeader className="border-b border-border py-4">
             <CardTitle className="text-sm font-semibold">Arbeid</CardTitle>
           </CardHeader>

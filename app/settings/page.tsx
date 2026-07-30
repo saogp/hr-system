@@ -58,6 +58,7 @@ type Company = {
   name: string
   org_number: string | null
   billing_address: string | null
+  accountant_email: string | null
 }
 
 type Template = {
@@ -120,6 +121,7 @@ export default function SettingsPage() {
   const [editName, setEditName] = useState('')
   const [editOrgNumber, setEditOrgNumber] = useState('')
   const [editBillingAddress, setEditBillingAddress] = useState('')
+  const [editAccountantEmail, setEditAccountantEmail] = useState('')
   const [saving, setSaving] = useState(false)
 
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
@@ -264,6 +266,7 @@ export default function SettingsPage() {
     setEditName(company.name)
     setEditOrgNumber(company.org_number ?? '')
     setEditBillingAddress(company.billing_address ?? '')
+    setEditAccountantEmail(company.accountant_email ?? '')
   }
 
   const handleSaveEdit = async (e: React.FormEvent) => {
@@ -273,13 +276,13 @@ export default function SettingsPage() {
 
     const { error } = await supabase
       .from('companies')
-      .update({ name: editName, org_number: editOrgNumber, billing_address: editBillingAddress })
+      .update({ name: editName, org_number: editOrgNumber, billing_address: editBillingAddress, accountant_email: editAccountantEmail || null })
       .eq('id', editTarget.id)
 
     if (!error) {
       setCompanies(prev => prev.map(c => (
         c.id === editTarget.id
-          ? { ...c, name: editName, org_number: editOrgNumber, billing_address: editBillingAddress }
+          ? { ...c, name: editName, org_number: editOrgNumber, billing_address: editBillingAddress, accountant_email: editAccountantEmail || null }
           : c
       )))
       setEditTarget(null)
@@ -365,6 +368,9 @@ export default function SettingsPage() {
           router.push(`/contracts/templates/${data.id}`)
           return
         }
+        alert('Kunne ikke opprette malen.')
+      } else {
+        alert('Fant ikke malen som skal kopieres.')
       }
     } else if (newMalType === 'samtale') {
       const { data: source } = await supabase
@@ -384,6 +390,9 @@ export default function SettingsPage() {
           router.push(`/reviews/templates/${data.id}`)
           return
         }
+        alert('Kunne ikke opprette malen.')
+      } else {
+        alert('Fant ikke malen som skal kopieres.')
       }
     } else if (newMalType === 'undersokelse') {
       const { data: source } = await supabase
@@ -403,6 +412,9 @@ export default function SettingsPage() {
           router.push(`/surveys/templates/${data.id}`)
           return
         }
+        alert('Kunne ikke opprette malen.')
+      } else {
+        alert('Fant ikke malen som skal kopieres.')
       }
     } else {
       const { data: source } = await supabase
@@ -429,6 +441,9 @@ export default function SettingsPage() {
           router.push(`/renhold/sjekkliste/${data.id}`)
           return
         }
+        alert('Kunne ikke opprette malen.')
+      } else {
+        alert('Fant ikke malen som skal kopieres.')
       }
     }
 
@@ -1103,6 +1118,16 @@ export default function SettingsPage() {
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="edit-address">Fakturaadresse</Label>
               <Input id="edit-address" value={editBillingAddress} onChange={(e) => setEditBillingAddress(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit-accountant-email">E-post regnskapsfører</Label>
+              <Input
+                id="edit-accountant-email"
+                type="email"
+                value={editAccountantEmail}
+                onChange={(e) => setEditAccountantEmail(e.target.value)}
+                placeholder="regnskap@firma.no"
+              />
             </div>
             <DialogFooter>
               <Button type="submit" disabled={saving} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">

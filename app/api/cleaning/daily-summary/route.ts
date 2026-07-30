@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
+import { renderEmailHtml } from '@/lib/email-template'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -32,6 +33,9 @@ export async function POST(request: Request) {
   const body = missingRooms.length === 0
     ? `Alle rom er rengjort i dag (${dateLabel}).`
     : `Følgende rom er IKKE registrert som rengjort i dag (${dateLabel}):\n\n${missingRooms.map((r) => `- ${r.name}`).join('\n')}`
+  const bodyHtml = missingRooms.length === 0
+    ? `<p>Alle rom er rengjort i dag (${dateLabel}).</p>`
+    : `<p>Følgende rom er <strong>ikke</strong> registrert som rengjort i dag (${dateLabel}):</p><ul>${missingRooms.map((r) => `<li>${r.name}</li>`).join('')}</ul>`
 
   try {
     await fetch('https://api.resend.com/emails', {
@@ -45,6 +49,7 @@ export async function POST(request: Request) {
         to: recipients.map((r) => r.email),
         subject: `Renhold – status ${dateLabel}`,
         text: body,
+        html: renderEmailHtml({ heading: `Renhold – status ${dateLabel}`, bodyHtml }),
       }),
     })
   } catch {

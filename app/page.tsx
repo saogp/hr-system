@@ -131,6 +131,12 @@ type UnreadReport = {
   profiles: { full_name: string | null; email: string | null } | null
 }
 
+type MissingContractPerson = {
+  id: string
+  full_name: string | null
+  email: string | null
+}
+
 export default function DashboardPage() {
   const [userName, setUserName] = useState<string>('')
   const [loading, setLoading] = useState(true)
@@ -142,6 +148,7 @@ export default function DashboardPage() {
   const [myTasks, setMyTasks] = useState<MyTask[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [unsignedContracts, setUnsignedContracts] = useState<UnsignedContract[]>([])
+  const [missingContractPeople, setMissingContractPeople] = useState<MissingContractPerson[]>([])
   const [unreadReports, setUnreadReports] = useState<UnreadReport[]>([])
   const [engagementOverall, setEngagementOverall] = useState<number | null>(null)
   const [engagementCategories, setEngagementCategories] = useState<{ category: SurveyCategory; label: string; score: number | null }[]>([])
@@ -264,6 +271,18 @@ export default function DashboardPage() {
           .or('employee_signed_at.is.null,admin_signed_at.is.null')
           .order('sent_at', { ascending: false })
         if (unsignedData) setUnsignedContracts(unsignedData as unknown as UnsignedContract[])
+
+        const { data: activeProfilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .eq('is_active', true)
+        const { data: allContractsData } = await supabase
+          .from('contracts')
+          .select('profile_id')
+        if (activeProfilesData) {
+          const withContract = new Set((allContractsData ?? []).map((c) => c.profile_id))
+          setMissingContractPeople(activeProfilesData.filter((p) => !withContract.has(p.id)))
+        }
 
         const { data: unreadData } = await supabase
           .from('concern_reports')
@@ -446,7 +465,15 @@ export default function DashboardPage() {
         href: '/si-fra',
       })
     }
-
+    if (missingContractPeople.length > 0) {
+      actionItems.push({
+        id: 'missing-contracts',
+        icon: FileText,
+        label: `${missingContractPeople.length} ${missingContractPeople.length !== 1 ? 'ansatte' : 'ansatt'} mangler kontrakt`,
+        sublabel: missingContractPeople.map((p) => p.full_name || p.email || '—').join(', '),
+        href: '/people',
+      })
+    }
   }
 
   return (

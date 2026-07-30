@@ -25,7 +25,7 @@ export default function GroupCheckinPage() {
   const [info, setInfo] = useState<GroupInfo | null>(null)
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
 
-  const [checkedMap, setCheckedMap] = useState<Record<string, boolean>>({})
+  const [checkedMap, setCheckedMap] = useState<Record<number, boolean>>({})
   const [deviationNote, setDeviationNote] = useState('')
   const [photos, setPhotos] = useState<File[]>([])
   const [name, setName] = useState('')
@@ -66,8 +66,9 @@ export default function GroupCheckinPage() {
     setError('')
 
     const checklist = info.group.questions
-      .filter((q) => q.type === 'question')
-      .map((q) => ({ question: q.text, checked: !!checkedMap[q.text] }))
+      .map((q, i) => ({ q, i }))
+      .filter(({ q }) => q.type === 'question')
+      .map(({ q, i }) => ({ question: q.text, checked: !!checkedMap[i] }))
 
     const formData = new FormData()
     formData.append('roomId', selectedRoom.id)
@@ -114,8 +115,10 @@ export default function GroupCheckinPage() {
     )
   }
 
-  const checklistQuestions = info.group.questions.filter((q) => q.type === 'question')
-  const allChecked = checklistQuestions.length === 0 || checklistQuestions.every((q) => checkedMap[q.text])
+  const checklistQuestions = info.group.questions
+    .map((q, i) => ({ q, i }))
+    .filter(({ q }) => q.type === 'question')
+  const allChecked = checklistQuestions.length === 0 || checklistQuestions.every(({ i }) => checkedMap[i])
 
   if (!selectedRoom) {
     return (
@@ -162,8 +165,8 @@ export default function GroupCheckinPage() {
               ) : (
                 <label key={i} className="flex items-center gap-3 p-3 rounded-md border border-input cursor-pointer">
                   <Checkbox
-                    checked={!!checkedMap[q.text]}
-                    onCheckedChange={(val) => setCheckedMap((prev) => ({ ...prev, [q.text]: val === true }))}
+                    checked={!!checkedMap[i]}
+                    onCheckedChange={(val) => setCheckedMap((prev) => ({ ...prev, [i]: val === true }))}
                   />
                   <span className="text-sm">{q.text}</span>
                 </label>

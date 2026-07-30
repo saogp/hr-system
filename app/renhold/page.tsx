@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { SprayCan, Printer, ChevronDown, ChevronUp, ImageIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
-import { todayIsoDate, type CleaningRoom, type CleaningRoomGroup, type CleaningCheck } from '@/lib/cleaning'
+import { todayIsoDate, normalizeCleaningQuestions, type CleaningRoom, type CleaningRoomGroup, type CleaningCheck } from '@/lib/cleaning'
 import { printGroupQrCode } from '@/lib/cleaning-qr'
 
 import { IconBadge } from '@/components/ui/icon-badge'
@@ -40,7 +40,7 @@ export default function RenholdPage() {
 
   const loadGroups = async () => {
     const { data } = await supabase.from('cleaning_room_groups').select('id, name, sort_order, questions, company_id').order('sort_order')
-    if (data) setGroups(data)
+    if (data) setGroups(data.map((g) => ({ ...g, questions: normalizeCleaningQuestions(g.questions ?? []) })))
   }
 
   const loadRooms = async () => {

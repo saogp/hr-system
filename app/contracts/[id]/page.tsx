@@ -65,12 +65,10 @@ type Contract = {
 type PersonInfo = { id: string; full_name: string | null; email: string | null; avatar_url: string | null }
 
 function getInitials(name: string) {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('')
+  const parts = name.split(' ').filter(Boolean)
+  if (parts.length === 0) return ''
+  if (parts.length === 1) return parts[0][0]?.toUpperCase() ?? ''
+  return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase()
 }
 
 export default function ContractDetailPage() {
@@ -247,6 +245,7 @@ export default function ContractDetailPage() {
     if (!error) {
       router.replace('/contracts')
     } else {
+      toastManager.add({ title: 'Kunne ikke slette kontrakten', description: error.message })
       setDeleting(false)
       setDeleteOpen(false)
     }
@@ -255,6 +254,21 @@ export default function ContractDetailPage() {
   const handleSendToAccountant = async () => {
     if (!contract) return
     setSendingToAccountant(true)
+
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/contracts/send-to-accountant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ contractId: contract.id }),
+    })
+
+    if (!res.ok) {
+      const result = await res.json().catch(() => ({}))
+      toastManager.add({ title: 'Kunne ikke sende til regnskapsfører', description: result.error || 'Noe gikk galt.' })
+      setSendingToAccountant(false)
+      return
+    }
+
     const nowIso = new Date().toISOString()
     const { error } = await supabase
       .from('contracts')
@@ -262,6 +276,7 @@ export default function ContractDetailPage() {
       .eq('id', contract.id)
     if (!error) {
       setContract(prev => prev ? { ...prev, sent_to_accountant_at: nowIso } : prev)
+      toastManager.add({ title: 'Sendt til regnskapsfører' })
     }
     setSendingToAccountant(false)
   }
@@ -287,6 +302,8 @@ export default function ContractDetailPage() {
 
   const effectiveProfile: ProfileFields = { ...profile, phone, address, bank_account: bankAccount }
   const missingFields = getMissingProfileFields(contract.contract_templates.content, effectiveProfile)
+  const bankAccountDigits = bankAccount.replace(/\D/g, '')
+  const bankAccountInvalid = usedTokens.includes('kontonummer') && bankAccountDigits.length > 0 && bankAccountDigits.length !== 11
   const renderedText = renderContract(contract.contract_templates.content, effectiveProfile, contract.admin_fields, company)
 
   const signedCount = [contract.employee_signed_at, contract.admin_signed_at].filter(Boolean).length
@@ -425,6 +442,10 @@ export default function ContractDetailPage() {
             {missingFields.length > 0 ? (
               <p className="text-sm text-destructive">
                 Fyll ut følgende før du kan signere: {missingFields.join(', ')}.
+              </p>
+            ) : bankAccountInvalid ? (
+              <p className="text-sm text-destructive">
+                Kontonummer skal ha 11 siffer (har {bankAccountDigits.length}).
               </p>
             ) : (
               <SignaturePad onSave={handleEmployeeSign} saving={signing} />

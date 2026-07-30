@@ -55,6 +55,7 @@ function NewContractPageInner() {
   const toastManager = useToastManager()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
+  const [currentUserId, setCurrentUserId] = useState('')
   const [templates, setTemplates] = useState<Template[]>([])
   const [employees, setEmployees] = useState<EmployeeOption[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
@@ -83,6 +84,8 @@ function NewContractPageInner() {
         router.replace('/contracts')
         return
       }
+
+      setCurrentUserId(user.id)
 
       const { data: templatesData } = await supabase
         .from('contract_templates')
@@ -128,14 +131,22 @@ function NewContractPageInner() {
   const handleSendContract = async (e: React.FormEvent) => {
     e.preventDefault()
     setSending(true)
-    const { error } = await supabase.from('contracts').insert({
+    const { data, error } = await supabase.from('contracts').insert({
       template_id: selectedTemplateId,
       profile_id: selectedEmployeeId,
       company_id: needsCompany ? selectedCompanyId : null,
       admin_fields: adminFieldValues,
-    })
+      created_by: currentUserId,
+    }).select().single()
 
-    if (!error) {
+    if (!error && data) {
+      const { data: { session } } = await supabase.auth.getSession()
+      fetch('/api/contracts/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+        body: JSON.stringify({ contractId: data.id }),
+      }).catch(() => {})
+
       toastManager.add({ title: 'Kontrakt sendt', description: 'Den ansatte kan nå signere kontrakten.' })
       router.push('/contracts')
       return
@@ -166,7 +177,7 @@ function NewContractPageInner() {
 
       <form onSubmit={handleSendContract} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <Label>Ansatt</Label>
+          <Label>Navn på ansatt</Label>
           <Select value={selectedEmployeeId} onValueChange={(val) => val && setSelectedEmployeeId(val)}>
             <SelectTrigger className="w-full h-9">
               <SelectValue placeholder="Velg ansatt" />
@@ -182,7 +193,7 @@ function NewContractPageInner() {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label>Mal</Label>
+          <Label>Hvilken mal vil du bruke?</Label>
           <Select
             value={selectedTemplateId}
             onValueChange={(val) => {
@@ -214,7 +225,7 @@ function NewContractPageInner() {
 
         {needsCompany && (
           <div className="flex flex-col gap-1.5">
-            <Label>Bedrift</Label>
+            <Label>Hvilken bedrift skal den ansatte jobbe for?</Label>
             <Select value={selectedCompanyId} onValueChange={(val) => val && setSelectedCompanyId(val)}>
               <SelectTrigger className="w-full h-9">
                 <SelectValue placeholder="Velg bedrift" />
