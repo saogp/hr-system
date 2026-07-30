@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
-import { renderEmailHtml } from '@/lib/email-template'
+import { renderEmailHtml, getEmailFrom, getPlainTextFooter } from '@/lib/email-template'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -52,6 +52,7 @@ export async function POST(request: Request) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || ''
   const contractUrl = `${siteUrl}/contracts/${contractId}`
+  const footerContext = `Denne e-posten ble sendt fra ZEST fordi ${company.name} har registrert deg som regnskapsfører i systemet.`
 
   try {
     await fetch('https://api.resend.com/emails', {
@@ -61,15 +62,16 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+        from: getEmailFrom(),
         to: company.accountant_email,
         subject: `Kontrakt til regnskap – ${employeeName}`,
-        text: `Hei\n\nEn kontrakt for ${employeeName} (${templateName}) hos ${company.name} er klar for regnskap.\n\nSe kontrakten her: ${contractUrl}`,
+        text: `Hei,\n\nEn kontrakt for ${employeeName} (${templateName}) hos ${company.name} er klar for regnskap.\n\nSe kontrakten her: ${contractUrl}\n\n${getPlainTextFooter(undefined, footerContext)}`,
         html: renderEmailHtml({
           heading: 'Kontrakt til regnskap',
           bodyHtml: `<p>En kontrakt for <strong>${employeeName}</strong> (${templateName}) hos ${company.name} er klar for regnskap.</p>`,
           ctaLabel: 'Se kontrakten',
           ctaUrl: contractUrl,
+          footerContext,
         }),
       }),
     })

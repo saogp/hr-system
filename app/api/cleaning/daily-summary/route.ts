@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
-import { renderEmailHtml } from '@/lib/email-template'
+import { renderEmailHtml, getEmailFrom, getPlainTextFooter } from '@/lib/email-template'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -30,6 +30,7 @@ export async function POST(request: Request) {
   }
 
   const dateLabel = new Date().toLocaleDateString('no-NO', { day: 'numeric', month: 'long', year: 'numeric' })
+  const footerContext = 'Denne e-posten ble sendt fra ZEST fordi du er registrert som mottaker av renholdsvarsler.'
   const body = missingRooms.length === 0
     ? `Alle rom er rengjort i dag (${dateLabel}).`
     : `Følgende rom er IKKE registrert som rengjort i dag (${dateLabel}):\n\n${missingRooms.map((r) => `- ${r.name}`).join('\n')}`
@@ -45,11 +46,11 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+        from: getEmailFrom(),
         to: recipients.map((r) => r.email),
         subject: `Renhold – status ${dateLabel}`,
-        text: body,
-        html: renderEmailHtml({ heading: `Renhold – status ${dateLabel}`, bodyHtml }),
+        text: `${body}\n\n${getPlainTextFooter(undefined, footerContext)}`,
+        html: renderEmailHtml({ heading: `Renhold – status ${dateLabel}`, bodyHtml, footerContext }),
       }),
     })
   } catch {

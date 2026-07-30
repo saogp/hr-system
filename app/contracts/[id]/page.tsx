@@ -260,9 +260,10 @@ export default function ContractDetailPage() {
       body: JSON.stringify({ contractId: contract.id }),
     })
     if (res.ok) {
-      toastManager.add({ title: 'E-post sendt på nytt' })
+      toastManager.add({ title: 'E-post sendt på nytt', description: `Sendt til ${employeeInfo?.email ?? 'den ansatte'}.` })
     } else {
-      toastManager.add({ title: 'Kunne ikke sende e-posten på nytt' })
+      const result = await res.json().catch(() => ({}))
+      toastManager.add({ title: 'Kunne ikke sende e-posten på nytt', description: result.error || 'Noe gikk galt.' })
     }
   }
 

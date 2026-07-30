@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
 import { needsCardCredentials } from '@/lib/uniform-items'
-import { renderEmailHtml } from '@/lib/email-template'
+import { renderEmailHtml, getEmailFrom, getPlainTextFooter } from '@/lib/email-template'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -64,6 +64,14 @@ export async function POST(request: Request) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || ''
     const confirmUrl = `${siteUrl}/uniformer/${issuance.id}`
 
+    const { data: pcRow } = await supabaseAdmin
+      .from('profile_companies')
+      .select('companies(name)')
+      .eq('profile_id', profileId)
+      .limit(1)
+      .maybeSingle()
+    const employerName = (pcRow as unknown as { companies: { name: string } | null } | null)?.companies?.name
+
     try {
       await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -72,15 +80,16 @@ export async function POST(request: Request) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+          from: getEmailFrom(),
           to: employee.email,
           subject: 'Du har mottatt personalutstyr',
-          text: `Hei ${firstName}\n\nDu har fått utlevert:\n${itemList}\n\nBekreft mottak og signer her: ${confirmUrl}`,
+          text: `Hei ${firstName},\n\nDu har fått utlevert:\n${itemList}\n\nBekreft mottak og signer her: ${confirmUrl}\n\n${getPlainTextFooter(employerName)}`,
           html: renderEmailHtml({
             heading: 'Du har mottatt personalutstyr',
-            bodyHtml: `<p>Hei ${firstName}</p><p>Du har fått utlevert:</p><ul>${preparedItems.map((i: { type: string; size: string; quantity: number; card_number: string | null }) => `<li>${needsCardCredentials(i.type) ? `${i.type}${i.card_number ? ` (nr. ${i.card_number})` : ''}` : `${i.type}${i.size !== 'Ingen' ? ` (${i.size})` : ''}${i.quantity > 1 ? ` x${i.quantity}` : ''}`}</li>`).join('')}</ul>`,
+            bodyHtml: `<p>Hei ${firstName},</p><p>Du har fått utlevert:</p><ul>${preparedItems.map((i: { type: string; size: string; quantity: number; card_number: string | null }) => `<li>${needsCardCredentials(i.type) ? `${i.type}${i.card_number ? ` (nr. ${i.card_number})` : ''}` : `${i.type}${i.size !== 'Ingen' ? ` (${i.size})` : ''}${i.quantity > 1 ? ` x${i.quantity}` : ''}`}</li>`).join('')}</ul>`,
             ctaLabel: 'Bekreft mottak og signer',
             ctaUrl: confirmUrl,
+            employerName,
           }),
         }),
       })

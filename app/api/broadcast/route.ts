@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
-import { renderEmailHtml } from '@/lib/email-template'
+import { renderEmailHtml, getEmailFrom, getPlainTextFooter } from '@/lib/email-template'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -41,6 +41,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Fant ingen mottakere.' }, { status: 400 })
   }
 
+  const { data: pcData } = await supabaseAdmin
+    .from('profile_companies')
+    .select('profile_id, companies(name)')
+    .in('profile_id', recipientList.map((r) => r.id))
+  const employerByProfile = new Map<string, string>()
+  for (const row of (pcData ?? []) as unknown as { profile_id: string; companies: { name: string } | null }[]) {
+    if (!employerByProfile.has(row.profile_id) && row.companies?.name) {
+      employerByProfile.set(row.profile_id, row.companies.name)
+    }
+  }
+
   let pdfUrl: string | null = null
   let pdfFilename: string | null = null
 
@@ -69,10 +80,12 @@ export async function POST(request: Request) {
   const results = await Promise.allSettled(
     recipientList.map((r) => {
       const firstName = (r.full_name || '').split(' ')[0] || 'der'
-      const body = `Hei ${firstName}\n\n${message}\n\nHilsen ${senderName}`
+      const employerName = employerByProfile.get(r.id)
+      const body = `Hei ${firstName},\n\n${message}\n\nHilsen ${senderName}\n\n${getPlainTextFooter(employerName)}`
       const html = renderEmailHtml({
         heading: subject,
-        bodyHtml: `<p>Hei ${firstName}</p><p style="white-space: pre-wrap;">${message}</p><p>Hilsen ${senderName}</p>`,
+        bodyHtml: `<p>Hei ${firstName},</p><p style="white-space: pre-wrap;">${message}</p><p>Hilsen ${senderName}</p>`,
+        employerName,
       })
       return fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -81,7 +94,7 @@ export async function POST(request: Request) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+          from: getEmailFrom(),
           to: r.email,
           subject,
           text: body,

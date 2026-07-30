@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
+import { useToastManager } from '@/components/ui/toast'
 
 import {
   Select,
@@ -71,6 +72,7 @@ type ContractRow = {
 
 export default function ContractsPage() {
   const router = useRouter()
+  const toastManager = useToastManager()
   const [role, setRole] = useState<'admin' | 'manager' | 'employee' | null>(null)
   const [templates, setTemplates] = useState<Template[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
@@ -163,8 +165,11 @@ export default function ContractsPage() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
       body: JSON.stringify({ contractId }),
     })
-    if (!res.ok) {
-      alert('Kunne ikke sende e-posten på nytt.')
+    if (res.ok) {
+      toastManager.add({ title: 'E-post sendt på nytt' })
+    } else {
+      const result = await res.json().catch(() => ({}))
+      toastManager.add({ title: 'Kunne ikke sende e-posten på nytt', description: result.error || 'Noe gikk galt.' })
     }
   }
 

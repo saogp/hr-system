@@ -1,22 +1,47 @@
+export function getEmailFrom(): string {
+  const address = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+  return `ZEST <${address}>`
+}
+
+export function getPlainTextFooter(employerName?: string, customContext?: string): string {
+  const context = customContext
+    ?? (employerName
+      ? `Denne e-posten ble sendt fra ZEST fordi du jobber for ${employerName}.`
+      : 'Denne e-posten ble sendt fra ZEST fordi du er registrert som ansatt i systemet.')
+  return `${context} Det er ikke mulig å svare på denne e-posten — har du spørsmål, ta kontakt med din nærmeste leder.`
+}
+
 export function renderEmailHtml(opts: {
   heading: string
   bodyHtml: string
   ctaLabel?: string
   ctaUrl?: string
+  employerName?: string
+  footerContext?: string
 }): string {
-  const { heading, bodyHtml, ctaLabel, ctaUrl } = opts
+  const { heading, bodyHtml, ctaLabel, ctaUrl, employerName, footerContext } = opts
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || ''
 
   const cta = ctaLabel && ctaUrl
     ? `
       <tr>
-        <td style="padding: 8px 32px 32px 32px;">
+        <td style="padding: 8px 32px 8px 32px;">
           <a href="${ctaUrl}" style="display: inline-block; background-color: #f2a152; color: #001f3c; text-decoration: none; font-weight: 600; font-size: 14px; padding: 12px 20px; border-radius: 8px;">
             ${ctaLabel}
           </a>
         </td>
       </tr>
+      <tr>
+        <td style="padding: 0 32px 32px 32px;">
+          <p style="margin: 0; color: #999999; font-size: 12px;">
+            Vil du heller ikke trykke på knappen? Du kan alltid logge inn direkte på${siteUrl ? ` <a href="${siteUrl}" style="color: #999999;">${siteUrl.replace(/^https?:\/\//, '')}</a>` : ' hjemmesiden til ZEST'} og finne dette selv.
+          </p>
+        </td>
+      </tr>
     `
     : ''
+
+  const footerText = getPlainTextFooter(employerName, footerContext)
 
   return `
 <!doctype html>
@@ -44,7 +69,7 @@ export function renderEmailHtml(opts: {
             ${cta}
             <tr>
               <td style="padding: 16px 32px; border-top: 1px solid #eeeeee;">
-                <p style="margin: 0; color: #999999; font-size: 12px;">Denne e-posten ble sendt fra ZEST internportal.</p>
+                <p style="margin: 0; color: #999999; font-size: 12px;">${footerText}</p>
               </td>
             </tr>
           </table>

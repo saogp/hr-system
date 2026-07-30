@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
-import { renderEmailHtml } from '@/lib/email-template'
+import { renderEmailHtml, getEmailFrom, getPlainTextFooter } from '@/lib/email-template'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -29,12 +29,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, sentCount: 0 })
   }
 
+  const { data: pcData } = await supabaseAdmin
+    .from('profile_companies')
+    .select('profile_id, companies(name)')
+    .in('profile_id', recipientList.map((r) => r.id))
+  const employerByProfile = new Map<string, string>()
+  for (const row of (pcData ?? []) as unknown as { profile_id: string; companies: { name: string } | null }[]) {
+    if (!employerByProfile.has(row.profile_id) && row.companies?.name) {
+      employerByProfile.set(row.profile_id, row.companies.name)
+    }
+  }
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') || ''
   const reviewUrl = `${siteUrl}/reviews/${reviewId}`
 
   const results = await Promise.allSettled(
     recipientList.map((r) => {
       const firstName = (r.full_name || '').split(' ')[0] || 'der'
+      const employerName = employerByProfile.get(r.id)
       return fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -42,15 +54,16 @@ export async function POST(request: Request) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+          from: getEmailFrom(),
           to: r.email,
           subject: 'Medarbeidersamtale planlagt',
-          text: `Hei ${firstName}\n\nDu har fått en medarbeidersamtale ${dateLabel}.\n\nSe detaljer her: ${reviewUrl}`,
+          text: `Hei ${firstName},\n\nDu har fått en medarbeidersamtale ${dateLabel}.\n\nSe detaljer her: ${reviewUrl}\n\n${getPlainTextFooter(employerName)}`,
           html: renderEmailHtml({
             heading: 'Medarbeidersamtale planlagt',
-            bodyHtml: `<p>Hei ${firstName}</p><p>Du har fått en medarbeidersamtale <strong>${dateLabel}</strong>.</p>`,
+            bodyHtml: `<p>Hei ${firstName},</p><p>Du har fått en medarbeidersamtale <strong>${dateLabel}</strong>.</p>`,
             ctaLabel: 'Se detaljer',
             ctaUrl: reviewUrl,
+            employerName,
           }),
         }),
       })
