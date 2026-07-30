@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DateInput } from "@/components/ui/date-input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { GreetingIllustration } from "@/components/decorative/greeting-illustration"
@@ -121,9 +122,8 @@ export default function OnboardingPage() {
 
             <div className="grid gap-2">
               <Label htmlFor="birth-date">Bursdag</Label>
-              <Input
+              <DateInput
                 id="birth-date"
-                type="date"
                 required
                 value={birthDate}
                 onChange={(e) => setBirthDate(e.target.value)}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { Input } from '@/components/ui/input'
+import { DateInput } from '@/components/ui/date-input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ArrowUpAZ, ArrowDownAZ, Users, Search } from 'lucide-react'
@@ -687,9 +688,8 @@ export default function PeoplePage() {
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="deactivate-end-date">Sluttdato</Label>
-            <Input
+            <DateInput
               id="deactivate-end-date"
-              type="date"
               value={deactivateEndDate}
               onChange={(e) => setDeactivateEndDate(e.target.value)}
               required
