@@ -3,13 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { renderEmailHtml, getEmailFrom, getPlainTextFooter } from '@/lib/email-template'
 import { NOTIFICATION_TYPES, type NotificationType } from '@/lib/notifications'
 
-function currentOsloHour(): number {
-  const hourStr = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Oslo', hour: 'numeric', hour12: false }).format(new Date())
-  return Number(hourStr) % 24
-}
-
-// Triggered hourly by Vercel Cron (see vercel.json). Sends one combined email
-// per user whose chosen digest hour matches the current hour in Norway,
+// Triggered once daily by Vercel Cron (see vercel.json — Hobby plan allows at
+// most one run/day). Sends one combined email per user in daily-digest mode,
 // covering every notification queued for them since their last digest.
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET
@@ -24,13 +19,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, skipped: 'no RESEND_API_KEY' })
   }
 
-  const hour = currentOsloHour()
-
   const { data: dueProfiles } = await supabaseAdmin
     .from('profiles')
     .select('id, full_name, email')
     .eq('email_digest_mode', 'daily')
-    .eq('email_digest_hour', hour)
 
   if (!dueProfiles || dueProfiles.length === 0) {
     return NextResponse.json({ ok: true, sentCount: 0 })

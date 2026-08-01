@@ -165,7 +165,6 @@ export default function SettingsPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>({})
   const [emailDigestMode, setEmailDigestMode] = useState<'immediate' | 'daily'>('daily')
-  const [emailDigestHour, setEmailDigestHour] = useState(8)
 
 
   const loadBroadcastHistory = async () => {
@@ -186,7 +185,7 @@ export default function SettingsPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, notification_prefs, email_digest_mode, email_digest_hour')
+        .select('role, notification_prefs, email_digest_mode')
         .eq('id', user.id)
         .single()
 
@@ -197,7 +196,6 @@ export default function SettingsPage() {
       setCurrentUserId(user.id)
       setNotificationPrefs((profile?.notification_prefs as NotificationPrefs) ?? {})
       setEmailDigestMode(profile?.email_digest_mode === 'immediate' ? 'immediate' : 'daily')
-      setEmailDigestHour(profile?.email_digest_hour ?? 8)
 
       if (admin) {
         const { data: companiesData } = await supabase
@@ -266,12 +264,6 @@ export default function SettingsPage() {
     if (!currentUserId) return
     setEmailDigestMode(mode)
     await supabase.from('profiles').update({ email_digest_mode: mode }).eq('id', currentUserId)
-  }
-
-  const handleChangeEmailDigestHour = async (hour: number) => {
-    if (!currentUserId) return
-    setEmailDigestHour(hour)
-    await supabase.from('profiles').update({ email_digest_hour: hour }).eq('id', currentUserId)
   }
 
   const handleAddCompany = async () => {
@@ -628,24 +620,9 @@ export default function SettingsPage() {
               </div>
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="daily" id="digest-daily" />
-                <Label htmlFor="digest-daily" className="font-normal">Én daglig oppsummering</Label>
+                <Label htmlFor="digest-daily" className="font-normal">Én daglig oppsummering, sendes kl. 23:00</Label>
               </div>
             </RadioGroup>
-            {emailDigestMode === 'daily' && (
-              <div className="flex items-center gap-2 pl-6">
-                <Label htmlFor="digest-hour" className="font-normal text-sm shrink-0">Klokkeslett</Label>
-                <Select value={String(emailDigestHour)} onValueChange={(val) => val && handleChangeEmailDigestHour(Number(val))}>
-                  <SelectTrigger id="digest-hour" className="w-28 h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 24 }).map((_, h) => (
-                      <SelectItem key={h} value={String(h)}>{String(h).padStart(2, '0')}:00</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
           </div>
 
           <div className="rounded-xl border border-border bg-white dark:bg-white/5 overflow-hidden">

@@ -17,6 +17,7 @@ import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { computeCategoryScores, computeResponseScore, type ScoredQuestion } from '@/lib/survey-score'
 import type { SurveyCategory } from '@/lib/survey-categories'
 import { computeProfileCompletion } from '@/lib/profile-completion'
+import { computeArbeidCompletion } from '@/lib/arbeid-completion'
 import { DashboardSkeleton } from '@/components/ui/loading-skeletons'
 
 function getTimeOfDayGreeting() {
@@ -139,6 +140,12 @@ type MissingContractPerson = {
   email: string | null
 }
 
+type MissingArbeidPerson = {
+  id: string
+  full_name: string | null
+  email: string | null
+}
+
 export default function DashboardPage() {
   const [userName, setUserName] = useState<string>('')
   const [loading, setLoading] = useState(true)
@@ -151,6 +158,7 @@ export default function DashboardPage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [unsignedContracts, setUnsignedContracts] = useState<UnsignedContract[]>([])
   const [missingContractPeople, setMissingContractPeople] = useState<MissingContractPerson[]>([])
+  const [missingArbeidPeople, setMissingArbeidPeople] = useState<MissingArbeidPerson[]>([])
   const [unreadReports, setUnreadReports] = useState<UnreadReport[]>([])
   const [engagementOverall, setEngagementOverall] = useState<number | null>(null)
   const [engagementCategories, setEngagementCategories] = useState<{ category: SurveyCategory; label: string; score: number | null }[]>([])
@@ -286,6 +294,20 @@ export default function DashboardPage() {
         if (activeProfilesData) {
           const withContract = new Set((allContractsData ?? []).map((c) => c.profile_id))
           setMissingContractPeople(activeProfilesData.filter((p) => !withContract.has(p.id)))
+        }
+
+        const { data: arbeidProfilesData } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, title, employment_type, position_percentage, start_date')
+          .eq('is_active', true)
+        const { data: allCompanyLinksData } = await supabase
+          .from('profile_companies')
+          .select('profile_id')
+        if (arbeidProfilesData) {
+          const withCompany = new Set((allCompanyLinksData ?? []).map((c) => c.profile_id))
+          setMissingArbeidPeople(
+            arbeidProfilesData.filter((p) => !computeArbeidCompletion(p, withCompany.has(p.id)).complete)
+          )
         }
 
         const { data: unreadData } = await supabase
@@ -478,6 +500,15 @@ export default function DashboardPage() {
         href: '/people',
       })
     }
+    if (missingArbeidPeople.length > 0) {
+      actionItems.push({
+        id: 'missing-arbeid',
+        icon: UserCheck,
+        label: `${missingArbeidPeople.length} ${missingArbeidPeople.length !== 1 ? 'ansatte' : 'ansatt'} mangler arbeidsinfo`,
+        sublabel: missingArbeidPeople.map((p) => p.full_name || p.email || '—').join(', '),
+        href: '/people',
+      })
+    }
   }
 
   return (
@@ -638,7 +669,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <IconBadge icon={<Users className="size-4" />} />
-              Ansatte
+              Totale ansatte
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1">

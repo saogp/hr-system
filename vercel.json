@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/notifications/send-digest",
-      "schedule": "0 6 * * *"
+      "schedule": "0 21 * * *"
     }
   ]
 }
