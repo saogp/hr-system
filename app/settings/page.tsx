@@ -105,6 +105,16 @@ type AuditLogRow = {
   created_at: string
 }
 
+type NotificationHistoryRow = {
+  id: string
+  type: string
+  title: string
+  body: string | null
+  link: string | null
+  read_at: string | null
+  created_at: string
+}
+
 type BroadcastMessage = {
   id: string
   subject: string
@@ -123,6 +133,7 @@ export default function SettingsPage() {
   const [companies, setCompanies] = useState<Company[]>([])
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState('varslingsinnstillinger')
 
   const [cleaningGroups, setCleaningGroups] = useState<CleaningGroupRow[]>([])
   const [cleaningGroupDeleteId, setCleaningGroupDeleteId] = useState<string | null>(null)
@@ -172,6 +183,7 @@ export default function SettingsPage() {
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>({})
   const [auditLog, setAuditLog] = useState<AuditLogRow[]>([])
   const [auditActors, setAuditActors] = useState<Record<string, string>>({})
+  const [notificationHistory, setNotificationHistory] = useState<NotificationHistoryRow[]>([])
   const [emailDigestMode, setEmailDigestMode] = useState<'immediate' | 'daily'>('daily')
 
 
@@ -204,6 +216,14 @@ export default function SettingsPage() {
       setCurrentUserId(user.id)
       setNotificationPrefs((profile?.notification_prefs as NotificationPrefs) ?? {})
       setEmailDigestMode(profile?.email_digest_mode === 'immediate' ? 'immediate' : 'daily')
+
+      const { data: notificationHistoryData } = await supabase
+        .from('notifications')
+        .select('id, type, title, body, link, read_at, created_at')
+        .eq('recipient_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(100)
+      if (notificationHistoryData) setNotificationHistory(notificationHistoryData)
 
       if (viewerRole === 'admin') {
         const { data: auditData } = await supabase
@@ -272,6 +292,10 @@ export default function SettingsPage() {
 
     checkAccessAndLoad()
   }, [router])
+
+  useEffect(() => {
+    if (!loading) setActiveTab(isAdmin ? 'maler' : 'varslingsinnstillinger')
+  }, [loading, isAdmin])
 
   const handleToggleNotificationPref = async (type: NotificationType, channel: 'email' | 'push', enabled: boolean) => {
     if (!currentUserId) return
@@ -616,16 +640,37 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <Tabs defaultValue={isAdmin ? 'maler' : 'varsler'}>
-        <TabsList>
-          {isAdmin && <TabsTrigger value="maler">Maler</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="bedrifter">Bedrifter</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="meldinger">Felles mail</TabsTrigger>}
-          <TabsTrigger value="varsler">Varsler</TabsTrigger>
-          {isRealAdmin && <TabsTrigger value="endringshistorikk">Endringshistorikk</TabsTrigger>}
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={(val) => val && setActiveTab(val)}>
+        <div className="flex items-center justify-between gap-2">
+          <TabsList>
+            {isAdmin && <TabsTrigger value="maler">Maler</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="bedrifter">Bedrifter</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="meldinger">Felles mail</TabsTrigger>}
+            <TabsTrigger value="varslingsinnstillinger">Varslingsinnstillinger</TabsTrigger>
+          </TabsList>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button variant="ghost" size="icon">
+                  <MoreHorizontal />
+                  <span className="sr-only">Mer</span>
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setActiveTab('varslingssenter')}>
+                Varslingssenter
+              </DropdownMenuItem>
+              {isRealAdmin && (
+                <DropdownMenuItem onClick={() => setActiveTab('endringshistorikk')}>
+                  Endringshistorikk
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-        <TabsContent value="varsler" className="pt-4 max-w-lg">
+        <TabsContent value="varslingsinnstillinger" className="pt-4 max-w-lg">
           <p className="text-sm text-muted-foreground mb-3">
             Varsler sendes på e-post og i bjellen øverst på siden. Gjøremål på dashbordet kan ikke slås av.
           </p>
@@ -677,6 +722,33 @@ export default function SettingsPage() {
             </div>
 
           </div>
+        </TabsContent>
+
+        <TabsContent value="varslingssenter" className="pt-4 max-w-lg">
+          <p className="text-sm text-muted-foreground mb-3">
+            Alle varsler du har mottatt, leste og uleste.
+          </p>
+          {notificationHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Ingen varsler mottatt enda.</p>
+          ) : (
+            <div className="thin-scrollbar flex flex-col divide-y divide-border rounded-md border border-input max-h-[32rem] overflow-y-auto">
+              {notificationHistory.map((n) => (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => n.link && router.push(n.link)}
+                  className={`flex w-full flex-col gap-0.5 px-4 py-2.5 text-left hover:bg-muted ${!n.read_at ? 'bg-brand-orange/5' : ''}`}
+                >
+                  <div className="flex items-center gap-2">
+                    {!n.read_at && <span className="size-1.5 shrink-0 rounded-full bg-brand-orange" />}
+                    <span className="text-sm font-medium truncate">{n.title}</span>
+                  </div>
+                  {n.body && <p className="text-xs text-muted-foreground truncate">{n.body}</p>}
+                  <span className="text-[11px] text-muted-foreground">{formatDateTime(n.created_at)}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         {isRealAdmin && (

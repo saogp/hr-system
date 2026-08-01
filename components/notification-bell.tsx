@@ -113,9 +113,9 @@ export function NotificationBell() {
             </button>
           )}
         </div>
-        <div className="thin-scrollbar max-h-96 overflow-y-auto">
+        <div className="thin-scrollbar h-96 overflow-y-auto">
           {notifications.length === 0 ? (
-            <div className="flex flex-col items-center text-center py-6 px-4">
+            <div className="flex h-full flex-col items-center justify-center text-center py-6 px-4">
               <AllDoneIllustration className="w-40 h-auto mb-4" />
               <p className="font-medium text-sm">Ingen varsler enda</p>
             </div>

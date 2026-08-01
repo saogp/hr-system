@@ -101,11 +101,13 @@ export default function SiFraPage() {
     e.preventDefault()
     setSending(true)
 
-    const { data, error } = await supabase
+    // Plain insert, no .select() chained on — RLS only lets the recipient or
+    // a real admin read a concern_reports row back, so a non-admin sender
+    // messaging someone else would have the read-back blocked and .single()
+    // would error out even though the insert itself succeeded.
+    const { error } = await supabase
       .from('concern_reports')
       .insert({ recipient_id: recipientId, message })
-      .select('id, message, read, created_at, recipient_id, profiles!concern_reports_recipient_id_fkey(full_name, email)')
-      .single()
 
     if (!error) {
       setMessage('')
@@ -118,8 +120,16 @@ export default function SiFraPage() {
         body: 'Du har mottatt en anonym si fra-melding.',
         link: '/si-fra',
       })
-      if (isAdmin && data) {
-        setInbox((prev) => [data as unknown as ReceivedMessage, ...prev])
+      if (isAdmin) {
+        const { data } = await supabase
+          .from('concern_reports')
+          .select('id, message, read, created_at, recipient_id, profiles!concern_reports_recipient_id_fkey(full_name, email)')
+          .eq('recipient_id', recipientId)
+          .eq('message', message)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (data) setInbox((prev) => [data as unknown as ReceivedMessage, ...prev])
         setSendOpen(false)
       }
     }
