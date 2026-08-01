@@ -752,13 +752,15 @@ export default function SettingsPage() {
 
         {isAdmin && (
         <TabsContent value="bedrifter" className="pt-4">
-          <div className="flex flex-col gap-3 mb-4">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <p className="text-muted-foreground text-sm">
               Bedriftsinformasjon fylles automatisk inn i kontrakter som bruker firma-felt.
             </p>
-            <Button onClick={handleAddCompany} className="w-fit bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
-              Ny bedrift
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button onClick={handleAddCompany} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
+                Ny bedrift
+              </Button>
+            </div>
           </div>
           {companies.length === 0 ? (
             <p className="text-center text-muted-foreground text-sm py-8">Ingen bedrifter registrert enda.</p>
@@ -962,16 +964,18 @@ export default function SettingsPage() {
 
         {isAdmin && (
         <TabsContent value="maler" className="pt-4">
-          <div className="flex flex-col gap-3 mb-4">
+          <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <p className="text-muted-foreground text-sm">
               Gjenbrukbare maler for kontrakter, samtaler, undersøkelser og renhold.
             </p>
-            <Button
-              onClick={() => { setNewMalType('kontrakt'); setNewMalBasis('blank'); setNewMalOpen(true) }}
-              className="w-fit bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
-            >
-              Ny mal
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                onClick={() => { setNewMalType('kontrakt'); setNewMalBasis('blank'); setNewMalOpen(true) }}
+                className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+              >
+                Ny mal
+              </Button>
+            </div>
           </div>
 
           {templates.length === 0 && reviewTemplates.length === 0 && surveyTemplates.length === 0 && SURVEY_TEMPLATES.length === 0 && cleaningGroups.length === 0 ? (
