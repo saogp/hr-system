@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { MoreHorizontal, FileText, MessageSquare, ClipboardList, Settings, Plus, X, SprayCan, Download } from 'lucide-react'
+import { MoreHorizontal, FileText, MessageSquare, ClipboardList, Settings, Plus, X, SprayCan, Download, Mail, ChevronDown, ChevronUp } from 'lucide-react'
 import { downloadGroupQrCode } from '@/lib/cleaning-qr'
 import type { CleaningRecipient } from '@/lib/cleaning'
 import { Card, CardContent } from '@/components/ui/card'
@@ -122,6 +122,7 @@ export default function SettingsPage() {
   const [newCleaningRecipientEmail, setNewCleaningRecipientEmail] = useState('')
   const [sendingCleaningSummary, setSendingCleaningSummary] = useState(false)
   const [cleaningSummaryMessage, setCleaningSummaryMessage] = useState('')
+  const [renholdVarslerExpanded, setRenholdVarslerExpanded] = useState(false)
 
   const [editTarget, setEditTarget] = useState<Company | null>(null)
   const [editName, setEditName] = useState('')
@@ -163,6 +164,8 @@ export default function SettingsPage() {
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>({})
+  const [emailDigestMode, setEmailDigestMode] = useState<'immediate' | 'daily'>('daily')
+  const [emailDigestHour, setEmailDigestHour] = useState(8)
 
 
   const loadBroadcastHistory = async () => {
@@ -183,7 +186,7 @@ export default function SettingsPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, notification_prefs')
+        .select('role, notification_prefs, email_digest_mode, email_digest_hour')
         .eq('id', user.id)
         .single()
 
@@ -193,6 +196,8 @@ export default function SettingsPage() {
       setIsRealAdmin(viewerRole === 'admin')
       setCurrentUserId(user.id)
       setNotificationPrefs((profile?.notification_prefs as NotificationPrefs) ?? {})
+      setEmailDigestMode(profile?.email_digest_mode === 'immediate' ? 'immediate' : 'daily')
+      setEmailDigestHour(profile?.email_digest_hour ?? 8)
 
       if (admin) {
         const { data: companiesData } = await supabase
@@ -255,6 +260,18 @@ export default function SettingsPage() {
     }
     setNotificationPrefs(next)
     await supabase.from('profiles').update({ notification_prefs: next }).eq('id', currentUserId)
+  }
+
+  const handleChangeEmailDigestMode = async (mode: 'immediate' | 'daily') => {
+    if (!currentUserId) return
+    setEmailDigestMode(mode)
+    await supabase.from('profiles').update({ email_digest_mode: mode }).eq('id', currentUserId)
+  }
+
+  const handleChangeEmailDigestHour = async (hour: number) => {
+    if (!currentUserId) return
+    setEmailDigestHour(hour)
+    await supabase.from('profiles').update({ email_digest_hour: hour }).eq('id', currentUserId)
   }
 
   const handleAddCompany = async () => {
@@ -596,6 +613,41 @@ export default function SettingsPage() {
             Varsler sendes på e-post og i bjellen øverst på siden. Gjøremål på dashbordet kan ikke slås av.
           </p>
 
+          <div className="rounded-xl border border-border bg-white dark:bg-white/5 p-4 mb-4 space-y-3">
+            <div>
+              <p className="text-sm font-medium">Når vil du ha e-postvarsler?</p>
+            </div>
+            <RadioGroup
+              value={emailDigestMode}
+              onValueChange={(val) => val && handleChangeEmailDigestMode(val as 'immediate' | 'daily')}
+              className="flex flex-col gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="immediate" id="digest-immediate" />
+                <Label htmlFor="digest-immediate" className="font-normal">Umiddelbart, når hendelsen skjer</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="daily" id="digest-daily" />
+                <Label htmlFor="digest-daily" className="font-normal">Én daglig oppsummering</Label>
+              </div>
+            </RadioGroup>
+            {emailDigestMode === 'daily' && (
+              <div className="flex items-center gap-2 pl-6">
+                <Label htmlFor="digest-hour" className="font-normal text-sm shrink-0">Klokkeslett</Label>
+                <Select value={String(emailDigestHour)} onValueChange={(val) => val && handleChangeEmailDigestHour(Number(val))}>
+                  <SelectTrigger id="digest-hour" className="w-28 h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 24 }).map((_, h) => (
+                      <SelectItem key={h} value={String(h)}>{String(h).padStart(2, '0')}:00</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+
           <div className="rounded-xl border border-border bg-white dark:bg-white/5 overflow-hidden">
             <div className="grid grid-cols-[1fr_4.5rem_4.5rem] items-center gap-2 px-4 py-2 bg-muted/50">
               <span className="text-xs font-medium text-muted-foreground">Hendelse</span>
@@ -624,57 +676,75 @@ export default function SettingsPage() {
 
             {isAdmin && (
               <>
-                <div className="flex items-center gap-3 px-4 py-2.5 border-t border-border bg-muted/50">
+                <button
+                  type="button"
+                  onClick={() => setRenholdVarslerExpanded((v) => !v)}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 border-t border-border bg-muted/50 text-left"
+                >
                   <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-orange/15">
                     <SprayCan className="size-3.5 text-brand-navy dark:text-brand-orange" />
                   </div>
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">Renhold – daglig oppsummering</p>
                     <p className="text-xs text-muted-foreground">
                       E-post om hvilke rom som ikke er rengjort i dag, til valgte mottakere.
                     </p>
                   </div>
-                </div>
-
-                <div className="p-4 space-y-3">
-                  <div className="flex flex-col gap-2">
-                    {cleaningRecipients.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Ingen mottakere lagt til enda.</p>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Mail className="size-3.5" />
+                      {cleaningRecipients.length}
+                    </div>
+                    <Switch checked disabled title="Kan ikke slås av av mottakerne selv" />
+                    {renholdVarslerExpanded ? (
+                      <ChevronUp className="size-4 text-muted-foreground" />
                     ) : (
-                      cleaningRecipients.map((r) => (
-                        <div key={r.id} className="flex items-center justify-between gap-2 rounded-md border border-input p-2">
-                          <span className="text-sm truncate">{r.email}</span>
-                          <Button variant="ghost" size="icon-sm" onClick={() => handleRemoveCleaningRecipient(r.id)}>
-                            <X />
-                            <span className="sr-only">Fjern</span>
-                          </Button>
-                        </div>
-                      ))
+                      <ChevronDown className="size-4 text-muted-foreground" />
                     )}
                   </div>
+                </button>
 
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="email"
-                      placeholder="navn@firma.no"
-                      value={newCleaningRecipientEmail}
-                      onChange={(e) => setNewCleaningRecipientEmail(e.target.value)}
-                    />
-                    <Button variant="outline" onClick={handleAddCleaningRecipient} className="shrink-0">
-                      <Plus />
-                      Legg til
+                {renholdVarslerExpanded && (
+                  <div className="p-4 space-y-3 border-t border-border">
+                    <div className="flex flex-col gap-2">
+                      {cleaningRecipients.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Ingen mottakere lagt til enda.</p>
+                      ) : (
+                        cleaningRecipients.map((r) => (
+                          <div key={r.id} className="flex items-center justify-between gap-2 rounded-md border border-input p-2">
+                            <span className="text-sm truncate">{r.email}</span>
+                            <Button variant="ghost" size="icon-sm" onClick={() => handleRemoveCleaningRecipient(r.id)}>
+                              <X />
+                              <span className="sr-only">Fjern</span>
+                            </Button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="email"
+                        placeholder="navn@firma.no"
+                        value={newCleaningRecipientEmail}
+                        onChange={(e) => setNewCleaningRecipientEmail(e.target.value)}
+                      />
+                      <Button variant="outline" onClick={handleAddCleaningRecipient} className="shrink-0">
+                        <Plus />
+                        Legg til
+                      </Button>
+                    </div>
+
+                    {cleaningSummaryMessage && <p className="text-sm text-muted-foreground">{cleaningSummaryMessage}</p>}
+                    <Button
+                      onClick={handleSendCleaningSummaryNow}
+                      disabled={sendingCleaningSummary || cleaningRecipients.length === 0}
+                      variant="outline"
+                    >
+                      {sendingCleaningSummary ? 'Sender...' : 'Send oppsummering nå'}
                     </Button>
                   </div>
-
-                  {cleaningSummaryMessage && <p className="text-sm text-muted-foreground">{cleaningSummaryMessage}</p>}
-                  <Button
-                    onClick={handleSendCleaningSummaryNow}
-                    disabled={sendingCleaningSummary || cleaningRecipients.length === 0}
-                    variant="outline"
-                  >
-                    {sendingCleaningSummary ? 'Sender...' : 'Send oppsummering nå'}
-                  </Button>
-                </div>
+                )}
               </>
             )}
           </div>

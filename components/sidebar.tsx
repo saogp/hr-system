@@ -45,7 +45,7 @@ const driftNavigation = [
 ]
 
 const secondaryNavigation = [
-  { name: 'Innstillinger', href: '/settings', icon: Settings },
+  { name: 'Innstillinger', href: '/settings', icon: Settings, adminOnly: true },
   { name: 'Si fra', href: '/si-fra', icon: ShieldAlert },
 ]
 
@@ -174,7 +174,9 @@ export function Sidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {secondaryNavigation.map((item) => (
+              {secondaryNavigation
+                .filter((item) => !item.adminOnly || isAdminLike(applyRoleOverride(currentUser?.role ?? 'employee')))
+                .map((item) => (
                 <SidebarMenuItem key={item.name}>
                   <SidebarMenuButton
                     render={<Link href={item.href} onClick={closeMobileSidebar} />}

@@ -85,6 +85,7 @@ type MyContract = {
   id: string
   sent_at: string
   employee_signed_at: string | null
+  template_id: string | null
   contract_templates: { name: string } | null
 }
 
@@ -270,6 +271,7 @@ export default function DashboardPage() {
         const { data: unsignedData } = await supabase
           .from('contracts')
           .select('id, sent_at, employee_signed_at, admin_signed_at, profiles!contracts_profile_id_fkey(full_name, email)')
+          .not('template_id', 'is', null)
           .or('employee_signed_at.is.null,admin_signed_at.is.null')
           .order('sent_at', { ascending: false })
         if (unsignedData) setUnsignedContracts(unsignedData as unknown as UnsignedContract[])
@@ -314,7 +316,7 @@ export default function DashboardPage() {
 
       const { data: contractsData } = await supabase
         .from('contracts')
-        .select('id, sent_at, employee_signed_at, contract_templates!contracts_template_id_fkey(name)')
+        .select('id, sent_at, employee_signed_at, template_id, contract_templates!contracts_template_id_fkey(name)')
         .eq('profile_id', user.id)
         .order('sent_at', { ascending: false })
 
@@ -406,7 +408,7 @@ export default function DashboardPage() {
     })
   }
 
-  for (const c of myContracts.filter((c) => !c.employee_signed_at)) {
+  for (const c of myContracts.filter((c) => c.template_id && !c.employee_signed_at)) {
     actionItems.push({
       id: `contract-${c.id}`,
       icon: FileText,
@@ -488,21 +490,7 @@ export default function DashboardPage() {
               <h1 className="text-2xl font-bold mb-3 text-brand-navy dark:text-white">
                 {getTimeOfDayGreeting()}, {getFirstName(userName)}!
               </h1>
-              {reviewDueSoon && nextReviewDate ? (
-                <>
-                  <p className="text-sm text-brand-navy/70 dark:text-white/70 mb-3">
-                    {daysUntilReview! < 0
-                      ? 'Det er på tide med medarbeidersamtalen din.'
-                      : 'Det er snart tid for medarbeidersamtalen din.'}{' '}
-                    ({new Date(nextReviewDate).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })})
-                  </p>
-                  <Button className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium" render={<Link href="/reviews" />}>
-                    Se medarbeidersamtale
-                  </Button>
-                </>
-              ) : (
-                <p className="text-sm text-brand-navy/70 dark:text-white/70">Ha en fin dag på jobb.</p>
-              )}
+              <p className="text-sm text-brand-navy/70 dark:text-white/70">Ha en fin dag på jobb.</p>
             </div>
             <GreetingIllustration className="size-36 shrink-0 hidden sm:block" />
           </CardContent>
