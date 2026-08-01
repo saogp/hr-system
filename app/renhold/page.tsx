@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { SprayCan, Printer, ChevronDown, ChevronUp, ImageIcon, Search } from 'lucide-react'
+import { SprayCan, Printer, ChevronDown, ChevronUp, ImageIcon, Search, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { todayIsoDate, normalizeCleaningQuestions, type CleaningRoom, type CleaningRoomGroup, type CleaningCheck } from '@/lib/cleaning'
@@ -40,6 +40,7 @@ export default function RenholdPage() {
   const [historyPage, setHistoryPage] = useState(1)
   const [expandedCheckId, setExpandedCheckId] = useState<string | null>(null)
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
+  const [viewingPhoto, setViewingPhoto] = useState<string | null>(null)
   const [historySearch, setHistorySearch] = useState('')
   const [roomFilter, setRoomFilter] = useState('all')
   const [dateFrom, setDateFrom] = useState('')
@@ -284,9 +285,12 @@ export default function RenholdPage() {
                         {formatDateTime(c.checked_at)}{c.checked_by_name ? ` · ${c.checked_by_name}` : ''}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0 text-muted-foreground">
-                      {c.deviation_photos.length > 0 && <ImageIcon className="size-4" />}
-                      {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {(c.deviation_note || c.deviation_photos.length > 0) && (
+                        <Badge variant="destructive">Avvik</Badge>
+                      )}
+                      {c.deviation_photos.length > 0 && <ImageIcon className="size-4 text-muted-foreground" />}
+                      {isExpanded ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
                     </div>
                   </div>
                   {isExpanded && (
@@ -311,7 +315,13 @@ export default function RenholdPage() {
                           {c.deviation_photos.map((path) =>
                             photoUrls[path] ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img key={path} src={photoUrls[path]} alt="Avvik" className="size-24 rounded-md object-cover border border-border" />
+                              <img
+                                key={path}
+                                src={photoUrls[path]}
+                                alt="Avvik"
+                                onClick={(e) => { e.stopPropagation(); setViewingPhoto(photoUrls[path]) }}
+                                className="size-24 rounded-md object-cover border border-border cursor-pointer hover:opacity-80 transition-opacity"
+                              />
                             ) : (
                               <div key={path} className="size-24 rounded-md bg-muted animate-pulse" />
                             )
@@ -326,6 +336,29 @@ export default function RenholdPage() {
           </div>
           <Pagination page={historyPage} totalPages={totalHistoryPages} onPageChange={setHistoryPage} />
         </>
+      )}
+
+      {viewingPhoto && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setViewingPhoto(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setViewingPhoto(null)}
+            className="absolute top-4 right-4 text-white/80 hover:text-white"
+          >
+            <X className="size-6" />
+            <span className="sr-only">Lukk</span>
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={viewingPhoto}
+            alt="Avvik i fullskjerm"
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-full max-w-full rounded-md object-contain"
+          />
+        </div>
       )}
     </div>
   )
