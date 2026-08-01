@@ -13,13 +13,13 @@ function Toaster() {
 
   return (
     <ToastPrimitive.Portal>
-      <ToastPrimitive.Viewport className="fixed bottom-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-2 outline-none sm:bottom-6 sm:right-6">
+      <ToastPrimitive.Viewport className="fixed inset-x-4 bottom-4 z-[100] flex flex-col gap-2 outline-none sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-full sm:max-w-sm">
         {toasts.map((toast) => (
           <ToastPrimitive.Root
             key={toast.id}
             toast={toast}
             className={cn(
-              "relative flex items-start gap-2 rounded-xl border border-border bg-white dark:bg-brand-cream-dark p-4 shadow-lg",
+              "relative flex items-start gap-2 rounded-xl bg-popover/75 backdrop-blur-md p-4 text-popover-foreground shadow-lg ring-1 ring-foreground/10",
               "transition-all data-[starting-style]:translate-y-2 data-[starting-style]:opacity-0",
               "data-[ending-style]:opacity-0"
             )}
