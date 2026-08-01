@@ -20,6 +20,8 @@ export async function POST(request: Request) {
   const subject = String(formData.get('subject') ?? '').trim()
   const message = String(formData.get('message') ?? '').trim()
   const pdf = formData.get('pdf') as File | null
+  const recipientIds = JSON.parse(String(formData.get('recipientIds') ?? '[]')) as string[]
+  const titles = JSON.parse(String(formData.get('titles') ?? '[]')) as string[]
 
   if (!subject || !message) {
     return NextResponse.json({ error: 'Emne og melding er påkrevd.' }, { status: 400 })
@@ -33,10 +35,20 @@ export async function POST(request: Request) {
 
   const { data: recipients } = await supabaseAdmin
     .from('profiles')
-    .select('id, full_name, email')
+    .select('id, full_name, email, title')
     .neq('id', verified.user.id)
 
-  const recipientList = (recipients ?? []).filter((r) => r.email)
+  let recipientList = (recipients ?? []).filter((r) => r.email)
+
+  if (recipientIds.length > 0) {
+    recipientList = recipientList.filter((r) => recipientIds.includes(r.id))
+  } else if (titles.length > 0) {
+    recipientList = recipientList.filter((r) => {
+      const personTitles = (r.title || '').split(',').map((t: string) => t.trim())
+      return titles.some((t) => personTitles.includes(t))
+    })
+  }
+
   if (recipientList.length === 0) {
     return NextResponse.json({ error: 'Fant ingen mottakere.' }, { status: 400 })
   }

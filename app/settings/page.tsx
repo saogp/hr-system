@@ -3,9 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { MoreHorizontal, FileText, MessageSquare, ClipboardList, Settings, Plus, X, Bell, SprayCan, Download } from 'lucide-react'
+import { MoreHorizontal, FileText, MessageSquare, ClipboardList, Settings, Plus, X, SprayCan, Download } from 'lucide-react'
 import { downloadGroupQrCode } from '@/lib/cleaning-qr'
-import { Switch } from '@/components/ui/switch'
 import type { CleaningRecipient } from '@/lib/cleaning'
 import { Card, CardContent } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
@@ -51,7 +50,8 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { isPushSupported, subscribeToPush, unsubscribeFromPush, getPushSubscription } from '@/lib/push-client'
+import { POSITION_OPTIONS } from '@/lib/position-options'
+import { Checkbox } from '@/components/ui/checkbox'
 
 type Company = {
   id: string
@@ -87,6 +87,13 @@ type CleaningGroupRow = {
   questions: unknown
 }
 
+type EmployeeOption = {
+  id: string
+  full_name: string | null
+  email: string | null
+  title: string | null
+}
+
 type BroadcastMessage = {
   id: string
   subject: string
@@ -102,9 +109,6 @@ export default function SettingsPage() {
   const router = useRouter()
   const [isAdmin, setIsAdmin] = useState(false)
   const [isRealAdmin, setIsRealAdmin] = useState(false)
-  const [pushEnabled, setPushEnabled] = useState(false)
-  const [pushBusy, setPushBusy] = useState(false)
-  const [pushError, setPushError] = useState('')
   const [companies, setCompanies] = useState<Company[]>([])
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
@@ -150,6 +154,10 @@ export default function SettingsPage() {
   const [broadcastError, setBroadcastError] = useState('')
   const [broadcastSuccess, setBroadcastSuccess] = useState('')
   const [broadcastHistory, setBroadcastHistory] = useState<BroadcastMessage[]>([])
+  const [broadcastEmployees, setBroadcastEmployees] = useState<EmployeeOption[]>([])
+  const [broadcastAudience, setBroadcastAudience] = useState<'all' | 'title' | 'custom'>('all')
+  const [broadcastTitles, setBroadcastTitles] = useState<string[]>([])
+  const [broadcastRecipientIds, setBroadcastRecipientIds] = useState<string[]>([])
 
 
   const loadBroadcastHistory = async () => {
@@ -206,6 +214,13 @@ export default function SettingsPage() {
 
         await loadBroadcastHistory()
 
+        const { data: employeesData } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, title')
+          .neq('id', user.id)
+          .order('full_name')
+        if (employeesData) setBroadcastEmployees(employeesData)
+
         const { data: recipientsData } = await supabase
           .from('cleaning_notification_recipients')
           .select('id, email')
@@ -219,35 +234,11 @@ export default function SettingsPage() {
         if (cleaningGroupsData) setCleaningGroups(cleaningGroupsData)
       }
 
-      if (isPushSupported()) {
-        const existing = await getPushSubscription()
-        setPushEnabled(!!existing)
-      }
-
       setLoading(false)
     }
 
     checkAccessAndLoad()
   }, [router])
-
-  const handleTogglePush = async () => {
-    setPushBusy(true)
-    setPushError('')
-
-    try {
-      if (pushEnabled) {
-        await unsubscribeFromPush()
-        setPushEnabled(false)
-      } else {
-        await subscribeToPush()
-        setPushEnabled(true)
-      }
-    } catch (err) {
-      setPushError(err instanceof Error ? err.message : 'Noe gikk galt.')
-    }
-
-    setPushBusy(false)
-  }
 
   const handleAddCompany = async () => {
     const { data, error } = await supabase
@@ -491,6 +482,11 @@ export default function SettingsPage() {
     formData.append('subject', broadcastSubject)
     formData.append('message', broadcastMessage)
     if (broadcastPdf) formData.append('pdf', broadcastPdf)
+    if (broadcastAudience === 'custom') {
+      formData.append('recipientIds', JSON.stringify(broadcastRecipientIds))
+    } else if (broadcastAudience === 'title') {
+      formData.append('titles', JSON.stringify(broadcastTitles))
+    }
 
     const res = await fetch('/api/broadcast', {
       method: 'POST',
@@ -507,6 +503,9 @@ export default function SettingsPage() {
       setBroadcastSubject('')
       setBroadcastMessage('')
       setBroadcastPdf(null)
+      setBroadcastAudience('all')
+      setBroadcastTitles([])
+      setBroadcastRecipientIds([])
       await loadBroadcastHistory()
     }
 
@@ -576,40 +575,13 @@ export default function SettingsPage() {
         </TabsList>
 
         <TabsContent value="varsler" className="pt-4 max-w-md">
-          <h2 className="text-lg font-semibold mb-3">Varsler</h2>
-
-          {pushError && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertDescription>{pushError}</AlertDescription>
-            </Alert>
-          )}
-
-          {!isPushSupported() ? (
-            <p className="text-sm text-muted-foreground">Push-varsler støttes ikke i denne nettleseren.</p>
-          ) : (
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-orange/15">
-                <Bell className="size-4 text-brand-navy dark:text-brand-orange" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">Push-varsler på denne enheten</p>
-                <p className="text-xs text-muted-foreground">
-                  Varsler om medarbeidersamtaler, nye oppgaver og si fra-meldinger.
-                </p>
-              </div>
-              <Switch checked={pushEnabled} onCheckedChange={() => handleTogglePush()} disabled={pushBusy} />
-            </div>
-          )}
-
-          <p className="text-xs text-muted-foreground mt-3">
-            Du må aktivere dette på hver enhet du vil bruke.{' '}
-            <span className="font-medium">På iPhone må siden være lagt til på Hjem-skjermen</span> for at
-            varsler skal fungere i Safari.
+          <p className="text-sm text-muted-foreground mb-3">
+            Varsler sendes på e-post. Under er de ulike varslingskategoriene.
           </p>
 
           {isAdmin && (
-            <div className="mt-8">
-              <h2 className="text-lg font-semibold mb-3">Renhold – daglig oppsummering</h2>
+            <div>
+              <h3 className="text-base font-semibold mb-3">Renhold – daglig oppsummering</h3>
               <div className="rounded-xl border border-border bg-white dark:bg-white/5 p-4">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-orange/15">
@@ -757,6 +729,71 @@ export default function SettingsPage() {
               />
             </div>
             <div className="flex flex-col gap-1.5">
+              <Label>Mottakere</Label>
+              <RadioGroup
+                value={broadcastAudience}
+                onValueChange={(val) => val && setBroadcastAudience(val as typeof broadcastAudience)}
+                className="flex flex-col gap-2"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="all" id="audience-all" />
+                  <Label htmlFor="audience-all" className="font-normal">Alle ansatte</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="title" id="audience-title" />
+                  <Label htmlFor="audience-title" className="font-normal">Etter stilling</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="custom" id="audience-custom" />
+                  <Label htmlFor="audience-custom" className="font-normal">Egendefinert</Label>
+                </div>
+              </RadioGroup>
+
+              {broadcastAudience === 'title' && (
+                <div className="flex flex-col gap-2 rounded-md border border-input p-3 mt-1">
+                  {POSITION_OPTIONS.map((option) => {
+                    const checkboxId = `broadcast-title-${option}`
+                    return (
+                      <div key={option} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          id={checkboxId}
+                          checked={broadcastTitles.includes(option)}
+                          onCheckedChange={(val) => {
+                            setBroadcastTitles((prev) =>
+                              val === true ? [...prev, option] : prev.filter((t) => t !== option)
+                            )
+                          }}
+                        />
+                        <Label htmlFor={checkboxId} className="font-normal">{option}</Label>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {broadcastAudience === 'custom' && (
+                <div className="thin-scrollbar flex flex-col gap-2 rounded-md border border-input p-3 mt-1 max-h-48 overflow-y-auto">
+                  {broadcastEmployees.map((emp) => {
+                    const checkboxId = `broadcast-recipient-${emp.id}`
+                    return (
+                      <div key={emp.id} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          id={checkboxId}
+                          checked={broadcastRecipientIds.includes(emp.id)}
+                          onCheckedChange={(val) => {
+                            setBroadcastRecipientIds((prev) =>
+                              val === true ? [...prev, emp.id] : prev.filter((id) => id !== emp.id)
+                            )
+                          }}
+                        />
+                        <Label htmlFor={checkboxId} className="font-normal">{emp.full_name || emp.email}</Label>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="broadcast-pdf">PDF-vedlegg (valgfritt)</Label>
               <Input
                 id="broadcast-pdf"
@@ -767,10 +804,16 @@ export default function SettingsPage() {
             </div>
             <Button
               type="submit"
-              disabled={sendingBroadcast || !broadcastSubject.trim() || !broadcastMessage.trim()}
+              disabled={
+                sendingBroadcast ||
+                !broadcastSubject.trim() ||
+                !broadcastMessage.trim() ||
+                (broadcastAudience === 'title' && broadcastTitles.length === 0) ||
+                (broadcastAudience === 'custom' && broadcastRecipientIds.length === 0)
+              }
               className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium w-fit"
             >
-              {sendingBroadcast ? 'Sender...' : 'Send til alle ansatte'}
+              {sendingBroadcast ? 'Sender...' : 'Send melding'}
             </Button>
           </form>
 
@@ -807,7 +850,9 @@ export default function SettingsPage() {
         {isAdmin && (
         <TabsContent value="maler" className="pt-4">
           <div className="flex flex-row items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Ferdige maler</h2>
+            <p className="text-muted-foreground text-sm">
+              Gjenbrukbare maler for kontrakter, samtaler, undersøkelser og renhold.
+            </p>
             <Button
               onClick={() => { setNewMalType('kontrakt'); setNewMalBasis('blank'); setNewMalOpen(true) }}
               className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"

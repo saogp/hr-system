@@ -251,7 +251,7 @@ export default function SurveyTemplateEditorPage() {
             <DialogDescription>Slik ser undersøkelsen ut for mottakeren.</DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 min-h-0 space-y-4 overflow-y-auto -mx-4 px-4">
+          <div className="thin-scrollbar flex-1 min-h-0 space-y-4 overflow-y-auto -mx-4 px-4">
             <h2 className="text-lg font-bold">{name || 'Uten navn'}</h2>
             {questions.filter((q) => q.text.trim()).map((q, i) => (
               <div key={q.id} className="space-y-2 rounded-xl border border-border bg-muted/30 p-3">

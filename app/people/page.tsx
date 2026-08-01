@@ -8,11 +8,10 @@ import { Input } from '@/components/ui/input'
 import { DateInput } from '@/components/ui/date-input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ArrowUpAZ, ArrowDownAZ, Users, Search } from 'lucide-react'
+import { Users, Search } from 'lucide-react'
 import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Dialog,
   DialogContent,
@@ -44,7 +43,7 @@ import { getAdminTokens, extractChoiceFields, usesCompanyTokens } from '@/lib/co
 import { UNIFORM_TYPES, UNIFORM_SIZES, needsCardCredentials } from '@/lib/uniform-items'
 import { useToastManager } from '@/components/ui/toast'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
-import { FilterButton, FilterField } from '@/components/ui/filter-button'
+import { FilterButton, FilterField, FilterChips } from '@/components/ui/filter-button'
 
 type Person = {
   id: string
@@ -86,7 +85,6 @@ export default function PeoplePage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [showInactive, setShowInactive] = useState(false)
   const [page, setPage] = useState(1)
   const [roleFilter, setRoleFilter] = useState('all')
@@ -285,10 +283,7 @@ export default function PeoplePage() {
     .filter((p) => (p.full_name ?? '').toLowerCase().includes(search.toLowerCase()))
     .filter((p) => roleFilter === 'all' || p.role === roleFilter)
     .filter((p) => companyFilter === 'all' || (profileCompanies[p.id] ?? []).includes(companyFilter))
-    .sort((a, b) => {
-      const cmp = (a.full_name ?? '').localeCompare(b.full_name ?? '', 'no')
-      return sortDir === 'asc' ? cmp : -cmp
-    })
+    .sort((a, b) => (a.full_name ?? '').localeCompare(b.full_name ?? '', 'no'))
   const activeFilterCount = [roleFilter !== 'all', companyFilter !== 'all'].filter(Boolean).length
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -314,50 +309,29 @@ export default function PeoplePage() {
               className="pl-8"
             />
           </div>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="size-8"
-                  onClick={() => setSortDir(sortDir === 'asc' ? 'desc' : 'asc')}
-                >
-                  {sortDir === 'asc' ? <ArrowUpAZ className="size-4" /> : <ArrowDownAZ className="size-4" />}
-                </Button>
-              }
-            />
-            <TooltipContent>
-              {sortDir === 'asc' ? 'Sortert A-Å — klikk for Å-A' : 'Sortert Å-A — klikk for A-Å'}
-            </TooltipContent>
-          </Tooltip>
           {isAdmin && (
             <FilterButton activeCount={activeFilterCount}>
               <FilterField label="Rolle">
-                <Select value={roleFilter} onValueChange={(val) => val && setRoleFilter(val)}>
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle roller</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="manager">Leder</SelectItem>
-                    <SelectItem value="employee">Ansatt</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FilterChips
+                  value={roleFilter}
+                  onChange={setRoleFilter}
+                  options={[
+                    { value: 'all', label: 'Alle roller' },
+                    { value: 'admin', label: 'Admin' },
+                    { value: 'manager', label: 'Leder' },
+                    { value: 'employee', label: 'Ansatt' },
+                  ]}
+                />
               </FilterField>
               <FilterField label="Bedrift">
-                <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle bedrifter</SelectItem>
-                    {companies.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FilterChips
+                  value={companyFilter}
+                  onChange={setCompanyFilter}
+                  options={[
+                    { value: 'all', label: 'Alle bedrifter' },
+                    ...companies.map((c) => ({ value: c.id, label: c.name })),
+                  ]}
+                />
               </FilterField>
               {activeFilterCount > 0 && (
                 <Button
@@ -450,7 +424,7 @@ export default function PeoplePage() {
           </DialogHeader>
 
           <form onSubmit={handleInvite} className="flex flex-col gap-4 min-h-0">
-            <div className="flex-1 min-h-0 overflow-y-auto -mx-4 px-4 flex flex-col gap-4">
+            <div className="thin-scrollbar flex-1 min-h-0 overflow-y-auto -mx-4 px-4 flex flex-col gap-4">
               {inviteError && (
                 <Alert variant="destructive">
                   <AlertDescription>{inviteError}</AlertDescription>

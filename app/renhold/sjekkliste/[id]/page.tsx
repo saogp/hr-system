@@ -235,7 +235,7 @@ export default function CleaningChecklistTemplatePage() {
             <DialogDescription>Slik ser skjemaet ut når noen scanner QR-koden.</DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 min-h-0 space-y-4 overflow-y-auto -mx-4 px-4">
+          <div className="thin-scrollbar flex-1 min-h-0 space-y-4 overflow-y-auto -mx-4 px-4">
             <div className="text-center mb-2">
               <p className="text-sm font-medium text-muted-foreground mb-1">Renhold – kvittering</p>
               <h2 className="text-xl font-bold text-brand-navy dark:text-white">{groupName || 'Uten navn'}</h2>

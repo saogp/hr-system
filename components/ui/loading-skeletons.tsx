@@ -115,8 +115,8 @@ export function CardGridSkeleton({ count = 6 }: { count?: number }) {
 export function DashboardSkeleton() {
   return (
     <div className="max-w-[1440px] p-6 space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 rounded-xl border border-border p-6 flex items-center justify-between gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="lg:col-span-3 rounded-xl border border-border p-6 flex items-center justify-between gap-4">
           <div className="space-y-3 flex-1 max-w-sm">
             <Skeleton className="h-3 w-24" />
             <Skeleton className="h-7 w-48" />
@@ -124,7 +124,7 @@ export function DashboardSkeleton() {
           </div>
           <Skeleton className="size-36 rounded-full hidden sm:block shrink-0" />
         </div>
-        <div className="rounded-xl border border-border p-6 space-y-4">
+        <div className="lg:col-span-2 rounded-xl border border-border p-6 space-y-4">
           <Skeleton className="h-5 w-28" />
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -158,11 +158,21 @@ export function DashboardSkeleton() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border p-6 space-y-3">
-        <Skeleton className="h-5 w-20" />
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Skeleton className="h-14 flex-1" />
-          <Skeleton className="h-14 flex-1" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="rounded-xl border border-border p-6 space-y-3">
+          <Skeleton className="h-5 w-20" />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Skeleton className="h-14 flex-1" />
+            <Skeleton className="h-14 flex-1" />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border p-6 space-y-3">
+          <Skeleton className="h-5 w-20" />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Skeleton className="h-14 flex-1" />
+            <Skeleton className="h-14 flex-1" />
+          </div>
         </div>
       </div>
     </div>

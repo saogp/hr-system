@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, LogOut, FileText, Users, Settings, MessageSquare, ShieldAlert, ClipboardList, Package, SprayCan, Moon, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, LogOut, FileText, Users, Settings, MessageSquare, ShieldAlert, ClipboardList, Package, SprayCan, Sun, Moon, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getStoredTheme, applyTheme, type Theme } from '@/lib/theme'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { ZestLogo } from '@/components/zest-logo'
+import { TestRoleSwitcher } from '@/components/test-role-switcher'
 import {
   Sidebar as SidebarPrimitive,
   SidebarContent,
@@ -191,11 +192,10 @@ export function Sidebar() {
       </SidebarContent>
 
       <SidebarFooter>
-        <div className="flex items-center justify-between gap-2 px-3 py-2.5 group-data-[collapsible=icon]:hidden">
-          <div className="flex items-center gap-2 text-sm">
-            <Moon className="size-4 text-muted-foreground" />
-            <span>Dark Mode</span>
-          </div>
+        <div className="flex items-center justify-start gap-3 px-3 py-2.5 group-data-[collapsible=icon]:hidden">
+          <span className="text-sm text-muted-foreground">
+            {theme === 'dark' ? 'Darkmode' : 'Lightmode'}
+          </span>
           <Switch checked={theme === 'dark'} onCheckedChange={handleThemeToggle} />
         </div>
 
@@ -232,6 +232,8 @@ export function Sidebar() {
             </DropdownMenu>
           </SidebarMenuItem>
         </SidebarMenu>
+
+        <TestRoleSwitcher />
       </SidebarFooter>
 
       <SidebarRail />

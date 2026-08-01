@@ -203,7 +203,7 @@ export default function TemplateEditorPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 min-h-0 overflow-y-auto -mx-4 px-4 text-sm">
+          <div className="thin-scrollbar flex-1 min-h-0 overflow-y-auto -mx-4 px-4 text-sm">
             <RenderedContractText text={previewText} />
           </div>
 

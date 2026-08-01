@@ -59,7 +59,9 @@ type Contract = {
   profile_id: string
   company_id: string | null
   created_by: string | null
-  contract_templates: { name: string; content: string }
+  template_id: string | null
+  pdf_path: string | null
+  contract_templates: { name: string; content: string } | null
 }
 
 type PersonInfo = { id: string; full_name: string | null; email: string | null; avatar_url: string | null }
@@ -94,6 +96,7 @@ export default function ContractDetailPage() {
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [bankAccount, setBankAccount] = useState('')
+  const [legacyPdfUrl, setLegacyPdfUrl] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -123,7 +126,21 @@ export default function ContractDetailPage() {
         router.replace('/contracts')
         return
       }
-      setContract(contractData as unknown as Contract)
+      const typedContract = contractData as unknown as Contract
+      setContract(typedContract)
+
+      if (!typedContract.template_id && typedContract.pdf_path) {
+        const { data: { session } } = await supabase.auth.getSession()
+        const pdfRes = await fetch('/api/contracts/pdf-url', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+          body: JSON.stringify({ contractId: id }),
+        })
+        if (pdfRes.ok) {
+          const { url } = await pdfRes.json()
+          setLegacyPdfUrl(url)
+        }
+      }
 
       const { data: profileData } = await supabase
         .from('profiles')
@@ -309,7 +326,130 @@ export default function ContractDetailPage() {
     return <DetailPageSkeleton />
   }
 
-  const usedTokens = extractTokens(contract.contract_templates.content)
+  if (!contract.template_id) {
+    return (
+      <div className="p-6 max-w-[1440px] space-y-6">
+        <div className="grid gap-8 lg:grid-cols-[1fr_320px] items-start">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold">Historisk kontrakt</h1>
+              <p className="text-muted-foreground text-sm">Sendt {formatDate(contract.sent_at)}</p>
+            </div>
+            {(isAdmin || isEmployeeOwner) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button variant="ghost" size="icon-sm" className="shrink-0">
+                      <MoreHorizontal />
+                      <span className="sr-only">Handlinger</span>
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => legacyPdfUrl && window.open(legacyPdfUrl, '_blank')}
+                    disabled={!legacyPdfUrl}
+                  >
+                    <Download />
+                    Last ned som PDF
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem onClick={handleSendToAccountant} disabled={sendingToAccountant}>
+                      <Send />
+                      {sendingToAccountant ? 'Sender...' : 'Send til regnskapsfører'}
+                    </DropdownMenuItem>
+                  )}
+                  {isRealAdmin && (
+                    <DropdownMenuItem variant="destructive" onClick={() => setDeleteOpen(true)}>
+                      <Trash2 />
+                      Slett kontrakt
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+
+          <div className="rounded-md border border-input p-4 space-y-4">
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Ansatt</p>
+              <div className="flex items-center gap-2">
+                <Avatar className="size-8">
+                  {employeeInfo?.avatar_url && <AvatarImage src={employeeInfo.avatar_url} alt={employeeInfo.full_name ?? ''} />}
+                  <AvatarFallback className="text-xs">{getInitials(employeeInfo?.full_name || '?')}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{employeeInfo?.full_name || '—'}</p>
+                  <p className="text-xs text-muted-foreground truncate">{employeeInfo?.email}</p>
+                </div>
+              </div>
+            </div>
+
+            {creatorInfo && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Lastet opp av</p>
+                <div className="flex items-center gap-2">
+                  <Avatar className="size-8">
+                    {creatorInfo.avatar_url && <AvatarImage src={creatorInfo.avatar_url} alt={creatorInfo.full_name ?? ''} />}
+                    <AvatarFallback className="text-xs">{getInitials(creatorInfo.full_name || '?')}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{creatorInfo.full_name || '—'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{creatorInfo.email}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isAdmin && contract.sent_to_accountant_at && (
+              <p className="text-xs text-muted-foreground pt-2 border-t border-border">
+                Sendt til regnskapsfører {formatDate(contract.sent_to_accountant_at)}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-md border border-input overflow-hidden" style={{ height: '80vh' }}>
+          {legacyPdfUrl ? (
+            <iframe src={legacyPdfUrl} className="w-full h-full" title="Kontrakt PDF" />
+          ) : (
+            <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+              Henter PDF...
+            </div>
+          )}
+        </div>
+
+        <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Dette vil slette den historiske kontrakten for{' '}
+                {employeeInfo?.full_name || employeeInfo?.email || 'denne ansatte'} permanent.
+                Handlingen kan ikke angres.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Avbryt</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-white hover:bg-destructive/90"
+                disabled={deleting}
+                onClick={handleDelete}
+              >
+                {deleting ? 'Sletter...' : 'Slett'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    )
+  }
+
+  if (!contract.contract_templates) {
+    return <DetailPageSkeleton />
+  }
+  const template = contract.contract_templates
+  const usedTokens = extractTokens(template.content)
   const editableFields = [
     { token: 'telefon', label: 'Telefon', value: phone, setValue: setPhone },
     { token: 'adresse', label: 'Adresse', value: address, setValue: setAddress },
@@ -317,17 +457,17 @@ export default function ContractDetailPage() {
   ].filter(f => usedTokens.includes(f.token))
 
   const effectiveProfile: ProfileFields = { ...profile, phone, address, bank_account: bankAccount }
-  const missingFields = getMissingProfileFields(contract.contract_templates.content, effectiveProfile)
+  const missingFields = getMissingProfileFields(template.content, effectiveProfile)
   const bankAccountDigits = bankAccount.replace(/\D/g, '')
   const bankAccountInvalid = usedTokens.includes('kontonummer') && bankAccountDigits.length > 0 && bankAccountDigits.length !== 11
-  const renderedText = renderContract(contract.contract_templates.content, effectiveProfile, contract.admin_fields, company)
+  const renderedText = renderContract(template.content, effectiveProfile, contract.admin_fields, company)
 
   const signedCount = [contract.employee_signed_at, contract.admin_signed_at].filter(Boolean).length
   const allSigned = signedCount === 2
 
   const handleDownloadPdf = () => {
     if (!contract) return
-    downloadContractPdf(contract.contract_templates.name, `Sendt ${formatDate(contract.sent_at)}`, renderedText)
+    downloadContractPdf(template.name, `Sendt ${formatDate(contract.sent_at)}`, renderedText)
   }
 
   return (
@@ -335,7 +475,7 @@ export default function ContractDetailPage() {
       <div className="grid gap-8 lg:grid-cols-[1fr_320px] items-start">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold">{contract.contract_templates.name}</h1>
+            <h1 className="text-2xl font-bold">{template.name}</h1>
             <p className="text-muted-foreground text-sm">Sendt {formatDate(contract.sent_at)}</p>
           </div>
           {(isAdmin || isEmployeeOwner) && (
@@ -560,7 +700,7 @@ export default function ContractDetailPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
             <AlertDialogDescription>
-              Dette vil slette kontrakten "{contract.contract_templates.name}" for{' '}
+              Dette vil slette kontrakten "{template.name}" for{' '}
               {employeeInfo?.full_name || employeeInfo?.email || 'denne ansatte'} permanent.
               Handlingen kan ikke angres.
             </AlertDialogDescription>

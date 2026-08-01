@@ -40,7 +40,8 @@ import { MoreHorizontal, ChevronRight, FileText, Download, Send, Search, Mail } 
 import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { fetchAndDownloadContractPdf } from '@/lib/contract-pdf'
-import { FilterButton, FilterField } from '@/components/ui/filter-button'
+import { FilterButton, FilterField, FilterChips } from '@/components/ui/filter-button'
+import { MonthPicker } from '@/components/ui/month-picker'
 
 type Template = {
   id: string
@@ -62,10 +63,11 @@ type ContractRow = {
   employee_signed_at: string | null
   admin_signed_at: string | null
   admin_fields: Record<string, string>
-  template_id: string
+  template_id: string | null
   profile_id: string
   company_id: string | null
   sent_to_accountant_at: string | null
+  pdf_path: string | null
   contract_templates: { name: string } | null
   profiles: { full_name: string | null; email: string | null } | null
 }
@@ -85,7 +87,6 @@ export default function ContractsPage() {
   const [search, setSearch] = useState('')
   const [companyFilter, setCompanyFilter] = useState('all')
   const [monthFilter, setMonthFilter] = useState('')
-  const [templateFilter, setTemplateFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'signed' | 'pending'>('all')
   const [page, setPage] = useState(1)
 
@@ -141,7 +142,7 @@ export default function ContractsPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [search, companyFilter, monthFilter, templateFilter, statusFilter])
+  }, [search, companyFilter, monthFilter, statusFilter])
 
   const handleDeleteContract = async () => {
     if (!deleteTargetId) return
@@ -200,7 +201,30 @@ export default function ContractsPage() {
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
+  const handleDownloadPdf = async (c: ContractRow) => {
+    if (!c.template_id) {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/contracts/pdf-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+        body: JSON.stringify({ contractId: c.id }),
+      })
+      if (res.ok) {
+        const { url } = await res.json()
+        window.open(url, '_blank')
+      } else {
+        toastManager.add({ title: 'Kunne ikke hente PDF-en' })
+      }
+      return
+    }
+    fetchAndDownloadContractPdf(c.id)
+  }
+
   const getStatusBadge = (c: ContractRow) => {
+    if (!c.template_id) {
+      return <Badge variant="secondary" className="w-fit">Historisk dokument</Badge>
+    }
+
     const signedCount = [c.employee_signed_at, c.admin_signed_at].filter(Boolean).length
 
     if (signedCount === 2) {
@@ -231,7 +255,6 @@ export default function ContractsPage() {
     }
     if (companyFilter !== 'all' && c.company_id !== companyFilter) return false
     if (monthFilter && !c.sent_at.startsWith(monthFilter)) return false
-    if (templateFilter !== 'all' && c.template_id !== templateFilter) return false
     if (statusFilter !== 'all') {
       const signedCount = [c.employee_signed_at, c.admin_signed_at].filter(Boolean).length
       const isSigned = signedCount === 2
@@ -240,7 +263,7 @@ export default function ContractsPage() {
     }
     return true
   })
-  const activeFilterCount = [companyFilter !== 'all', !!monthFilter, templateFilter !== 'all', statusFilter !== 'all'].filter(Boolean).length
+  const activeFilterCount = [companyFilter !== 'all', !!monthFilter, statusFilter !== 'all'].filter(Boolean).length
   const totalPages = Math.max(1, Math.ceil(filteredContracts.length / PAGE_SIZE))
   const pagedContracts = filteredContracts.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
@@ -273,50 +296,28 @@ export default function ContractsPage() {
               </div>
               <FilterButton activeCount={activeFilterCount}>
                 <FilterField label="Restaurant">
-                  <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
-                    <SelectTrigger className="w-full h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Alle restauranter</SelectItem>
-                      {companies.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FilterField>
-                <FilterField label="Mal">
-                  <Select value={templateFilter} onValueChange={(val) => val && setTemplateFilter(val)}>
-                    <SelectTrigger className="w-full h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Alle maler</SelectItem>
-                      {templates.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FilterChips
+                    value={companyFilter}
+                    onChange={setCompanyFilter}
+                    options={[
+                      { value: 'all', label: 'Alle restauranter' },
+                      ...companies.map((c) => ({ value: c.id, label: c.name })),
+                    ]}
+                  />
                 </FilterField>
                 <FilterField label="Status">
-                  <Select value={statusFilter} onValueChange={(val) => val && setStatusFilter(val as typeof statusFilter)}>
-                    <SelectTrigger className="w-full h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Alle statuser</SelectItem>
-                      <SelectItem value="signed">Signert</SelectItem>
-                      <SelectItem value="pending">Venter på signering</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FilterChips
+                    value={statusFilter}
+                    onChange={(val) => setStatusFilter(val as typeof statusFilter)}
+                    options={[
+                      { value: 'all', label: 'Alle statuser' },
+                      { value: 'signed', label: 'Signert' },
+                      { value: 'pending', label: 'Venter på signering' },
+                    ]}
+                  />
                 </FilterField>
                 <FilterField label="Måned sendt">
-                  <Input
-                    type="month"
-                    value={monthFilter}
-                    onChange={(e) => setMonthFilter(e.target.value)}
-                    className="w-full"
-                  />
+                  <MonthPicker value={monthFilter} onChange={setMonthFilter} />
                 </FilterField>
                 {activeFilterCount > 0 && (
                   <Button
@@ -324,20 +325,28 @@ export default function ContractsPage() {
                     variant="ghost"
                     size="sm"
                     className="w-fit self-start -mt-1"
-                    onClick={() => { setCompanyFilter('all'); setTemplateFilter('all'); setStatusFilter('all'); setMonthFilter('') }}
+                    onClick={() => { setCompanyFilter('all'); setStatusFilter('all'); setMonthFilter('') }}
                   >
                     Nullstill filter
                   </Button>
                 )}
               </FilterButton>
             </div>
-            <Button
-              onClick={() => router.push('/contracts/new')}
-              disabled={templates.length === 0}
-              className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium shrink-0"
-            >
-              Send kontrakt
-            </Button>
+            <div className="flex gap-2 shrink-0">
+              <Button
+                variant="outline"
+                onClick={() => router.push('/contracts/upload')}
+              >
+                Last opp PDF
+              </Button>
+              <Button
+                onClick={() => router.push('/contracts/new')}
+                disabled={templates.length === 0}
+                className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+              >
+                Send kontrakt
+              </Button>
+            </div>
           </div>
         )}
 
@@ -355,7 +364,7 @@ export default function ContractsPage() {
                       </p>
                     )}
                     <p className={isAdminLike(role) ? 'text-xs text-muted-foreground truncate' : 'font-medium text-base md:text-sm truncate'}>
-                      {c.contract_templates?.name || '—'}
+                      {c.template_id ? (c.contract_templates?.name || '—') : 'Opplastet arbeidsavtale'}
                     </p>
                     {c.company_id && (
                       <p className="text-xs text-muted-foreground truncate">
@@ -377,11 +386,11 @@ export default function ContractsPage() {
                           }
                         />
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => fetchAndDownloadContractPdf(c.id)}>
+                          <DropdownMenuItem onClick={() => handleDownloadPdf(c)}>
                             <Download />
                             Last ned som PDF
                           </DropdownMenuItem>
-                          {isAdminLike(role) && !c.employee_signed_at && (
+                          {isAdminLike(role) && c.template_id && !c.employee_signed_at && (
                             <DropdownMenuItem onClick={() => handleResendEmail(c.id)}>
                               <Mail />
                               Send e-post på nytt

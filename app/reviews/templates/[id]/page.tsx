@@ -231,7 +231,7 @@ export default function ReviewTemplateEditorPage() {
             <DialogDescription>Slik ser medarbeidersamtalen ut.</DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 min-h-0 space-y-4 overflow-y-auto -mx-4 px-4">
+          <div className="thin-scrollbar flex-1 min-h-0 space-y-4 overflow-y-auto -mx-4 px-4">
             <h2 className="text-lg font-bold">{name || 'Uten navn'}</h2>
             {(() => {
               let questionNumber = 0

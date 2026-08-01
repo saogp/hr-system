@@ -39,7 +39,8 @@ import { IconBadge } from '@/components/ui/icon-badge'
 import { ClipboardList, MoreHorizontal, Search } from 'lucide-react'
 import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
-import { FilterButton, FilterField } from '@/components/ui/filter-button'
+import { FilterButton, FilterField, FilterChips } from '@/components/ui/filter-button'
+import { MonthPicker } from '@/components/ui/month-picker'
 
 type Person = { id: string; full_name: string | null; email: string | null }
 
@@ -76,7 +77,7 @@ export default function SurveysPage() {
   const [companyFilter, setCompanyFilter] = useState('all')
   const [monthFilter, setMonthFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'answered' | 'none'>('all')
-  const [anonymousFilter, setAnonymousFilter] = useState<'all' | 'yes' | 'no'>('all')
+  const [titleFilter, setTitleFilter] = useState('all')
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [page, setPage] = useState(1)
@@ -149,7 +150,7 @@ export default function SurveysPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [search, companyFilter, monthFilter, statusFilter, anonymousFilter])
+  }, [search, companyFilter, monthFilter, statusFilter, titleFilter])
 
   const handleDeleteSurvey = async () => {
     if (!deleteTargetId) return
@@ -179,10 +180,11 @@ export default function SurveysPage() {
       if (statusFilter === 'answered' && !hasResponses) return false
       if (statusFilter === 'none' && hasResponses) return false
     }
-    if (anonymousFilter !== 'all' && s.anonymous !== (anonymousFilter === 'yes')) return false
+    if (titleFilter !== 'all' && s.title !== titleFilter) return false
     return true
   })
-  const activeFilterCount = [companyFilter !== 'all', !!monthFilter, statusFilter !== 'all', anonymousFilter !== 'all'].filter(Boolean).length
+  const surveyTitleOptions = Array.from(new Set(surveys.map((s) => s.title)))
+  const activeFilterCount = [companyFilter !== 'all', !!monthFilter, statusFilter !== 'all', titleFilter !== 'all'].filter(Boolean).length
   const totalPages = Math.max(1, Math.ceil(filteredSurveys.length / PAGE_SIZE))
   const pagedSurveys = filteredSurveys.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
@@ -216,49 +218,38 @@ export default function SurveysPage() {
             </div>
             <FilterButton activeCount={activeFilterCount}>
               <FilterField label="Restaurant">
-                <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle restauranter</SelectItem>
-                    {companies.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FilterChips
+                  value={companyFilter}
+                  onChange={setCompanyFilter}
+                  options={[
+                    { value: 'all', label: 'Alle restauranter' },
+                    ...companies.map((c) => ({ value: c.id, label: c.name })),
+                  ]}
+                />
               </FilterField>
               <FilterField label="Status">
-                <Select value={statusFilter} onValueChange={(val) => val && setStatusFilter(val as typeof statusFilter)}>
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle statuser</SelectItem>
-                    <SelectItem value="answered">Noen har svart</SelectItem>
-                    <SelectItem value="none">Ingen har svart</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FilterChips
+                  value={statusFilter}
+                  onChange={(val) => setStatusFilter(val as typeof statusFilter)}
+                  options={[
+                    { value: 'all', label: 'Alle statuser' },
+                    { value: 'answered', label: 'Noen har svart' },
+                    { value: 'none', label: 'Ingen har svart' },
+                  ]}
+                />
               </FilterField>
-              <FilterField label="Anonym">
-                <Select value={anonymousFilter} onValueChange={(val) => val && setAnonymousFilter(val as typeof anonymousFilter)}>
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle</SelectItem>
-                    <SelectItem value="yes">Anonym</SelectItem>
-                    <SelectItem value="no">Ikke anonym</SelectItem>
-                  </SelectContent>
-                </Select>
+              <FilterField label="Type">
+                <FilterChips
+                  value={titleFilter}
+                  onChange={setTitleFilter}
+                  options={[
+                    { value: 'all', label: 'Alle typer' },
+                    ...surveyTitleOptions.map((t) => ({ value: t, label: t })),
+                  ]}
+                />
               </FilterField>
               <FilterField label="Måned">
-                <Input
-                  type="month"
-                  value={monthFilter}
-                  onChange={(e) => setMonthFilter(e.target.value)}
-                  className="w-full"
-                />
+                <MonthPicker value={monthFilter} onChange={setMonthFilter} />
               </FilterField>
               {activeFilterCount > 0 && (
                 <Button
@@ -266,7 +257,7 @@ export default function SurveysPage() {
                   variant="ghost"
                   size="sm"
                   className="w-fit self-start -mt-1"
-                  onClick={() => { setCompanyFilter('all'); setStatusFilter('all'); setAnonymousFilter('all'); setMonthFilter('') }}
+                  onClick={() => { setCompanyFilter('all'); setStatusFilter('all'); setTitleFilter('all'); setMonthFilter('') }}
                 >
                   Nullstill filter
                 </Button>

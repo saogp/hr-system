@@ -322,7 +322,7 @@ function NewSurveyPageInner() {
 
         <div className="flex flex-col gap-1.5">
           <Label>Mottakere</Label>
-          <div className="flex flex-col gap-2 rounded-md border border-input p-3 max-h-48 overflow-y-auto">
+          <div className="thin-scrollbar flex flex-col gap-2 rounded-md border border-input p-3 max-h-48 overflow-y-auto">
             {people.map((p) => {
               const checkboxId = `recipient-${p.id}`
               return (
@@ -367,7 +367,7 @@ function NewSurveyPageInner() {
             <DialogDescription>Slik ser undersøkelsen ut for mottakeren.</DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 min-h-0 space-y-4 overflow-y-auto -mx-4 px-4">
+          <div className="thin-scrollbar flex-1 min-h-0 space-y-4 overflow-y-auto -mx-4 px-4">
             <h2 className="text-lg font-bold">{title || 'Uten tittel'}</h2>
             {(() => {
               let questionNumber = 0

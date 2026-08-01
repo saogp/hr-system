@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 import { RenholdPageSkeleton } from '@/components/ui/loading-skeletons'
-import { FilterButton, FilterField } from '@/components/ui/filter-button'
+import { FilterButton, FilterField, FilterChips } from '@/components/ui/filter-button'
 
 type Company = { id: string; name: string }
 type CheckWithRoom = CleaningCheck & { cleaning_rooms: { name: string } | null }
@@ -216,17 +216,14 @@ export default function RenholdPage() {
         {recentChecks.length > 0 && (
           <FilterButton activeCount={historyFilterCount}>
             <FilterField label="Rom">
-              <Select value={roomFilter} onValueChange={(val) => val && setRoomFilter(val)}>
-                <SelectTrigger className="w-full h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Alle rom</SelectItem>
-                  {rooms.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FilterChips
+                value={roomFilter}
+                onChange={setRoomFilter}
+                options={[
+                  { value: 'all', label: 'Alle rom' },
+                  ...rooms.map((r) => ({ value: r.id, label: r.name })),
+                ]}
+              />
             </FilterField>
             <FilterField label="Fra dato">
               <DateInput value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full" />

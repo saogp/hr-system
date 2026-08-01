@@ -4,11 +4,9 @@ export type ProfileCompletionInput = {
   address?: string | null
   emergency_contact_name?: string | null
   emergency_contact_phone?: string | null
-  avatar_url?: string | null
 }
 
 const FIELDS: { key: keyof ProfileCompletionInput; label: string }[] = [
-  { key: 'avatar_url', label: 'Profilbilde' },
   { key: 'birth_date', label: 'Fødselsdato' },
   { key: 'phone', label: 'Telefonnummer' },
   { key: 'address', label: 'Adresse' },

@@ -50,7 +50,7 @@ export const SuggestionList = forwardRef<SuggestionListRef, SuggestionProps<Sugg
     }
 
     return (
-      <div className="rounded-md border border-input bg-popover shadow-md p-1 min-w-48 max-h-64 overflow-y-auto">
+      <div className="thin-scrollbar rounded-md border border-input bg-popover shadow-md p-1 min-w-48 max-h-64 overflow-y-auto">
         {props.items.map((item, index) => (
           <button
             type="button"

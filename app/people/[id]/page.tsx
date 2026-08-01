@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ProfilePageSkeleton } from '@/components/ui/loading-skeletons'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+import { POSITION_OPTIONS } from '@/lib/position-options'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -49,6 +50,7 @@ type PersonContract = {
   sent_at: string
   employee_signed_at: string | null
   admin_signed_at: string | null
+  template_id: string | null
   contract_templates: { name: string } | null
 }
 
@@ -103,8 +105,6 @@ const SELF_EDITABLE_FIELDS: (keyof PersonProfile)[] = [
   'emergency_contact_name',
   'emergency_contact_phone',
 ]
-
-const POSITION_OPTIONS = ['Daglig leder', 'Kokk', 'Servitør', 'Sjåfør']
 
 function getInitials(name: string) {
   const parts = name.split(' ').filter(Boolean)
@@ -198,7 +198,7 @@ function PersonDetailPageInner() {
         if (admin) {
           const { data: contractsData } = await supabase
             .from('contracts')
-            .select('id, sent_at, employee_signed_at, admin_signed_at, contract_templates!contracts_template_id_fkey(name)')
+            .select('id, sent_at, employee_signed_at, admin_signed_at, template_id, contract_templates!contracts_template_id_fkey(name)')
             .eq('profile_id', id)
             .order('sent_at', { ascending: false })
           if (contractsData) setContracts(contractsData as unknown as PersonContract[])
@@ -610,14 +610,18 @@ function PersonDetailPageInner() {
                           href={`/contracts/${c.id}`}
                           className="min-w-0 flex-1 py-2 rounded-md hover:bg-muted/50"
                         >
-                          <p className="text-base md:text-sm font-medium truncate">{c.contract_templates?.name || '—'}</p>
+                          <p className="text-base md:text-sm font-medium truncate">
+                            {c.template_id ? (c.contract_templates?.name || '—') : 'Opplastet arbeidsavtale'}
+                          </p>
                           <p className="text-xs text-muted-foreground">Sendt {formatDate(c.sent_at)}</p>
                         </Link>
                         <div className="flex items-center gap-2 shrink-0">
-                          {signedCount === 2 ? (
-                            <Badge className="bg-green-600 hover:bg-green-700">2 av 2 signert</Badge>
-                          ) : (
-                            <Badge variant="secondary">{signedCount} av 2 signert</Badge>
+                          {c.template_id && (
+                            signedCount === 2 ? (
+                              <Badge className="bg-green-600 hover:bg-green-700">2 av 2 signert</Badge>
+                            ) : (
+                              <Badge variant="secondary">{signedCount} av 2 signert</Badge>
+                            )
                           )}
                           {isUnsigned && isRealAdmin && (
                             <DropdownMenu>

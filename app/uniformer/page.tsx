@@ -8,7 +8,7 @@ import { Package, Search } from 'lucide-react'
 import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { getUniformTypeIcon, needsCardCredentials, UNIFORM_TYPES, type UniformIssuance } from '@/lib/uniform-items'
-import { FilterButton, FilterField } from '@/components/ui/filter-button'
+import { FilterButton, FilterField, FilterChips } from '@/components/ui/filter-button'
 import {
   Select,
   SelectContent,
@@ -230,29 +230,25 @@ export default function UniformerPage() {
             </div>
             <FilterButton activeCount={activeFilterCount}>
               <FilterField label="Status">
-                <Select value={statusFilter} onValueChange={(val) => val && setStatusFilter(val as typeof statusFilter)}>
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle statuser</SelectItem>
-                    <SelectItem value="pending">Venter på signering</SelectItem>
-                    <SelectItem value="signed">Signert</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FilterChips
+                  value={statusFilter}
+                  onChange={(val) => setStatusFilter(val as typeof statusFilter)}
+                  options={[
+                    { value: 'all', label: 'Alle statuser' },
+                    { value: 'pending', label: 'Venter på signering' },
+                    { value: 'signed', label: 'Signert' },
+                  ]}
+                />
               </FilterField>
               <FilterField label="Utstyrstype">
-                <Select value={typeFilter} onValueChange={(val) => val && setTypeFilter(val)}>
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle typer</SelectItem>
-                    {UNIFORM_TYPES.map((t) => (
-                      <SelectItem key={t} value={t}>{t}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FilterChips
+                  value={typeFilter}
+                  onChange={setTypeFilter}
+                  options={[
+                    { value: 'all', label: 'Alle typer' },
+                    ...UNIFORM_TYPES.map((t) => ({ value: t, label: t })),
+                  ]}
+                />
               </FilterField>
               {activeFilterCount > 0 && (
                 <Button

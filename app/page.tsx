@@ -17,7 +17,6 @@ import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { computeCategoryScores, computeResponseScore, type ScoredQuestion } from '@/lib/survey-score'
 import type { SurveyCategory } from '@/lib/survey-categories'
 import { computeProfileCompletion } from '@/lib/profile-completion'
-import { StatTile } from '@/components/ui/stat-tile'
 import { DashboardSkeleton } from '@/components/ui/loading-skeletons'
 
 function getTimeOfDayGreeting() {
@@ -58,22 +57,24 @@ function getAnniversaryLabel(startDate: string | null): string | null {
   return remainderMonths === 0 ? `${years} år` : `${years} år og ${remainderMonths} måneder`
 }
 
-const FUN_FACTS = [
-  'Visste du at den første pizzaen med tomat, mozzarella og basilikum ble laget i Napoli i 1889, og fargene skal ha representert det italienske flagget?',
-  'Visste du at ordet «pizza» dukket opp skriftlig for første gang i Italia allerede i år 997?',
-  'Visste du at verdens største pizza noensinne ble laget i Roma i 2012 og veide over 19 tonn?',
-  'Visste du at italienere spiser pizza med kniv og gaffel, mens resten av verden ofte tar den med hendene?',
-  'Visste du at 9. februar er internasjonal pizzadag?',
-  'Gåte: Hva blir mer verdt jo mer du bruker av det? (Svar: Erfaring)',
-  'Gåte: Hva har mange nøkler, men kan ikke åpne en eneste dør? (Svar: Et piano)',
-  'Visste du at det å ta korte pauser i løpet av arbeidsdagen kan gjøre deg mer produktiv, ikke mindre?',
-  'Visste du at et smil, selv et påtatt et, kan bidra til å redusere stress?',
-  'Gåte: Jo mer du tar bort fra meg, jo større blir jeg. Hva er jeg? (Svar: Et hull)',
-  'Visste du at gjennomsnittlig nordmann drikker over 8 kg kaffe i året — en av de høyeste tallene i verden?',
-  'Visste du at det tar rundt 20 minutter for hjernen å registrere at magen er mett?',
+type FunFact = { text: string; answer?: string }
+
+const FUN_FACTS: FunFact[] = [
+  { text: 'Visste du at den første pizzaen med tomat, mozzarella og basilikum ble laget i Napoli i 1889, og fargene skal ha representert det italienske flagget?' },
+  { text: 'Visste du at ordet «pizza» dukket opp skriftlig for første gang i Italia allerede i år 997?' },
+  { text: 'Visste du at verdens største pizza noensinne ble laget i Roma i 2012 og veide over 19 tonn?' },
+  { text: 'Visste du at italienere spiser pizza med kniv og gaffel, mens resten av verden ofte tar den med hendene?' },
+  { text: 'Visste du at 9. februar er internasjonal pizzadag?' },
+  { text: 'Gåte: Hva blir mer verdt jo mer du bruker av det?', answer: 'Erfaring' },
+  { text: 'Gåte: Hva har mange nøkler, men kan ikke åpne en eneste dør?', answer: 'Et piano' },
+  { text: 'Visste du at det å ta korte pauser i løpet av arbeidsdagen kan gjøre deg mer produktiv, ikke mindre?' },
+  { text: 'Visste du at et smil, selv et påtatt et, kan bidra til å redusere stress?' },
+  { text: 'Gåte: Jo mer du tar bort fra meg, jo større blir jeg. Hva er jeg?', answer: 'Et hull' },
+  { text: 'Visste du at gjennomsnittlig nordmann drikker over 8 kg kaffe i året — en av de høyeste tallene i verden?' },
+  { text: 'Visste du at det tar rundt 20 minutter for hjernen å registrere at magen er mett?' },
 ]
 
-function getFunFactOfTheDay(): string {
+function getFunFactOfTheDay(): FunFact {
   const start = new Date(new Date().getFullYear(), 0, 0)
   const diff = Date.now() - start.getTime()
   const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24))
@@ -160,6 +161,7 @@ export default function DashboardPage() {
   const [anniversaryLabel, setAnniversaryLabel] = useState<string | null>(null)
   const [companyActiveCounts, setCompanyActiveCounts] = useState<{ name: string; count: number }[]>([])
   const [cleaningStatus, setCleaningStatus] = useState<{ name: string; done: number; total: number }[]>([])
+  const [riddleRevealed, setRiddleRevealed] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -174,7 +176,7 @@ export default function DashboardPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, next_review_date, role, birth_date, start_date, phone, address, emergency_contact_name, emergency_contact_phone, avatar_url')
+        .select('full_name, next_review_date, role, birth_date, start_date, phone, address, emergency_contact_name, emergency_contact_phone')
         .eq('id', user.id)
         .maybeSingle()
 
@@ -478,9 +480,9 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-[1440px] p-6 space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2 shadow-none border-brand-navy/10 bg-brand-cream dark:bg-white/5 overflow-hidden relative py-0">
-          <CardContent className="p-6 flex items-center justify-between gap-4 relative z-10">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <Card className="lg:col-span-3 shadow-none border-brand-navy/10 bg-brand-cream dark:bg-white/5 overflow-hidden relative py-0">
+          <CardContent className="flex-1 p-6 flex items-center justify-between gap-4 relative z-10">
             <div className="max-w-sm">
               <p className="text-sm text-brand-navy/60 dark:text-white/60 mb-1">{getDateLine()}</p>
               <h1 className="text-2xl font-bold mb-3 text-brand-navy dark:text-white">
@@ -506,7 +508,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-none border-border">
+        <Card className="lg:col-span-2 shadow-none border-border">
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <IconBadge icon={<ClipboardCheck className="size-4" />} />
@@ -520,7 +522,7 @@ export default function DashboardPage() {
               </CardAction>
             )}
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1">
             {actionItems.length === 0 ? (
               <div className="flex flex-col items-center text-center py-6">
                 <AllDoneIllustration className="w-40 h-auto mb-4" />
@@ -528,7 +530,7 @@ export default function DashboardPage() {
                 <p className="text-sm text-muted-foreground mt-1">Bra jobbet!</p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-80 overflow-y-auto">
+              <div className="thin-scrollbar space-y-3 max-h-64 overflow-y-auto pr-1">
                 {actionItems.map((item) => (
                   <div key={item.id} className="flex items-start gap-3 border-b border-border pb-3 last:border-0 last:pb-0">
                     {item.taskId ? (
@@ -565,18 +567,38 @@ export default function DashboardPage() {
               Visste du at
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm">
-              {myBirthdayToday && birthdaysToday.length > 0
-                ? `🎉 Gratulerer med dagen! I dag er det også bursdag til ${birthdaysToday.join(', ')}.`
-                : myBirthdayToday
-                ? '🎉 Gratulerer med dagen!'
-                : birthdaysToday.length > 0
-                ? `🎉 I dag er det bursdag til ${birthdaysToday.join(', ')}!`
-                : anniversaryLabel
-                ? `Du har jobbet her i ${anniversaryLabel} — gratulerer med jubileum!`
-                : getFunFactOfTheDay()}
-            </p>
+          <CardContent className="flex-1">
+            {myBirthdayToday && birthdaysToday.length > 0 ? (
+              <p className="text-sm">🎉 Gratulerer med dagen! I dag er det også bursdag til {birthdaysToday.join(', ')}.</p>
+            ) : myBirthdayToday ? (
+              <p className="text-sm">🎉 Gratulerer med dagen!</p>
+            ) : birthdaysToday.length > 0 ? (
+              <p className="text-sm">🎉 I dag er det bursdag til {birthdaysToday.join(', ')}!</p>
+            ) : anniversaryLabel ? (
+              <p className="text-sm">Du har jobbet her i {anniversaryLabel} — gratulerer med jubileum!</p>
+            ) : (
+              (() => {
+                const fact = getFunFactOfTheDay()
+                return (
+                  <div className="text-sm">
+                    <p>{fact.text}</p>
+                    {fact.answer && (
+                      riddleRevealed ? (
+                        <p className="mt-1 text-muted-foreground">Svar: {fact.answer}</p>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setRiddleRevealed(true)}
+                          className="mt-1 text-brand-orange font-medium hover:underline"
+                        >
+                          Vis svar
+                        </button>
+                      )
+                    )}
+                  </div>
+                )
+              })()
+            )}
           </CardContent>
         </Card>
 
@@ -588,7 +610,7 @@ export default function DashboardPage() {
               Trivselspuls
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex-1">
             {engagementOverall === null ? (
               <p className="text-sm text-muted-foreground">
                 Ingen skala-baserte undersøkelser er besvart enda. Send en undersøkelse med skala-spørsmål (f.eks. Trivselsundersøkelse) for å se en samlet score her.
@@ -621,7 +643,9 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {isAdmin && companyActiveCounts.length > 0 && (
+      {isAdmin && (companyActiveCounts.length > 0 || cleaningStatus.length > 0) && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {companyActiveCounts.length > 0 && (
         <Card className="shadow-none border-border">
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -629,15 +653,18 @@ export default function DashboardPage() {
               Ansatte
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col sm:flex-row gap-3">
+          <CardContent className="flex-1">
             {companyActiveCounts.map((c) => (
-              <StatTile key={c.name} label={c.name} value={c.count} />
+              <div key={c.name} className="flex items-center justify-between gap-2 h-11 border-b border-border last:border-0">
+                <p className="text-sm text-brand-navy dark:text-white truncate">{c.name}</p>
+                <p className="text-lg font-bold text-brand-orange shrink-0">{c.count}</p>
+              </div>
             ))}
           </CardContent>
         </Card>
-      )}
+        )}
 
-      {isAdmin && cleaningStatus.length > 0 && (
+        {cleaningStatus.length > 0 && (
         <Card className="shadow-none border-border">
           <CardHeader>
             <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -645,24 +672,24 @@ export default function DashboardPage() {
               Renhold
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <Link href="/renhold" className="flex flex-col sm:flex-row gap-3">
+          <CardContent className="flex-1">
+            <Link href="/renhold" className="flex flex-col">
               {cleaningStatus.map((s) => (
                 <div
                   key={s.name}
-                  className="flex-1 flex items-center justify-between gap-2 rounded-xl border border-brand-navy/10 bg-brand-cream dark:border-white/10 dark:bg-white/5 p-4 hover:bg-brand-cream/70 dark:hover:bg-white/10"
+                  className="flex items-center justify-between gap-2 h-11 border-b border-border last:border-0"
                 >
-                  <p className="text-sm font-medium text-brand-navy dark:text-white">{s.name}</p>
-                  {s.done === s.total ? (
-                    <Badge className="bg-green-600 hover:bg-green-700">{s.done}/{s.total} rengjort</Badge>
-                  ) : (
-                    <Badge variant="destructive">{s.done}/{s.total} rengjort</Badge>
-                  )}
+                  <p className="text-sm text-brand-navy dark:text-white truncate">{s.name}</p>
+                  <span className={`text-sm font-medium shrink-0 ${s.done === s.total ? 'text-green-600' : 'text-destructive'}`}>
+                    {s.done}/{s.total} rengjort
+                  </span>
                 </div>
               ))}
             </Link>
           </CardContent>
         </Card>
+        )}
+      </div>
       )}
 
       {!isAdmin && (
@@ -674,7 +701,7 @@ export default function DashboardPage() {
               Mine kontrakter
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="thin-scrollbar max-h-64 overflow-y-auto space-y-3">
             {myContracts.length === 0 ? (
               <p className="text-muted-foreground text-sm">Du har ingen kontrakter enda.</p>
             ) : (
@@ -711,7 +738,7 @@ export default function DashboardPage() {
               Mine medarbeidersamtaler
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="thin-scrollbar max-h-64 overflow-y-auto space-y-3">
             {myReviews.length === 0 ? (
               <p className="text-muted-foreground text-sm">Du har ingen medarbeidersamtaler enda.</p>
             ) : (
@@ -745,7 +772,7 @@ export default function DashboardPage() {
               Mine undersøkelser
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="thin-scrollbar max-h-64 overflow-y-auto space-y-3">
             {mySurveys.length === 0 ? (
               <p className="text-muted-foreground text-sm">Du har ingen undersøkelser enda.</p>
             ) : (

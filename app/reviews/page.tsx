@@ -37,7 +37,8 @@ import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
-import { FilterButton, FilterField } from '@/components/ui/filter-button'
+import { FilterButton, FilterField, FilterChips } from '@/components/ui/filter-button'
+import { MonthPicker } from '@/components/ui/month-picker'
 
 type PersonOption = {
   id: string
@@ -201,50 +202,38 @@ export default function ReviewsPage() {
             </div>
             <FilterButton activeCount={activeFilterCount}>
               <FilterField label="Restaurant">
-                <Select value={companyFilter} onValueChange={(val) => val && setCompanyFilter(val)}>
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle restauranter</SelectItem>
-                    {companies.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FilterChips
+                  value={companyFilter}
+                  onChange={setCompanyFilter}
+                  options={[
+                    { value: 'all', label: 'Alle restauranter' },
+                    ...companies.map((c) => ({ value: c.id, label: c.name })),
+                  ]}
+                />
               </FilterField>
               <FilterField label="Status">
-                <Select value={statusFilter} onValueChange={(val) => val && setStatusFilter(val as typeof statusFilter)}>
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle statuser</SelectItem>
-                    <SelectItem value="open">Åpen</SelectItem>
-                    <SelectItem value="completed">Fullført</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FilterChips
+                  value={statusFilter}
+                  onChange={(val) => setStatusFilter(val as typeof statusFilter)}
+                  options={[
+                    { value: 'all', label: 'Alle statuser' },
+                    { value: 'open', label: 'Åpen' },
+                    { value: 'completed', label: 'Fullført' },
+                  ]}
+                />
               </FilterField>
               <FilterField label="Leder">
-                <Select value={leaderFilter} onValueChange={(val) => val && setLeaderFilter(val)}>
-                  <SelectTrigger className="w-full h-9">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle ledere</SelectItem>
-                    {people.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FilterChips
+                  value={leaderFilter}
+                  onChange={setLeaderFilter}
+                  options={[
+                    { value: 'all', label: 'Alle ledere' },
+                    ...people.map((p) => ({ value: p.id, label: p.full_name || p.email || '' })),
+                  ]}
+                />
               </FilterField>
               <FilterField label="Måned">
-                <Input
-                  type="month"
-                  value={monthFilter}
-                  onChange={(e) => setMonthFilter(e.target.value)}
-                  className="w-full"
-                />
+                <MonthPicker value={monthFilter} onChange={setMonthFilter} />
               </FilterField>
               {activeFilterCount > 0 && (
                 <Button
