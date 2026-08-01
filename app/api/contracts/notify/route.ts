@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
 import { renderEmailHtml, getEmailFrom, getPlainTextFooter } from '@/lib/email-template'
+import { callerHasCompanyAccess } from '@/lib/company-access'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -26,6 +27,10 @@ export async function POST(request: Request) {
 
   if (!contract) {
     return NextResponse.json({ error: 'Fant ikke kontrakten.' }, { status: 404 })
+  }
+
+  if (!(await callerHasCompanyAccess(verified.user.id, contract.company_id))) {
+    return NextResponse.json({ error: 'Du har ikke tilgang til denne kontrakten.' }, { status: 403 })
   }
 
   const employee = (contract as unknown as { profiles: { full_name: string | null; email: string | null } | null }).profiles

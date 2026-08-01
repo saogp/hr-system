@@ -12,6 +12,7 @@ import { Users, Search } from 'lucide-react'
 import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+import { logAudit } from '@/lib/audit-log'
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { getAdminTokens, extractChoiceFields, usesCompanyTokens } from '@/lib/contract-tokens'
 import { UNIFORM_TYPES, UNIFORM_SIZES, needsCardCredentials } from '@/lib/uniform-items'
 import { useToastManager } from '@/components/ui/toast'
@@ -83,6 +94,7 @@ export default function PeoplePage() {
   const toastManager = useToastManager()
   const [people, setPeople] = useState<Person[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isRealAdmin, setIsRealAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showInactive, setShowInactive] = useState(false)
@@ -90,10 +102,12 @@ export default function PeoplePage() {
   const [roleFilter, setRoleFilter] = useState('all')
   const [companyFilter, setCompanyFilter] = useState('all')
   const [profileCompanies, setProfileCompanies] = useState<Record<string, string[]>>({})
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   const [addOpen, setAddOpen] = useState(false)
   const [newName, setNewName] = useState('')
   const [newEmail, setNewEmail] = useState('')
+  const [newEmployeeCompanyIds, setNewEmployeeCompanyIds] = useState<string[]>([])
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState('')
 
@@ -113,6 +127,11 @@ export default function PeoplePage() {
   const [deactivateEndDate, setDeactivateEndDate] = useState('')
   const [deactivating, setDeactivating] = useState(false)
 
+  const [inviteStatuses, setInviteStatuses] = useState<Record<string, { invited_at?: string; confirmed_at?: string }>>({})
+  const [resendingId, setResendingId] = useState<string | null>(null)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
   const load = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
@@ -125,14 +144,26 @@ export default function PeoplePage() {
       .select('role')
       .eq('id', user.id)
       .single()
-    const admin = isAdminLike(applyRoleOverride(viewerProfile?.role ?? 'employee'))
+    const viewerRole = applyRoleOverride(viewerProfile?.role ?? 'employee')
+    const admin = isAdminLike(viewerRole)
     setIsAdmin(admin)
+    setIsRealAdmin(viewerRole === 'admin')
+    setCurrentUserId(user.id)
 
     if (admin) {
       const { data: profilesData } = await supabase
         .from('profiles')
         .select('id, full_name, title, role, email, end_date, avatar_url, is_active')
       if (profilesData) setPeople(profilesData)
+
+      const { data: { session } } = await supabase.auth.getSession()
+      const statusRes = await fetch('/api/employees', {
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+      })
+      if (statusRes.ok) {
+        const { statuses } = await statusRes.json()
+        setInviteStatuses(statuses ?? {})
+      }
 
       const { data: templatesData } = await supabase
         .from('contract_templates')
@@ -171,6 +202,10 @@ export default function PeoplePage() {
     const { error } = await supabase.from('profiles').update({ is_active: true }).eq('id', personId)
     if (!error) {
       setPeople(prev => prev.map(p => (p.id === personId ? { ...p, is_active: true } : p)))
+      if (currentUserId) {
+        const target = people.find((p) => p.id === personId)
+        logAudit(currentUserId, 'employee_activated', personId, { target_name: target?.full_name ?? target?.email })
+      }
     }
   }
 
@@ -185,15 +220,58 @@ export default function PeoplePage() {
 
     if (!error) {
       setPeople(prev => prev.map(p => (p.id === deactivateTargetId ? { ...p, is_active: false, end_date: deactivateEndDate } : p)))
+      if (currentUserId) {
+        const target = people.find((p) => p.id === deactivateTargetId)
+        logAudit(currentUserId, 'employee_deactivated', deactivateTargetId, { end_date: deactivateEndDate, target_name: target?.full_name ?? target?.email })
+      }
       setDeactivateTargetId(null)
       setDeactivateEndDate('')
     }
     setDeactivating(false)
   }
 
+  const handleResend = async (personId: string) => {
+    setResendingId(personId)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(`/api/employees/${personId}/resend`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session?.access_token ?? ''}`,
+      },
+    })
+    if (!res.ok) {
+      const result = await res.json().catch(() => ({}))
+      alert(result.error || 'Kunne ikke sende invitasjon på nytt.')
+    }
+    setResendingId(null)
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTargetId) return
+    setDeleting(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch(`/api/employees/${deleteTargetId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+    })
+
+    if (res.ok) {
+      setPeople(prev => prev.filter(p => p.id !== deleteTargetId))
+      setDeleteTargetId(null)
+    } else {
+      const result = await res.json().catch(() => ({}))
+      alert(result.error || 'Kunne ikke slette ansatt.')
+    }
+    setDeleting(false)
+  }
+
   useEffect(() => {
     setPage(1)
   }, [search, showInactive, roleFilter, companyFilter])
+
+  const myCompanyIds = currentUserId ? (profileCompanies[currentUserId] ?? []) : []
+  const employeeCompanyOptions = myCompanyIds.length > 0 ? companies.filter(c => myCompanyIds.includes(c.id)) : companies
 
   const selectedTemplate = templates.find(t => t.id === contractTemplateId) ?? null
   const contractAdminTokens = selectedTemplate ? getAdminTokens(selectedTemplate.content) : []
@@ -207,6 +285,7 @@ export default function PeoplePage() {
   const resetAddForm = () => {
     setNewName('')
     setNewEmail('')
+    setNewEmployeeCompanyIds([])
     setSendContract(false)
     setContractTemplateId('')
     setContractCompanyId('')
@@ -242,6 +321,18 @@ export default function PeoplePage() {
     }
 
     const newProfileId: string | undefined = result.user?.id
+
+    if (newProfileId && newEmployeeCompanyIds.length > 0) {
+      const { error: companyLinkError } = await supabase
+        .from('profile_companies')
+        .insert(newEmployeeCompanyIds.map((companyId) => ({ profile_id: newProfileId, company_id: companyId })))
+      if (companyLinkError) {
+        setInviteError('Ansatt opprettet, men kunne ikke knytte bedrift. Legg til bedrift manuelt på profilen.')
+        setInviting(false)
+        await load()
+        return
+      }
+    }
 
     if (newProfileId && sendContract && contractTemplateId) {
       await supabase.from('contracts').insert({
@@ -395,6 +486,11 @@ export default function PeoplePage() {
                       }
                     />
                     <DropdownMenuContent align="end">
+                      {inviteStatuses[p.id]?.invited_at && !inviteStatuses[p.id]?.confirmed_at && (
+                        <DropdownMenuItem disabled={resendingId === p.id} onClick={() => handleResend(p.id)}>
+                          {resendingId === p.id ? 'Sender...' : 'Send invitasjon på nytt'}
+                        </DropdownMenuItem>
+                      )}
                       {p.is_active ? (
                         <DropdownMenuItem onClick={() => { setDeactivateTargetId(p.id); setDeactivateEndDate('') }}>
                           Gjør inaktiv
@@ -402,6 +498,11 @@ export default function PeoplePage() {
                       ) : (
                         <DropdownMenuItem onClick={() => handleActivate(p.id)}>
                           Gjør aktiv
+                        </DropdownMenuItem>
+                      )}
+                      {isRealAdmin && (
+                        <DropdownMenuItem variant="destructive" onClick={() => setDeleteTargetId(p.id)}>
+                          Slett
                         </DropdownMenuItem>
                       )}
                     </DropdownMenuContent>
@@ -451,6 +552,34 @@ export default function PeoplePage() {
                   onChange={(e) => setNewEmail(e.target.value)}
                   required
                 />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label>Bedrift(er)</Label>
+                <div className="flex flex-col gap-2 rounded-md border border-input p-3">
+                  {employeeCompanyOptions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Ingen bedrifter tilgjengelig.</p>
+                  ) : (
+                    employeeCompanyOptions.map((c) => {
+                      const checkboxId = `new-employee-company-${c.id}`
+                      const checked = newEmployeeCompanyIds.includes(c.id)
+                      return (
+                        <div key={c.id} className="flex items-center gap-2 text-sm">
+                          <Checkbox
+                            id={checkboxId}
+                            checked={checked}
+                            onCheckedChange={(val) => {
+                              setNewEmployeeCompanyIds((prev) =>
+                                val === true ? [...prev, c.id] : prev.filter((id) => id !== c.id)
+                              )
+                            }}
+                          />
+                          <Label htmlFor={checkboxId} className="font-normal">{c.name}</Label>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
@@ -644,7 +773,11 @@ export default function PeoplePage() {
             </div>
 
             <DialogFooter>
-              <Button type="submit" disabled={inviting} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
+              <Button
+                type="submit"
+                disabled={inviting || newEmployeeCompanyIds.length === 0}
+                className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+              >
                 {inviting ? 'Sender invitasjon...' : 'Send invitasjon'}
               </Button>
             </DialogFooter>
@@ -682,6 +815,27 @@ export default function PeoplePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteTargetId !== null} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Er du sikker?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Dette vil slette den ansatte permanent, inkludert innloggingskontoen. Handlingen kan ikke angres.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={deleting}
+              onClick={handleDelete}
+            >
+              {deleting ? 'Sletter...' : 'Slett'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

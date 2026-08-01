@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ProfilePageSkeleton } from '@/components/ui/loading-skeletons'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+import { logAudit } from '@/lib/audit-log'
 import { POSITION_OPTIONS } from '@/lib/position-options'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -240,9 +241,13 @@ function PersonDetailPageInner() {
   const isSelf = viewerId === id
 
   const handleFieldChange = async (field: keyof PersonProfile, value: string | number | null) => {
+    const oldValue = person?.[field] ?? null
     const { error } = await supabase.from('profiles').update({ [field]: value }).eq('id', id)
     if (!error) {
       setPerson(prev => prev ? { ...prev, [field]: value } : prev)
+      if (viewerId && viewerId !== id) {
+        logAudit(viewerId, 'profile_field_updated', id, { field, old_value: oldValue, new_value: value, target_name: person?.full_name ?? person?.email })
+      }
     }
   }
 
@@ -250,18 +255,25 @@ function PersonDetailPageInner() {
     isAdmin || (isSelf && SELF_EDITABLE_FIELDS.includes(field))
 
   const handleToggleCompany = async (companyId: string, checked: boolean) => {
+    const companyName = companies.find((c) => c.id === companyId)?.name
     if (checked) {
       const { error } = await supabase
         .from('profile_companies')
         .insert({ profile_id: id, company_id: companyId })
-      if (!error) setCompanyIds(prev => [...prev, companyId])
+      if (!error) {
+        setCompanyIds(prev => [...prev, companyId])
+        if (viewerId) logAudit(viewerId, 'company_assigned', id, { company_name: companyName, target_name: person?.full_name ?? person?.email })
+      }
     } else {
       const { error } = await supabase
         .from('profile_companies')
         .delete()
         .eq('profile_id', id)
         .eq('company_id', companyId)
-      if (!error) setCompanyIds(prev => prev.filter(c => c !== companyId))
+      if (!error) {
+        setCompanyIds(prev => prev.filter(c => c !== companyId))
+        if (viewerId) logAudit(viewerId, 'company_removed', id, { company_name: companyName, target_name: person?.full_name ?? person?.email })
+      }
     }
   }
 
@@ -499,11 +511,11 @@ function PersonDetailPageInner() {
         <div className="flex justify-end mb-2">
           <Button
             size="sm"
-            variant={editing ? 'outline' : 'default'}
-            className={editing ? '' : 'bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium'}
+            variant={editing ? 'default' : 'outline'}
+            className={editing ? 'bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium' : ''}
             onClick={() => setEditing(v => !v)}
           >
-            {editing ? 'Ferdig' : 'Rediger'}
+            {editing ? 'Lagre' : 'Rediger'}
           </Button>
         </div>
       )}

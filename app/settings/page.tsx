@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { NOTIFICATION_TYPES, type NotificationType, type NotificationPrefs } from '@/lib/notifications'
+import { AUDIT_ACTIONS, type AuditAction } from '@/lib/audit-log'
 import { Switch } from '@/components/ui/switch'
 import { SURVEY_TEMPLATES } from '@/lib/survey-templates'
 import { PageHeaderSkeleton, CardGridSkeleton } from '@/components/ui/loading-skeletons'
@@ -96,6 +97,15 @@ type EmployeeOption = {
   title: string | null
 }
 
+type AuditLogRow = {
+  id: string
+  actor_id: string
+  action: AuditAction
+  target_profile_id: string | null
+  details: Record<string, unknown> | null
+  created_at: string
+}
+
 type BroadcastMessage = {
   id: string
   subject: string
@@ -164,6 +174,8 @@ export default function SettingsPage() {
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>({})
+  const [auditLog, setAuditLog] = useState<AuditLogRow[]>([])
+  const [auditActors, setAuditActors] = useState<Record<string, string>>({})
   const [emailDigestMode, setEmailDigestMode] = useState<'immediate' | 'daily'>('daily')
 
 
@@ -196,6 +208,27 @@ export default function SettingsPage() {
       setCurrentUserId(user.id)
       setNotificationPrefs((profile?.notification_prefs as NotificationPrefs) ?? {})
       setEmailDigestMode(profile?.email_digest_mode === 'immediate' ? 'immediate' : 'daily')
+
+      if (viewerRole === 'admin') {
+        const { data: auditData } = await supabase
+          .from('audit_log')
+          .select('id, actor_id, action, target_profile_id, details, created_at')
+          .order('created_at', { ascending: false })
+          .limit(100)
+        if (auditData) {
+          setAuditLog(auditData as AuditLogRow[])
+          const actorIds = [...new Set(auditData.map((a) => a.actor_id))]
+          if (actorIds.length > 0) {
+            const { data: actorProfiles } = await supabase
+              .from('profiles')
+              .select('id, full_name, email')
+              .in('id', actorIds)
+            const map: Record<string, string> = {}
+            for (const p of actorProfiles ?? []) map[p.id] = p.full_name || p.email || '—'
+            setAuditActors(map)
+          }
+        }
+      }
 
       if (admin) {
         const { data: companiesData } = await supabase
@@ -571,6 +604,24 @@ export default function SettingsPage() {
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
+  const formatDateTime = (dateStr: string) =>
+    new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+  const formatAuditDetail = (entry: AuditLogRow) => {
+    const d = entry.details ?? {}
+    switch (entry.action) {
+      case 'profile_field_updated':
+        return `${d.field}: ${d.old_value ?? '—'} → ${d.new_value ?? '—'}`
+      case 'employee_deactivated':
+        return `Sluttdato: ${d.end_date ? formatDate(String(d.end_date)) : '—'}`
+      case 'company_assigned':
+      case 'company_removed':
+        return String(d.company_name ?? '')
+      default:
+        return ''
+    }
+  }
+
   if (loading) {
     return (
       <div className="max-w-[1440px] p-6">
@@ -598,6 +649,7 @@ export default function SettingsPage() {
           {isAdmin && <TabsTrigger value="bedrifter">Bedrifter</TabsTrigger>}
           {isAdmin && <TabsTrigger value="meldinger">Meldinger</TabsTrigger>}
           <TabsTrigger value="varsler">Varsler</TabsTrigger>
+          {isRealAdmin && <TabsTrigger value="endringshistorikk">Endringshistorikk</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="varsler" className="pt-4 max-w-lg">
@@ -726,6 +778,39 @@ export default function SettingsPage() {
             )}
           </div>
         </TabsContent>
+
+        {isRealAdmin && (
+        <TabsContent value="endringshistorikk" className="pt-4 max-w-2xl">
+          <p className="text-sm text-muted-foreground mb-3">
+            Endringer ledere og admin gjør på ansatte — feltoppdateringer, aktivering/deaktivering og bedriftstilknytning.
+          </p>
+          {auditLog.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Ingen endringer registrert enda.</p>
+          ) : (
+            <div className="thin-scrollbar flex flex-col divide-y divide-border rounded-md border border-input max-h-[32rem] overflow-y-auto">
+              {auditLog.map((entry) => (
+                <div key={entry.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm">
+                      <span className="font-medium">{auditActors[entry.actor_id] || '—'}</span>
+                      {' '}
+                      <span className="text-muted-foreground">{AUDIT_ACTIONS[entry.action]?.toLowerCase() ?? entry.action}</span>
+                      {entry.details?.target_name ? (
+                        <>
+                          {': '}
+                          <span className="font-medium">{String(entry.details.target_name)}</span>
+                        </>
+                      ) : null}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">{formatAuditDetail(entry)}</p>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">{formatDateTime(entry.created_at)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+        )}
 
         {isAdmin && (
         <TabsContent value="bedrifter" className="pt-4">

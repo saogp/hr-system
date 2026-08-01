@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
 import { renderEmailHtml, getEmailFrom, getPlainTextFooter } from '@/lib/email-template'
+import { callerHasCompanyAccess } from '@/lib/company-access'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -16,6 +17,16 @@ export async function POST(request: Request) {
   const { surveyId, title, recipientIds } = await request.json()
   if (!surveyId || !Array.isArray(recipientIds) || recipientIds.length === 0) {
     return NextResponse.json({ error: 'Mangler undersøkelse-id eller mottakere.' }, { status: 400 })
+  }
+
+  const { data: survey } = await supabaseAdmin
+    .from('surveys')
+    .select('company_id')
+    .eq('id', surveyId)
+    .single()
+
+  if (!survey || !(await callerHasCompanyAccess(verified.user.id, survey.company_id))) {
+    return NextResponse.json({ error: 'Du har ikke tilgang til denne undersøkelsen.' }, { status: 403 })
   }
 
   const { data: recipients } = await supabaseAdmin

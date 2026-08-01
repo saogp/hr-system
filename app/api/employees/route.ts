@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
+import { getVisibleProfileIds } from '@/lib/company-access'
 
 export async function GET(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
   if ('error' in verified) {
     return NextResponse.json({ error: verified.error }, { status: verified.status })
   }
+
+  const visibleProfileIds = await getVisibleProfileIds(verified.user.id)
 
   const statuses: Record<string, {
     invited_at?: string
@@ -23,6 +26,7 @@ export async function GET(request: Request) {
     }
 
     for (const u of data.users) {
+      if (visibleProfileIds && !visibleProfileIds.has(u.id)) continue
       statuses[u.id] = {
         invited_at: u.invited_at,
         confirmed_at: u.confirmed_at,

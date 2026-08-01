@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
 import { renderEmailHtml, getEmailFrom, getPlainTextFooter } from '@/lib/email-template'
+import { callerSharesCompanyWith } from '@/lib/company-access'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -16,6 +17,10 @@ export async function POST(request: Request) {
   const { reviewId, employeeId, leaderId, dateLabel } = await request.json()
   if (!reviewId || !employeeId) {
     return NextResponse.json({ error: 'Mangler samtale-id eller ansatt.' }, { status: 400 })
+  }
+
+  if (!(await callerSharesCompanyWith(verified.user.id, employeeId))) {
+    return NextResponse.json({ error: 'Du har ikke tilgang til denne ansatte.' }, { status: 403 })
   }
 
   const recipientIds = [employeeId, leaderId].filter(Boolean) as string[]

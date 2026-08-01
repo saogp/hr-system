@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
 import { needsCardCredentials } from '@/lib/uniform-items'
 import { renderEmailHtml, getEmailFrom, getPlainTextFooter } from '@/lib/email-template'
+import { callerSharesCompanyWith } from '@/lib/company-access'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -35,6 +36,10 @@ export async function POST(request: Request) {
 
   if (!employee) {
     return NextResponse.json({ error: 'Fant ikke ansatt.' }, { status: 404 })
+  }
+
+  if (!(await callerSharesCompanyWith(verified.user.id, profileId))) {
+    return NextResponse.json({ error: 'Du har ikke tilgang til denne ansatte.' }, { status: 403 })
   }
 
   const { data: issuance, error } = await supabaseAdmin

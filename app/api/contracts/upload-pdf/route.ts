@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
+import { callerHasCompanyAccess, callerSharesCompanyWith } from '@/lib/company-access'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -16,6 +17,13 @@ export async function POST(request: Request) {
 
   if (!profileId || !pdf || pdf.size === 0) {
     return NextResponse.json({ error: 'Velg ansatt og en PDF-fil.' }, { status: 400 })
+  }
+
+  if (
+    !(await callerSharesCompanyWith(verified.user.id, profileId)) ||
+    !(await callerHasCompanyAccess(verified.user.id, companyId))
+  ) {
+    return NextResponse.json({ error: 'Du har ikke tilgang til denne ansatte/bedriften.' }, { status: 403 })
   }
   if (pdf.type !== 'application/pdf') {
     return NextResponse.json({ error: 'Filen må være en PDF.' }, { status: 400 })

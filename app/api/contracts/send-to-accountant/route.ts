@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
 import { renderEmailHtml, getEmailFrom, getPlainTextFooter } from '@/lib/email-template'
+import { callerHasCompanyAccess } from '@/lib/company-access'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -31,6 +32,10 @@ export async function POST(request: Request) {
   const companyId = (contract as unknown as { company_id: string | null }).company_id
   if (!companyId) {
     return NextResponse.json({ error: 'Kontrakten er ikke koblet til en bedrift.' }, { status: 400 })
+  }
+
+  if (!(await callerHasCompanyAccess(verified.user.id, companyId))) {
+    return NextResponse.json({ error: 'Du har ikke tilgang til denne kontrakten.' }, { status: 403 })
   }
 
   const { data: company } = await supabaseAdmin

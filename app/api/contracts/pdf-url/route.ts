@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { callerSharesCompanyWith } from '@/lib/company-access'
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization')
@@ -36,7 +37,8 @@ export async function POST(request: Request) {
 
   const isAdminOrManager = caller?.role === 'admin' || caller?.role === 'manager'
   const isOwner = contract.profile_id === user.id
-  if (!isAdminOrManager && !isOwner) {
+  const hasCompanyAccess = isAdminOrManager && (await callerSharesCompanyWith(user.id, contract.profile_id))
+  if (!hasCompanyAccess && !isOwner) {
     return NextResponse.json({ error: 'Du har ikke tilgang til dette.' }, { status: 403 })
   }
 
