@@ -38,6 +38,7 @@ export type IssuanceItem = {
 export type UniformIssuance = {
   id: string
   profile_id: string
+  company_id: string | null
   created_by: string | null
   items: IssuanceItem[]
   send_email: boolean

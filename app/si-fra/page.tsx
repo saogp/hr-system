@@ -69,12 +69,14 @@ export default function SiFraPage() {
       const admin = applyRoleOverride(ownProfile?.role ?? 'employee') === 'admin'
       setIsAdmin(admin)
 
-      const { data: peopleData } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .neq('id', user.id)
-        .order('full_name')
-      if (peopleData) setPeople(peopleData)
+      const { data: peopleData } = await supabase.rpc('get_people_directory')
+      if (peopleData) {
+        setPeople(
+          (peopleData as PersonOption[])
+            .filter((p) => p.id !== user.id)
+            .sort((a, b) => (a.full_name ?? '').localeCompare(b.full_name ?? ''))
+        )
+      }
 
       if (ownProfile?.manager_id) {
         setRecipientId(ownProfile.manager_id)

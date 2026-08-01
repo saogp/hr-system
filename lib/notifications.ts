@@ -6,6 +6,7 @@ export const NOTIFICATION_TYPES = {
   si_fra_submitted: 'Ny si fra-melding',
   review_completed: 'Medarbeidersamtale fullført',
   uniform_confirmed: 'Personalutstyr bekreftet',
+  cleaning_daily_summary: 'Renhold – daglig oppsummering',
 } as const
 
 export type NotificationType = keyof typeof NOTIFICATION_TYPES

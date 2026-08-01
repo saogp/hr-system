@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 type Person = { id: string; full_name: string | null; email: string | null }
+type Company = { id: string; name: string }
 type Row = { type: string; size: string; quantity: number; cardNumber: string; cardPassword: string }
 
 const emptyRow = (): Row => ({ type: UNIFORM_TYPES[0], size: 'Ingen', quantity: 1, cardNumber: '', cardPassword: '' })
@@ -35,6 +36,9 @@ export default function NewUniformIssuancePage() {
   const [people, setPeople] = useState<Person[]>([])
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [profileCompanyMap, setProfileCompanyMap] = useState<Record<string, string[]>>({})
+  const [selectedCompanyId, setSelectedCompanyId] = useState('')
   const [rows, setRows] = useState<Row[]>([emptyRow()])
   const [sendEmail, setSendEmail] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -65,11 +69,36 @@ export default function NewUniformIssuancePage() {
         .order('full_name')
       if (peopleData) setPeople(peopleData)
 
+      const { data: companiesData } = await supabase.from('companies').select('id, name').order('name')
+      if (companiesData) setCompanies(companiesData)
+
+      const { data: pcData } = await supabase.from('profile_companies').select('profile_id, company_id')
+      if (pcData) {
+        const map: Record<string, string[]> = {}
+        for (const row of pcData) {
+          map[row.profile_id] = [...(map[row.profile_id] ?? []), row.company_id]
+        }
+        setProfileCompanyMap(map)
+      }
+
       setLoading(false)
     }
 
     load()
   }, [router])
+
+  const employeeCompanies = (profileCompanyMap[selectedEmployeeId] ?? [])
+    .map((cid) => companies.find((c) => c.id === cid))
+    .filter((c): c is Company => !!c)
+
+  useEffect(() => {
+    if (employeeCompanies.length === 1) {
+      setSelectedCompanyId(employeeCompanies[0].id)
+    } else {
+      setSelectedCompanyId('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEmployeeId])
 
   const updateRow = (index: number, patch: Partial<Row>) => {
     setRows(prev => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)))
@@ -91,6 +120,10 @@ export default function NewUniformIssuancePage() {
       setFormError('Velg en ansatt.')
       return
     }
+    if (employeeCompanies.length > 1 && !selectedCompanyId) {
+      setFormError('Denne ansatte jobber hos flere bedrifter — velg hvilken bedrift utleveringen gjelder.')
+      return
+    }
     if (rows.length === 0) {
       setFormError('Legg til minst ett utstyr.')
       return
@@ -110,6 +143,7 @@ export default function NewUniformIssuancePage() {
       },
       body: JSON.stringify({
         profileId: selectedEmployeeId,
+        companyId: selectedCompanyId || null,
         items: rows,
         sendEmail,
       }),
@@ -164,6 +198,22 @@ export default function NewUniformIssuancePage() {
             </SelectContent>
           </Select>
         </div>
+
+        {employeeCompanies.length > 1 && (
+          <div className="flex flex-col gap-1.5">
+            <Label>Bedrift</Label>
+            <Select value={selectedCompanyId} onValueChange={(val) => val && setSelectedCompanyId(val)}>
+              <SelectTrigger className="w-full h-9">
+                <SelectValue placeholder="Velg bedrift" />
+              </SelectTrigger>
+              <SelectContent>
+                {employeeCompanies.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <div className="flex flex-col gap-2">
           <Label>Utstyr</Label>

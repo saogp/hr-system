@@ -1,16 +1,15 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { MoreHorizontal, FileText, MessageSquare, ClipboardList, Settings, Plus, X, SprayCan, Download, Mail, ChevronDown, ChevronUp } from 'lucide-react'
+import { MoreHorizontal, FileText, MessageSquare, ClipboardList, Settings, SprayCan, Download } from 'lucide-react'
 import { downloadGroupQrCode } from '@/lib/cleaning-qr'
-import type { CleaningRecipient } from '@/lib/cleaning'
 import { Card, CardContent } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { NOTIFICATION_TYPES, type NotificationType, type NotificationPrefs } from '@/lib/notifications'
-import { AUDIT_ACTIONS, type AuditAction } from '@/lib/audit-log'
+import { AUDIT_ACTIONS, AUDIT_FIELD_LABELS, type AuditAction } from '@/lib/audit-log'
 import { Switch } from '@/components/ui/switch'
 import { SURVEY_TEMPLATES } from '@/lib/survey-templates'
 import { PageHeaderSkeleton, CardGridSkeleton } from '@/components/ui/loading-skeletons'
@@ -125,14 +124,9 @@ export default function SettingsPage() {
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [cleaningRecipients, setCleaningRecipients] = useState<CleaningRecipient[]>([])
   const [cleaningGroups, setCleaningGroups] = useState<CleaningGroupRow[]>([])
   const [cleaningGroupDeleteId, setCleaningGroupDeleteId] = useState<string | null>(null)
   const [deletingCleaningGroup, setDeletingCleaningGroup] = useState(false)
-  const [newCleaningRecipientEmail, setNewCleaningRecipientEmail] = useState('')
-  const [sendingCleaningSummary, setSendingCleaningSummary] = useState(false)
-  const [cleaningSummaryMessage, setCleaningSummaryMessage] = useState('')
-  const [renholdVarslerExpanded, setRenholdVarslerExpanded] = useState(false)
 
   const [editTarget, setEditTarget] = useState<Company | null>(null)
   const [editName, setEditName] = useState('')
@@ -163,6 +157,8 @@ export default function SettingsPage() {
   const [broadcastSubject, setBroadcastSubject] = useState('')
   const [broadcastMessage, setBroadcastMessage] = useState('')
   const [broadcastPdf, setBroadcastPdf] = useState<File | null>(null)
+  const [isDraggingPdf, setIsDraggingPdf] = useState(false)
+  const pdfInputRef = useRef<HTMLInputElement>(null)
   const [sendingBroadcast, setSendingBroadcast] = useState(false)
   const [broadcastError, setBroadcastError] = useState('')
   const [broadcastSuccess, setBroadcastSuccess] = useState('')
@@ -263,12 +259,6 @@ export default function SettingsPage() {
           .neq('id', user.id)
           .order('full_name')
         if (employeesData) setBroadcastEmployees(employeesData)
-
-        const { data: recipientsData } = await supabase
-          .from('cleaning_notification_recipients')
-          .select('id, email')
-          .order('email')
-        if (recipientsData) setCleaningRecipients(recipientsData)
 
         const { data: cleaningGroupsData } = await supabase
           .from('cleaning_room_groups')
@@ -571,52 +561,35 @@ export default function SettingsPage() {
     setSendingBroadcast(false)
   }
 
-  const handleAddCleaningRecipient = async () => {
-    if (!newCleaningRecipientEmail.trim()) return
-    const { error } = await supabase.from('cleaning_notification_recipients').insert({ email: newCleaningRecipientEmail.trim() })
-    if (!error) {
-      setNewCleaningRecipientEmail('')
-      const { data } = await supabase.from('cleaning_notification_recipients').select('id, email').order('email')
-      if (data) setCleaningRecipients(data)
-    }
-  }
-
-  const handleRemoveCleaningRecipient = async (id: string) => {
-    await supabase.from('cleaning_notification_recipients').delete().eq('id', id)
-    setCleaningRecipients((prev) => prev.filter((r) => r.id !== id))
-  }
-
-  const handleSendCleaningSummaryNow = async () => {
-    setSendingCleaningSummary(true)
-    setCleaningSummaryMessage('')
-
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/cleaning/daily-summary', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
-    })
-    const result = await res.json().catch(() => ({}))
-
-    setCleaningSummaryMessage(res.ok ? (result.message || 'Sendt.') : (result.error || 'Noe gikk galt.'))
-    setSendingCleaningSummary(false)
-  }
-
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
   const formatDateTime = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
+  const formatAuditAction = (entry: AuditLogRow) => {
+    const d = entry.details ?? {}
+    switch (entry.action) {
+      case 'profile_field_updated': {
+        const label = AUDIT_FIELD_LABELS[String(d.field)] ?? String(d.field)
+        return `endret ${label}`
+      }
+      case 'company_assigned':
+        return `la til bedriften ${d.company_name ?? '—'}`
+      case 'company_removed':
+        return `fjernet bedriften ${d.company_name ?? '—'}`
+      default:
+        return AUDIT_ACTIONS[entry.action]?.toLowerCase() ?? entry.action
+    }
+  }
+
   const formatAuditDetail = (entry: AuditLogRow) => {
     const d = entry.details ?? {}
     switch (entry.action) {
       case 'profile_field_updated':
-        return `${d.field}: ${d.old_value ?? '—'} → ${d.new_value ?? '—'}`
+        return `${d.old_value ?? '—'} → ${d.new_value ?? '—'}`
       case 'employee_deactivated':
         return `Sluttdato: ${d.end_date ? formatDate(String(d.end_date)) : '—'}`
-      case 'company_assigned':
-      case 'company_removed':
-        return String(d.company_name ?? '')
       default:
         return ''
     }
@@ -647,7 +620,7 @@ export default function SettingsPage() {
         <TabsList>
           {isAdmin && <TabsTrigger value="maler">Maler</TabsTrigger>}
           {isAdmin && <TabsTrigger value="bedrifter">Bedrifter</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="meldinger">Meldinger</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="meldinger">Felles mail</TabsTrigger>}
           <TabsTrigger value="varsler">Varsler</TabsTrigger>
           {isRealAdmin && <TabsTrigger value="endringshistorikk">Endringshistorikk</TabsTrigger>}
         </TabsList>
@@ -689,7 +662,7 @@ export default function SettingsPage() {
                   <span className="text-sm truncate">{NOTIFICATION_TYPES[type]}</span>
                   <div className="flex justify-center">
                     <Switch
-                      checked={notificationPrefs[type]?.email !== false}
+                      checked={notificationPrefs[type]?.email === true}
                       onCheckedChange={(val) => handleToggleNotificationPref(type, 'email', val)}
                     />
                   </div>
@@ -703,84 +676,11 @@ export default function SettingsPage() {
               ))}
             </div>
 
-            {isAdmin && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setRenholdVarslerExpanded((v) => !v)}
-                  className="flex w-full items-center gap-3 px-4 py-2.5 border-t border-border bg-muted/50 text-left"
-                >
-                  <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-orange/15">
-                    <SprayCan className="size-3.5 text-brand-navy dark:text-brand-orange" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">Renhold – daglig oppsummering</p>
-                    <p className="text-xs text-muted-foreground">
-                      E-post om hvilke rom som ikke er rengjort i dag, til valgte mottakere.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <Mail className="size-3.5" />
-                      {cleaningRecipients.length}
-                    </div>
-                    <Switch checked disabled title="Kan ikke slås av av mottakerne selv" />
-                    {renholdVarslerExpanded ? (
-                      <ChevronUp className="size-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="size-4 text-muted-foreground" />
-                    )}
-                  </div>
-                </button>
-
-                {renholdVarslerExpanded && (
-                  <div className="p-4 space-y-3 border-t border-border">
-                    <div className="flex flex-col gap-2">
-                      {cleaningRecipients.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">Ingen mottakere lagt til enda.</p>
-                      ) : (
-                        cleaningRecipients.map((r) => (
-                          <div key={r.id} className="flex items-center justify-between gap-2 rounded-md border border-input p-2">
-                            <span className="text-sm truncate">{r.email}</span>
-                            <Button variant="ghost" size="icon-sm" onClick={() => handleRemoveCleaningRecipient(r.id)}>
-                              <X />
-                              <span className="sr-only">Fjern</span>
-                            </Button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="email"
-                        placeholder="navn@firma.no"
-                        value={newCleaningRecipientEmail}
-                        onChange={(e) => setNewCleaningRecipientEmail(e.target.value)}
-                      />
-                      <Button variant="outline" onClick={handleAddCleaningRecipient} className="shrink-0">
-                        <Plus />
-                        Legg til
-                      </Button>
-                    </div>
-
-                    {cleaningSummaryMessage && <p className="text-sm text-muted-foreground">{cleaningSummaryMessage}</p>}
-                    <Button
-                      onClick={handleSendCleaningSummaryNow}
-                      disabled={sendingCleaningSummary || cleaningRecipients.length === 0}
-                      variant="outline"
-                    >
-                      {sendingCleaningSummary ? 'Sender...' : 'Send oppsummering nå'}
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
           </div>
         </TabsContent>
 
         {isRealAdmin && (
-        <TabsContent value="endringshistorikk" className="pt-4 max-w-2xl">
+        <TabsContent value="endringshistorikk" className="pt-4">
           <p className="text-sm text-muted-foreground mb-3">
             Endringer ledere og admin gjør på ansatte — feltoppdateringer, aktivering/deaktivering og bedriftstilknytning.
           </p>
@@ -794,15 +694,17 @@ export default function SettingsPage() {
                     <p className="text-sm">
                       <span className="font-medium">{auditActors[entry.actor_id] || '—'}</span>
                       {' '}
-                      <span className="text-muted-foreground">{AUDIT_ACTIONS[entry.action]?.toLowerCase() ?? entry.action}</span>
+                      <span className="text-muted-foreground">{formatAuditAction(entry)}</span>
                       {entry.details?.target_name ? (
                         <>
-                          {': '}
+                          {' for '}
                           <span className="font-medium">{String(entry.details.target_name)}</span>
                         </>
                       ) : null}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">{formatAuditDetail(entry)}</p>
+                    {formatAuditDetail(entry) && (
+                      <p className="text-xs text-muted-foreground truncate">{formatAuditDetail(entry)}</p>
+                    )}
                   </div>
                   <span className="text-xs text-muted-foreground shrink-0">{formatDateTime(entry.created_at)}</span>
                 </div>
@@ -972,12 +874,44 @@ export default function SettingsPage() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="broadcast-pdf">PDF-vedlegg (valgfritt)</Label>
-              <Input
-                id="broadcast-pdf"
-                type="file"
-                accept="application/pdf"
-                onChange={(e) => setBroadcastPdf(e.target.files?.[0] ?? null)}
-              />
+              <div
+                onClick={() => pdfInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); setIsDraggingPdf(true) }}
+                onDragLeave={() => setIsDraggingPdf(false)}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  setIsDraggingPdf(false)
+                  const file = e.dataTransfer.files?.[0]
+                  if (file && file.type === 'application/pdf') setBroadcastPdf(file)
+                }}
+                className={`flex flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed p-6 text-center cursor-pointer transition-colors ${
+                  isDraggingPdf ? 'border-brand-orange bg-brand-orange/5' : 'border-input hover:bg-muted/50'
+                }`}
+              >
+                {broadcastPdf ? (
+                  <>
+                    <p className="text-sm font-medium truncate max-w-full">{broadcastPdf.name}</p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => { e.stopPropagation(); setBroadcastPdf(null) }}
+                    >
+                      Fjern
+                    </Button>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Dra inn en PDF, eller klikk for å laste opp</p>
+                )}
+                <input
+                  ref={pdfInputRef}
+                  id="broadcast-pdf"
+                  type="file"
+                  accept="application/pdf"
+                  className="hidden"
+                  onChange={(e) => setBroadcastPdf(e.target.files?.[0] ?? null)}
+                />
+              </div>
             </div>
             <Button
               type="submit"

@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
 import { needsCardCredentials } from '@/lib/uniform-items'
 import { renderEmailHtml, getEmailFrom, getPlainTextFooter } from '@/lib/email-template'
-import { callerSharesCompanyWith } from '@/lib/company-access'
+import { callerSharesCompanyWith, callerHasCompanyAccess } from '@/lib/company-access'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: verified.error }, { status: verified.status })
   }
 
-  const { profileId, items, sendEmail } = await request.json()
+  const { profileId, companyId, items, sendEmail } = await request.json()
 
   if (!profileId || !Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: 'Velg ansatt og minst ett utstyr.' }, { status: 400 })
@@ -38,14 +38,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Fant ikke ansatt.' }, { status: 404 })
   }
 
-  if (!(await callerSharesCompanyWith(verified.user.id, profileId))) {
-    return NextResponse.json({ error: 'Du har ikke tilgang til denne ansatte.' }, { status: 403 })
+  if (
+    !(await callerSharesCompanyWith(verified.user.id, profileId)) ||
+    !(await callerHasCompanyAccess(verified.user.id, companyId))
+  ) {
+    return NextResponse.json({ error: 'Du har ikke tilgang til denne ansatte/bedriften.' }, { status: 403 })
   }
 
   const { data: issuance, error } = await supabaseAdmin
     .from('uniform_issuances')
     .insert({
       profile_id: profileId,
+      company_id: companyId || null,
       created_by: verified.user.id,
       items: preparedItems,
       send_email: Boolean(sendEmail),

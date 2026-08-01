@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -21,16 +21,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { MoreHorizontal } from 'lucide-react'
@@ -50,9 +40,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { getAdminTokens, extractChoiceFields, usesCompanyTokens } from '@/lib/contract-tokens'
-import { UNIFORM_TYPES, UNIFORM_SIZES, needsCardCredentials } from '@/lib/uniform-items'
-import { useToastManager } from '@/components/ui/toast'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 import { FilterButton, FilterField, FilterChips } from '@/components/ui/filter-button'
 
@@ -67,20 +54,21 @@ type Person = {
   is_active: boolean
 }
 
-type Template = {
-  id: string
-  name: string
-  content: string
-}
-
 type Company = {
   id: string
   name: string
 }
 
-type UniformRow = { type: string; size: string; quantity: number; cardNumber: string; cardPassword: string }
-
-const emptyUniformRow = (): UniformRow => ({ type: UNIFORM_TYPES[0], size: 'Ingen', quantity: 1, cardNumber: '', cardPassword: '' })
+function getRoleLabel(role: string) {
+  switch (role) {
+    case 'admin':
+      return 'Admin'
+    case 'manager':
+      return 'Leder'
+    default:
+      return 'Ansatt'
+  }
+}
 
 function getInitials(name: string) {
   const parts = name.split(' ').filter(Boolean)
@@ -91,7 +79,6 @@ function getInitials(name: string) {
 
 export default function PeoplePage() {
   const router = useRouter()
-  const toastManager = useToastManager()
   const [people, setPeople] = useState<Person[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [isRealAdmin, setIsRealAdmin] = useState(false)
@@ -103,25 +90,7 @@ export default function PeoplePage() {
   const [companyFilter, setCompanyFilter] = useState('all')
   const [profileCompanies, setProfileCompanies] = useState<Record<string, string[]>>({})
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-
-  const [addOpen, setAddOpen] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [newEmail, setNewEmail] = useState('')
-  const [newEmployeeCompanyIds, setNewEmployeeCompanyIds] = useState<string[]>([])
-  const [inviting, setInviting] = useState(false)
-  const [inviteError, setInviteError] = useState('')
-
-  const [templates, setTemplates] = useState<Template[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
-
-  const [sendContract, setSendContract] = useState(false)
-  const [contractTemplateId, setContractTemplateId] = useState('')
-  const [contractCompanyId, setContractCompanyId] = useState('')
-  const [contractAdminFields, setContractAdminFields] = useState<Record<string, string>>({})
-
-  const [sendUniform, setSendUniform] = useState(false)
-  const [uniformRows, setUniformRows] = useState<UniformRow[]>([emptyUniformRow()])
-  const [uniformSendEmail, setUniformSendEmail] = useState(false)
 
   const [deactivateTargetId, setDeactivateTargetId] = useState<string | null>(null)
   const [deactivateEndDate, setDeactivateEndDate] = useState('')
@@ -151,35 +120,27 @@ export default function PeoplePage() {
     setCurrentUserId(user.id)
 
     if (admin) {
-      const { data: profilesData } = await supabase
-        .from('profiles')
-        .select('id, full_name, title, role, email, end_date, avatar_url, is_active')
+      const statusPromise = supabase.auth.getSession().then(({ data: { session } }) =>
+        fetch('/api/employees', { headers: { Authorization: `Bearer ${session?.access_token ?? ''}` } })
+          .then((res) => (res.ok ? res.json() : null))
+          .catch(() => null)
+      )
+
+      const [
+        { data: profilesData },
+        statusResult,
+        { data: companiesData },
+        { data: pcData },
+      ] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, title, role, email, end_date, avatar_url, is_active'),
+        statusPromise,
+        supabase.from('companies').select('id, name').order('name'),
+        supabase.from('profile_companies').select('profile_id, company_id'),
+      ])
+
       if (profilesData) setPeople(profilesData)
-
-      const { data: { session } } = await supabase.auth.getSession()
-      const statusRes = await fetch('/api/employees', {
-        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
-      })
-      if (statusRes.ok) {
-        const { statuses } = await statusRes.json()
-        setInviteStatuses(statuses ?? {})
-      }
-
-      const { data: templatesData } = await supabase
-        .from('contract_templates')
-        .select('id, name, content')
-        .order('created_at', { ascending: false })
-      if (templatesData) setTemplates(templatesData)
-
-      const { data: companiesData } = await supabase
-        .from('companies')
-        .select('id, name')
-        .order('name')
+      if (statusResult) setInviteStatuses(statusResult.statuses ?? {})
       if (companiesData) setCompanies(companiesData)
-
-      const { data: pcData } = await supabase
-        .from('profile_companies')
-        .select('profile_id, company_id')
       if (pcData) {
         const map: Record<string, string[]> = {}
         for (const row of pcData) {
@@ -270,100 +231,6 @@ export default function PeoplePage() {
     setPage(1)
   }, [search, showInactive, roleFilter, companyFilter])
 
-  const myCompanyIds = currentUserId ? (profileCompanies[currentUserId] ?? []) : []
-  const employeeCompanyOptions = myCompanyIds.length > 0 ? companies.filter(c => myCompanyIds.includes(c.id)) : companies
-
-  const selectedTemplate = templates.find(t => t.id === contractTemplateId) ?? null
-  const contractAdminTokens = selectedTemplate ? getAdminTokens(selectedTemplate.content) : []
-  const contractChoiceFields = selectedTemplate ? extractChoiceFields(selectedTemplate.content) : []
-  const contractNeedsCompany = selectedTemplate ? usesCompanyTokens(selectedTemplate.content) : false
-
-  const updateUniformRow = (index: number, patch: Partial<UniformRow>) => {
-    setUniformRows(prev => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)))
-  }
-
-  const resetAddForm = () => {
-    setNewName('')
-    setNewEmail('')
-    setNewEmployeeCompanyIds([])
-    setSendContract(false)
-    setContractTemplateId('')
-    setContractCompanyId('')
-    setContractAdminFields({})
-    setSendUniform(false)
-    setUniformRows([emptyUniformRow()])
-    setUniformSendEmail(false)
-  }
-
-  const handleInvite = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setInviting(true)
-    setInviteError('')
-
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/employees', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session?.access_token ?? ''}`,
-      },
-      body: JSON.stringify({
-        email: newEmail,
-        full_name: newName,
-      }),
-    })
-    const result = await res.json()
-
-    if (!res.ok) {
-      setInviteError(result.error || 'Noe gikk galt.')
-      setInviting(false)
-      return
-    }
-
-    const newProfileId: string | undefined = result.user?.id
-
-    if (newProfileId && newEmployeeCompanyIds.length > 0) {
-      const { error: companyLinkError } = await supabase
-        .from('profile_companies')
-        .insert(newEmployeeCompanyIds.map((companyId) => ({ profile_id: newProfileId, company_id: companyId })))
-      if (companyLinkError) {
-        setInviteError('Ansatt opprettet, men kunne ikke knytte bedrift. Legg til bedrift manuelt på profilen.')
-        setInviting(false)
-        await load()
-        return
-      }
-    }
-
-    if (newProfileId && sendContract && contractTemplateId) {
-      await supabase.from('contracts').insert({
-        template_id: contractTemplateId,
-        profile_id: newProfileId,
-        company_id: contractNeedsCompany ? contractCompanyId : null,
-        admin_fields: contractAdminFields,
-      })
-    }
-
-    if (newProfileId && sendUniform && uniformRows.length > 0) {
-      await fetch('/api/uniform-issuance', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token ?? ''}`,
-        },
-        body: JSON.stringify({
-          profileId: newProfileId,
-          items: uniformRows,
-          sendEmail: uniformSendEmail,
-        }),
-      })
-    }
-
-    setAddOpen(false)
-    resetAddForm()
-    load()
-    setInviting(false)
-    toastManager.add({ title: 'Ansatt lagt til', description: 'Invitasjon sendt på e-post.' })
-  }
 
   if (loading) {
     return <ListPageSkeleton />
@@ -448,7 +315,7 @@ export default function PeoplePage() {
             >
               {showInactive ? 'Aktive ansatte' : 'Inaktive ansatte'}
             </Button>
-            <Button size="lg" onClick={() => setAddOpen(true)} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
+            <Button size="lg" render={<Link href="/people/new" />} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
               Legg til ansatt
             </Button>
           </div>
@@ -471,7 +338,9 @@ export default function PeoplePage() {
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-base md:text-sm truncate">{p.full_name || '—'}</p>
-                <p className="text-xs text-muted-foreground truncate">{p.title || '—'}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {p.title || '—'}{isAdmin ? ` · ${getRoleLabel(p.role)}` : ''}
+                </p>
               </div>
               {!p.is_active && <Badge variant="secondary">Inaktiv</Badge>}
               {isAdmin && (
@@ -515,275 +384,6 @@ export default function PeoplePage() {
       </div>
 
       <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
-
-      <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) resetAddForm() }}>
-        <DialogContent className="max-h-[85vh] flex flex-col overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Legg til ansatt</DialogTitle>
-            <DialogDescription>
-              Sender en e-postinvitasjon der den ansatte kan sette sitt eget passord.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleInvite} className="flex flex-col gap-4 min-h-0">
-            <div className="thin-scrollbar flex-1 min-h-0 overflow-y-auto -mx-4 px-4 flex flex-col gap-4">
-              {inviteError && (
-                <Alert variant="destructive">
-                  <AlertDescription>{inviteError}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="new-name">Navn</Label>
-                <Input
-                  id="new-name"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="new-email">E-post</Label>
-                <Input
-                  id="new-email"
-                  type="email"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <Label>Bedrift(er)</Label>
-                <div className="flex flex-col gap-2 rounded-md border border-input p-3">
-                  {employeeCompanyOptions.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Ingen bedrifter tilgjengelig.</p>
-                  ) : (
-                    employeeCompanyOptions.map((c) => {
-                      const checkboxId = `new-employee-company-${c.id}`
-                      const checked = newEmployeeCompanyIds.includes(c.id)
-                      return (
-                        <div key={c.id} className="flex items-center gap-2 text-sm">
-                          <Checkbox
-                            id={checkboxId}
-                            checked={checked}
-                            onCheckedChange={(val) => {
-                              setNewEmployeeCompanyIds((prev) =>
-                                val === true ? [...prev, c.id] : prev.filter((id) => id !== c.id)
-                              )
-                            }}
-                          />
-                          <Label htmlFor={checkboxId} className="font-normal">{c.name}</Label>
-                        </div>
-                      )
-                    })
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="send-contract"
-                  checked={sendContract}
-                  onCheckedChange={(val) => setSendContract(val === true)}
-                />
-                <Label htmlFor="send-contract" className="font-normal">
-                  Send arbeidskontrakt samtidig
-                </Label>
-              </div>
-
-              {sendContract && (
-                <div className="flex flex-col gap-4 rounded-md border border-input p-3">
-                  <div className="flex flex-col gap-1.5">
-                    <Label>Mal</Label>
-                    <Select
-                      value={contractTemplateId}
-                      onValueChange={(val) => {
-                        if (!val) return
-                        setContractTemplateId(val)
-                        const template = templates.find(t => t.id === val)
-                        const defaults: Record<string, string> = {}
-                        if (template) {
-                          for (const f of extractChoiceFields(template.content)) {
-                            defaults[f.key] = f.optionA
-                          }
-                        }
-                        setContractAdminFields(defaults)
-                      }}
-                    >
-                      <SelectTrigger className="w-full h-9">
-                        <SelectValue placeholder="Velg mal" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {templates.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {contractNeedsCompany && (
-                    <div className="flex flex-col gap-1.5">
-                      <Label>Bedrift</Label>
-                      <Select value={contractCompanyId} onValueChange={(val) => val && setContractCompanyId(val)}>
-                        <SelectTrigger className="w-full h-9">
-                          <SelectValue placeholder="Velg bedrift" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {companies.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {contractChoiceFields.map((f) => (
-                    <div key={f.key} className="flex flex-col gap-1.5">
-                      <Label className="capitalize">{f.key}</Label>
-                      <RadioGroup
-                        value={contractAdminFields[f.key] ?? f.optionA}
-                        onValueChange={(val) => setContractAdminFields(prev => ({ ...prev, [f.key]: val }))}
-                      >
-                        <div className="flex items-center gap-2">
-                          <RadioGroupItem value={f.optionA} id={`new-choice-${f.key}-a`} />
-                          <Label htmlFor={`new-choice-${f.key}-a`} className="font-normal">{f.optionA}</Label>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <RadioGroupItem value={f.optionB} id={`new-choice-${f.key}-b`} />
-                          <Label htmlFor={`new-choice-${f.key}-b`} className="font-normal">{f.optionB}</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-                  ))}
-
-                  {contractAdminTokens.map((token) => (
-                    <div key={token} className="flex flex-col gap-1.5">
-                      <Label htmlFor={`new-field-${token}`} className="capitalize">{token}</Label>
-                      <Input
-                        id={`new-field-${token}`}
-                        type={token === 'tiltredelsesdato' ? 'date' : 'text'}
-                        value={contractAdminFields[token] ?? ''}
-                        onChange={(e) => setContractAdminFields(prev => ({ ...prev, [token]: e.target.value }))}
-                        required
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="send-uniform"
-                  checked={sendUniform}
-                  onCheckedChange={(val) => setSendUniform(val === true)}
-                />
-                <Label htmlFor="send-uniform" className="font-normal">
-                  Send uniform/utstyr samtidig
-                </Label>
-              </div>
-
-              {sendUniform && (
-                <div className="flex flex-col gap-3 rounded-md border border-input p-3">
-                  {uniformRows.map((row, i) => {
-                    const isCard = needsCardCredentials(row.type)
-                    return (
-                      <div key={i} className="flex items-center gap-2 flex-wrap">
-                        <Select value={row.type} onValueChange={(val) => val && updateUniformRow(i, { type: val })}>
-                          <SelectTrigger className="w-36 h-9 shrink-0">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {UNIFORM_TYPES.map((t) => (
-                              <SelectItem key={t} value={t}>{t}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {isCard ? (
-                          <>
-                            <Input
-                              placeholder="Kortnummer"
-                              value={row.cardNumber}
-                              onChange={(e) => updateUniformRow(i, { cardNumber: e.target.value })}
-                              className="w-32 h-9 shrink-0"
-                            />
-                            <Input
-                              placeholder="Passord/kode"
-                              value={row.cardPassword}
-                              onChange={(e) => updateUniformRow(i, { cardPassword: e.target.value })}
-                              className="w-32 h-9 shrink-0"
-                            />
-                          </>
-                        ) : (
-                          <>
-                            <Select value={row.size} onValueChange={(val) => val && updateUniformRow(i, { size: val })}>
-                              <SelectTrigger className="w-24 h-9 shrink-0">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {UNIFORM_SIZES.map((s) => (
-                                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Input
-                              type="number"
-                              min={1}
-                              value={row.quantity}
-                              onChange={(e) => updateUniformRow(i, { quantity: Math.max(1, Number(e.target.value)) })}
-                              className="w-16 h-9 shrink-0"
-                            />
-                          </>
-                        )}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setUniformRows(prev => prev.filter((_, idx) => idx !== i))}
-                          disabled={uniformRows.length === 1}
-                        >
-                          Fjern
-                        </Button>
-                      </div>
-                    )
-                  })}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-fit"
-                    onClick={() => setUniformRows(prev => [...prev, emptyUniformRow()])}
-                  >
-                    + Legg til utstyr
-                  </Button>
-
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="uniform-send-email"
-                      checked={uniformSendEmail}
-                      onCheckedChange={(val) => setUniformSendEmail(val === true)}
-                    />
-                    <Label htmlFor="uniform-send-email" className="font-normal">
-                      Send e-post og be om signatur
-                    </Label>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="submit"
-                disabled={inviting || newEmployeeCompanyIds.length === 0}
-                className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
-              >
-                {inviting ? 'Sender invitasjon...' : 'Send invitasjon'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={deactivateTargetId !== null} onOpenChange={(open) => { if (!open) { setDeactivateTargetId(null); setDeactivateEndDate('') } }}>
         <DialogContent>

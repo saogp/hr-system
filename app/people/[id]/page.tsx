@@ -135,6 +135,7 @@ function PersonDetailPageInner() {
   const [allProfiles, setAllProfiles] = useState<{ id: string; full_name: string | null; email: string | null; role: string }[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [companyIds, setCompanyIds] = useState<string[]>([])
+  const [companyEmployeeNumbers, setCompanyEmployeeNumbers] = useState<Record<string, string>>({})
   const [inviteStatus, setInviteStatus] = useState<InviteStatus | null>(null)
   const [contracts, setContracts] = useState<PersonContract[]>([])
   const [loading, setLoading] = useState(true)
@@ -169,49 +170,54 @@ function PersonDetailPageInner() {
       const viewingSelf = user.id === id
 
       if (admin || viewingSelf) {
-        const { data: fullData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', id)
-          .single()
+        const statusPromise = admin
+          ? supabase.auth.getSession().then(({ data: { session } }) =>
+              fetch('/api/employees', { headers: { Authorization: `Bearer ${session?.access_token ?? ''}` } })
+                .then((res) => (res.ok ? res.json() : null))
+                .catch(() => null)
+            )
+          : Promise.resolve(null)
+
+        const [
+          { data: fullData },
+          { data: profilesData },
+          { data: companiesData },
+          { data: pcData },
+          { data: contractsData },
+          statusResult,
+        ] = await Promise.all([
+          supabase.from('profiles').select('*').eq('id', id).single(),
+          supabase.from('profiles').select('id, full_name, email, role').order('full_name'),
+          supabase.from('companies').select('*'),
+          supabase.from('profile_companies').select('company_id, employee_number').eq('profile_id', id),
+          admin
+            ? supabase
+                .from('contracts')
+                .select('id, sent_at, employee_signed_at, admin_signed_at, template_id, contract_templates!contracts_template_id_fkey(name)')
+                .eq('profile_id', id)
+                .order('sent_at', { ascending: false })
+            : Promise.resolve({ data: null }),
+          statusPromise,
+        ])
 
         if (!fullData) {
           router.replace('/people')
           return
         }
         setPerson(fullData)
-
-        const { data: profilesData } = await supabase
-          .from('profiles')
-          .select('id, full_name, email, role')
-          .order('full_name')
         if (profilesData) setAllProfiles(profilesData)
-
-        const { data: companiesData } = await supabase.from('companies').select('*')
         if (companiesData) setCompanies(companiesData)
-
-        const { data: pcData } = await supabase
-          .from('profile_companies')
-          .select('company_id')
-          .eq('profile_id', id)
-        if (pcData) setCompanyIds(pcData.map((r) => r.company_id))
-
-        if (admin) {
-          const { data: contractsData } = await supabase
-            .from('contracts')
-            .select('id, sent_at, employee_signed_at, admin_signed_at, template_id, contract_templates!contracts_template_id_fkey(name)')
-            .eq('profile_id', id)
-            .order('sent_at', { ascending: false })
-          if (contractsData) setContracts(contractsData as unknown as PersonContract[])
-
-          const { data: { session } } = await supabase.auth.getSession()
-          const statusRes = await fetch('/api/employees', {
-            headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
-          })
-          if (statusRes.ok) {
-            const { statuses } = await statusRes.json()
-            setInviteStatus(statuses?.[id as string] ?? null)
+        if (pcData) {
+          setCompanyIds(pcData.map((r) => r.company_id))
+          const numMap: Record<string, string> = {}
+          for (const r of pcData) {
+            if (r.employee_number != null) numMap[r.company_id] = String(r.employee_number)
           }
+          setCompanyEmployeeNumbers(numMap)
+        }
+        if (admin) {
+          if (contractsData) setContracts(contractsData as unknown as PersonContract[])
+          if (statusResult) setInviteStatus(statusResult.statuses?.[id as string] ?? null)
         }
       } else {
         const { data } = await supabase.rpc('get_people_directory')
@@ -257,11 +263,17 @@ function PersonDetailPageInner() {
   const handleToggleCompany = async (companyId: string, checked: boolean) => {
     const companyName = companies.find((c) => c.id === companyId)?.name
     if (checked) {
+      const prefillNumber = companyName?.toLowerCase().includes('peppes') ? '318' : ''
       const { error } = await supabase
         .from('profile_companies')
-        .insert({ profile_id: id, company_id: companyId })
+        .insert({
+          profile_id: id,
+          company_id: companyId,
+          employee_number: prefillNumber ? Number(prefillNumber) : null,
+        })
       if (!error) {
         setCompanyIds(prev => [...prev, companyId])
+        if (prefillNumber) setCompanyEmployeeNumbers(prev => ({ ...prev, [companyId]: prefillNumber }))
         if (viewerId) logAudit(viewerId, 'company_assigned', id, { company_name: companyName, target_name: person?.full_name ?? person?.email })
       }
     } else {
@@ -272,9 +284,23 @@ function PersonDetailPageInner() {
         .eq('company_id', companyId)
       if (!error) {
         setCompanyIds(prev => prev.filter(c => c !== companyId))
+        setCompanyEmployeeNumbers(prev => {
+          const next = { ...prev }
+          delete next[companyId]
+          return next
+        })
         if (viewerId) logAudit(viewerId, 'company_removed', id, { company_name: companyName, target_name: person?.full_name ?? person?.email })
       }
     }
+  }
+
+  const handleCompanyEmployeeNumberChange = async (companyId: string, value: string) => {
+    setCompanyEmployeeNumbers(prev => ({ ...prev, [companyId]: value }))
+    await supabase
+      .from('profile_companies')
+      .update({ employee_number: value ? Number(value) : null })
+      .eq('profile_id', id)
+      .eq('company_id', companyId)
   }
 
   const handleResend = async () => {
@@ -424,10 +450,6 @@ function PersonDetailPageInner() {
           <div className="py-3">
             <p className="text-xs text-muted-foreground">Telefonnummer</p>
             <p className="text-base md:text-sm">{directoryPerson.phone || '—'}</p>
-          </div>
-          <div className="py-3">
-            <p className="text-xs text-muted-foreground">Ansattnummer</p>
-            <p className="text-base md:text-sm">{directoryPerson.employee_number ?? '—'}</p>
           </div>
         </div>
       </div>
@@ -668,8 +690,6 @@ function PersonDetailPageInner() {
           </CardHeader>
           <CardContent className="px-4">
             <div className="divide-y divide-border">
-              {renderRow('Ansattnummer', 'employee_number', person.employee_number, person.employee_number != null ? String(person.employee_number) : '—', 'number')}
-
               <div className="py-3">
                 <p className="text-xs text-muted-foreground mb-1">Stilling</p>
                 {editing && isAdmin ? (
@@ -798,7 +818,7 @@ function PersonDetailPageInner() {
               )}
 
               <div className="py-3">
-                <p className="text-xs text-muted-foreground mb-1">Bedrifter</p>
+                <p className="text-xs text-muted-foreground mb-1">Bedrifter og ansattnummer</p>
                 {editing && isAdmin ? (
                   <div className="flex flex-col gap-2 rounded-md border border-input p-3">
                     {companies.length === 0 ? (
@@ -814,9 +834,17 @@ function PersonDetailPageInner() {
                               checked={checked}
                               onCheckedChange={(val) => handleToggleCompany(c.id, val === true)}
                             />
-                            <Label htmlFor={checkboxId} className="font-normal">
+                            <Label htmlFor={checkboxId} className="font-normal flex-1">
                               {c.name}
                             </Label>
+                            <Input
+                              type="number"
+                              placeholder="Ansattnr."
+                              className="w-28 h-8 shrink-0"
+                              disabled={!checked}
+                              value={companyEmployeeNumbers[c.id] ?? ''}
+                              onChange={(e) => handleCompanyEmployeeNumberChange(c.id, e.target.value)}
+                            />
                           </div>
                         )
                       })
@@ -824,7 +852,9 @@ function PersonDetailPageInner() {
                   </div>
                 ) : (
                   <p className="text-base md:text-sm">
-                    {companies.filter((c) => companyIds.includes(c.id)).map((c) => c.name).join(', ') || '—'}
+                    {companies.filter((c) => companyIds.includes(c.id)).map((c) =>
+                      companyEmployeeNumbers[c.id] ? `${c.name} (${companyEmployeeNumbers[c.id]})` : c.name
+                    ).join(', ') || '—'}
                   </p>
                 )}
               </div>

@@ -31,6 +31,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 type IssuanceWithPerson = UniformIssuance & {
   profiles: { full_name: string | null; email: string | null } | null
@@ -47,6 +48,9 @@ export default function UniformerPage() {
   const [isRealAdmin, setIsRealAdmin] = useState(false)
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [myCompanies, setMyCompanies] = useState<{ id: string; name: string }[]>([])
+  const [profileCompanyMap, setProfileCompanyMap] = useState<Record<string, string[]>>({})
+  const [companyTab, setCompanyTab] = useState('all')
 
   const loadIssuances = async () => {
     const { data } = await supabase
@@ -77,6 +81,28 @@ export default function UniformerPage() {
       }
       setIsRealAdmin(viewerRole === 'admin')
 
+      const { data: myCompanyLinks } = await supabase
+        .from('profile_companies')
+        .select('company_id, companies(id, name)')
+        .eq('profile_id', user.id)
+      if (myCompanyLinks) {
+        setMyCompanies(
+          (myCompanyLinks as unknown as { companies: { id: string; name: string } | null }[])
+            .map((r) => r.companies)
+            .filter((c): c is { id: string; name: string } => !!c)
+            .sort((a, b) => a.name.localeCompare(b.name))
+        )
+      }
+
+      const { data: allCompanyLinks } = await supabase.from('profile_companies').select('profile_id, company_id')
+      if (allCompanyLinks) {
+        const map: Record<string, string[]> = {}
+        for (const row of allCompanyLinks) {
+          map[row.profile_id] = [...(map[row.profile_id] ?? []), row.company_id]
+        }
+        setProfileCompanyMap(map)
+      }
+
       await loadIssuances()
       setLoading(false)
     }
@@ -86,7 +112,7 @@ export default function UniformerPage() {
 
   useEffect(() => {
     setPage(1)
-  }, [search, statusFilter, typeFilter])
+  }, [search, statusFilter, typeFilter, companyTab])
 
   const handleMarkReturned = async (issuanceId: string, itemId: string) => {
     const issuance = issuances.find(i => i.id === issuanceId)
@@ -117,8 +143,16 @@ export default function UniformerPage() {
     return <ListPageSkeleton />
   }
 
+  const matchesCompanyTab = (issuance: IssuanceWithPerson) => {
+    if (companyTab === 'all') return true
+    if (issuance.company_id) return issuance.company_id === companyTab
+    return (profileCompanyMap[issuance.profile_id] ?? []).includes(companyTab)
+  }
+
+  const tabIssuances = issuances.filter((i) => matchesCompanyTab(i))
+
   const stockByType = new Map<string, number>()
-  for (const issuance of issuances) {
+  for (const issuance of tabIssuances) {
     if (!issuance.employee_signed_at) continue
     for (const item of issuance.items) {
       if (item.returned) continue
@@ -130,7 +164,7 @@ export default function UniformerPage() {
   const matchesType = (type: string) => typeFilter === 'all' || type === typeFilter
   const activeFilterCount = [statusFilter !== 'all', typeFilter !== 'all'].filter(Boolean).length
 
-  const unsignedIssuances = statusFilter === 'signed' ? [] : issuances.filter(
+  const unsignedIssuances = statusFilter === 'signed' ? [] : tabIssuances.filter(
     i => !i.employee_signed_at && i.items.some(item => !item.returned && matchesType(item.type))
        && matchesSearch(i.profiles?.full_name || i.profiles?.email || '')
   )
@@ -138,7 +172,7 @@ export default function UniformerPage() {
   type FlatItem = (typeof issuances)[number]['items'][number] & { issuanceId: string }
   const signedGroups = new Map<string, { profileName: string; items: FlatItem[] }>()
   if (statusFilter !== 'pending') {
-    for (const issuance of issuances) {
+    for (const issuance of tabIssuances) {
       if (!issuance.employee_signed_at) continue
       const profileName = issuance.profiles?.full_name || issuance.profiles?.email || '—'
       if (!matchesSearch(profileName)) continue
@@ -169,18 +203,8 @@ export default function UniformerPage() {
     Math.max(0, endIdx - unsignedIssuances.length)
   )
 
-  return (
-    <div className="max-w-[1440px] p-6 space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
-          <IconBadge icon={<Package className="size-4" />} />
-          Personalutstyr
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          Registrer utlevering og retur av uniform, adgangskort og annet utstyr.
-        </p>
-      </div>
-
+  const content = (
+    <div className="space-y-8">
       <div>
         <h2 className="text-lg font-semibold mb-3">Ute hos ansatte</h2>
         {stockByType.size === 0 ? (
@@ -358,6 +382,36 @@ export default function UniformerPage() {
 
         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
       </div>
+    </div>
+  )
+
+  return (
+    <div className="max-w-[1440px] p-6 space-y-8">
+      <div>
+        <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
+          <IconBadge icon={<Package className="size-4" />} />
+          Personalutstyr
+        </h1>
+        <p className="text-muted-foreground text-sm">
+          Registrer utlevering og retur av uniform, adgangskort og annet utstyr.
+        </p>
+      </div>
+
+      {myCompanies.length > 1 ? (
+        <Tabs value={companyTab} onValueChange={(val) => val && setCompanyTab(val)}>
+          <TabsList>
+            <TabsTrigger value="all">Alle</TabsTrigger>
+            {myCompanies.map((c) => (
+              <TabsTrigger key={c.id} value={c.id}>{c.name}</TabsTrigger>
+            ))}
+          </TabsList>
+          <TabsContent value={companyTab} className="pt-4">
+            {content}
+          </TabsContent>
+        </Tabs>
+      ) : (
+        content
+      )}
 
       <AlertDialog open={deleteTargetId !== null} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
         <AlertDialogContent>

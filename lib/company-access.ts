@@ -23,18 +23,20 @@ export async function callerHasCompanyAccess(callerId: string, companyId: string
 // (bootstrap case — newly invited, not yet assigned), matching the
 // mgr_select_profiles RLS policy.
 export async function getVisibleProfileIds(callerId: string): Promise<Set<string> | null> {
-  if (await isSuperAdmin(callerId)) return null
+  const [superAdmin, { data: myLinks }, { data: allLinks }, { data: allProfiles }] = await Promise.all([
+    isSuperAdmin(callerId),
+    supabaseAdmin.from('profile_companies').select('company_id').eq('profile_id', callerId),
+    supabaseAdmin.from('profile_companies').select('profile_id, company_id'),
+    supabaseAdmin.from('profiles').select('id'),
+  ])
+  if (superAdmin) return null
 
-  const { data: myLinks } = await supabaseAdmin.from('profile_companies').select('company_id').eq('profile_id', callerId)
   const myCompanyIds = (myLinks ?? []).map((r) => r.company_id)
-
-  const { data: allLinks } = await supabaseAdmin.from('profile_companies').select('profile_id, company_id')
   const linkedProfileIds = new Set((allLinks ?? []).map((r) => r.profile_id))
   const visible = new Set(
     (allLinks ?? []).filter((r) => myCompanyIds.includes(r.company_id)).map((r) => r.profile_id)
   )
 
-  const { data: allProfiles } = await supabaseAdmin.from('profiles').select('id')
   for (const p of allProfiles ?? []) {
     if (!linkedProfileIds.has(p.id)) visible.add(p.id)
   }

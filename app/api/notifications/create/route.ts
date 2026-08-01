@@ -26,37 +26,20 @@ async function sendNotificationEmail(recipient: { full_name: string | null; emai
   })
 }
 
-export async function POST(request: Request) {
-  const authHeader = request.headers.get('authorization')
-  const token = authHeader?.replace('Bearer ', '')
-  if (!token) {
-    return NextResponse.json({ error: 'Ikke innlogget.' }, { status: 401 })
-  }
-
-  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Ikke innlogget.' }, { status: 401 })
-  }
-
-  const { recipientId, recipientRole, type, title, body, link } = await request.json()
-  if ((!recipientId && !recipientRole) || !type || !title || !(type in NOTIFICATION_TYPES)) {
-    return NextResponse.json({ error: 'Mangler eller ugyldige felt.' }, { status: 400 })
-  }
-
-  let recipientIds: string[] = []
-  if (recipientRole) {
-    const { data: roleProfiles } = await supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .eq('role', recipientRole)
-      .neq('id', user.id)
-    recipientIds = (roleProfiles ?? []).map((p) => p.id)
-  } else {
-    recipientIds = [recipientId]
-  }
-
+// Shared delivery logic: inserts bell rows (respecting each recipient's push
+// pref) and sends immediate email to recipients who want email and aren't on
+// daily-digest mode. Callable directly by other server routes (e.g. the
+// cleaning daily-summary sender) without an HTTP round-trip.
+export async function deliverNotification(params: {
+  recipientIds: string[]
+  type: NotificationType
+  title: string
+  body?: string
+  link?: string
+}) {
+  const { recipientIds, type, title, body, link } = params
   if (recipientIds.length === 0) {
-    return NextResponse.json({ ok: true, skipped: true })
+    return { ok: true, skipped: true, bellCount: 0, emailCount: 0 }
   }
 
   const { data: recipients } = await supabaseAdmin
@@ -66,20 +49,20 @@ export async function POST(request: Request) {
 
   const eligible = (recipients ?? [])
     .map((r) => {
-      const prefs = (r.notification_prefs as NotificationPrefs | null)?.[type as NotificationType]
+      const prefs = (r.notification_prefs as NotificationPrefs | null)?.[type]
       return {
         id: r.id,
         full_name: r.full_name,
         email: r.email,
         wantsPush: prefs?.push !== false,
-        wantsEmail: prefs?.email !== false && !!r.email,
+        wantsEmail: prefs?.email === true && !!r.email,
         digestMode: r.email_digest_mode === 'daily' ? 'daily' : 'immediate',
       }
     })
     .filter((r) => r.wantsPush || r.wantsEmail)
 
   if (eligible.length === 0) {
-    return NextResponse.json({ ok: true, skipped: true })
+    return { ok: true, skipped: true, bellCount: 0, emailCount: 0 }
   }
 
   const rows = eligible.map((r) => ({
@@ -114,5 +97,38 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, bellCount: rows.filter((r) => r.show_in_bell).length, emailCount })
+  return { ok: true, bellCount: rows.filter((r) => r.show_in_bell).length, emailCount }
+}
+
+export async function POST(request: Request) {
+  const authHeader = request.headers.get('authorization')
+  const token = authHeader?.replace('Bearer ', '')
+  if (!token) {
+    return NextResponse.json({ error: 'Ikke innlogget.' }, { status: 401 })
+  }
+
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token)
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Ikke innlogget.' }, { status: 401 })
+  }
+
+  const { recipientId, recipientRole, type, title, body, link } = await request.json()
+  if ((!recipientId && !recipientRole) || !type || !title || !(type in NOTIFICATION_TYPES)) {
+    return NextResponse.json({ error: 'Mangler eller ugyldige felt.' }, { status: 400 })
+  }
+
+  let recipientIds: string[] = []
+  if (recipientRole) {
+    const { data: roleProfiles } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .eq('role', recipientRole)
+      .neq('id', user.id)
+    recipientIds = (roleProfiles ?? []).map((p) => p.id)
+  } else {
+    recipientIds = [recipientId]
+  }
+
+  const result = await deliverNotification({ recipientIds, type, title, body, link })
+  return NextResponse.json(result)
 }
