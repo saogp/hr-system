@@ -190,14 +190,14 @@ export default function ReviewsPage() {
 
       {isAdminLike(role) && (
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-row items-center gap-3">
             <div className="relative sm:max-w-xs w-full">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
                 placeholder="Søk etter ansatt..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8"
+                className="pl-8 rounded-full"
               />
             </div>
             <FilterButton activeCount={activeFilterCount}>
@@ -248,13 +248,16 @@ export default function ReviewsPage() {
               )}
             </FilterButton>
           </div>
-          <Button
-            onClick={() => router.push('/reviews/new')}
-            disabled={people.length === 0}
-            className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium shrink-0"
-          >
-            Ny samtale
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="lg"
+              onClick={() => router.push('/reviews/new')}
+              disabled={people.length === 0}
+              className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+            >
+              Ny samtale
+            </Button>
+          </div>
         </div>
       )}
 
@@ -284,7 +287,7 @@ export default function ReviewsPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           render={
-                            <Button variant="ghost" size="icon-sm">
+                            <Button variant="ghost" size="icon">
                               <MoreHorizontal />
                               <span className="sr-only">Handlinger</span>
                             </Button>

@@ -9,13 +9,6 @@ import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { getUniformTypeIcon, needsCardCredentials, UNIFORM_TYPES, type UniformIssuance } from '@/lib/uniform-items'
 import { FilterButton, FilterField, FilterChips } from '@/components/ui/filter-button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -218,14 +211,14 @@ export default function UniformerPage() {
       <div>
         <h2 className="text-lg font-semibold mb-3">Utleveringer</h2>
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-row items-center gap-3">
             <div className="relative sm:max-w-xs w-full">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
                 placeholder="Finn ansatt..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8"
+                className="pl-8 rounded-full"
               />
             </div>
             <FilterButton activeCount={activeFilterCount}>
@@ -263,12 +256,15 @@ export default function UniformerPage() {
               )}
             </FilterButton>
           </div>
-          <Button
-            render={<Link href="/uniformer/new" />}
-            className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium shrink-0"
-          >
-            Ny registrering
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="lg"
+              render={<Link href="/uniformer/new" />}
+              className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+            >
+              Ny registrering
+            </Button>
+          </div>
         </div>
 
         {unsignedIssuances.length === 0 && signedGroups.size === 0 ? (
@@ -294,7 +290,7 @@ export default function UniformerPage() {
                         <DropdownMenu>
                           <DropdownMenuTrigger
                             render={
-                              <Button variant="ghost" size="icon-sm">
+                              <Button variant="ghost" size="icon">
                                 <MoreHorizontal />
                                 <span className="sr-only">Handlinger</span>
                               </Button>

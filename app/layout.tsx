@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { Sidebar } from '@/components/sidebar'
 import { MobileSidebarTrigger } from '@/components/mobile-sidebar-trigger'
+import { TestRoleSwitcher } from '@/components/test-role-switcher'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { ToastProvider, Toaster } from '@/components/ui/toast'
 
@@ -35,6 +36,9 @@ export default function RootLayout({
             <Sidebar />
             <SidebarInset>
               <div className="sticky top-0 z-30 bg-background md:static">
+                <div className="hidden md:block">
+                  <TestRoleSwitcher />
+                </div>
                 <MobileSidebarTrigger />
               </div>
               <main className="thin-scrollbar flex-1 overflow-y-auto">{children}</main>

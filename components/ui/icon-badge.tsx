@@ -5,7 +5,7 @@ export function IconBadge({ icon, className }: { icon: ReactNode; className?: st
   return (
     <span
       className={cn(
-        'flex size-7 items-center justify-center rounded-lg bg-brand-orange/15 text-brand-navy dark:text-brand-orange',
+        'flex size-7 items-center justify-center rounded-lg bg-brand-orange/15 text-brand-navy dark:text-brand-orange [&>svg]:size-5',
         className
       )}
     >

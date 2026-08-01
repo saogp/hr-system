@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { startImpersonation, stopImpersonation, isImpersonating } from '@/lib/impersonation'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -15,6 +16,7 @@ import {
 type PersonOption = { id: string; full_name: string | null; email: string | null }
 
 export function TestRoleSwitcher() {
+  const pathname = usePathname()
   const [impersonating, setImpersonating] = useState(false)
   const [currentName, setCurrentName] = useState('')
   const [people, setPeople] = useState<PersonOption[]>([])
@@ -47,6 +49,7 @@ export function TestRoleSwitcher() {
     load()
   }, [])
 
+  if (pathname === '/login' || pathname === '/onboarding' || pathname.startsWith('/renhold/gruppe')) return null
   if (!impersonating && people.length === 0) return null
 
   const handleSwitchUser = async (targetUserId: string) => {
@@ -66,26 +69,26 @@ export function TestRoleSwitcher() {
   }
 
   return (
-    <div className="flex flex-col gap-1.5 px-3 group-data-[collapsible=icon]:hidden">
+    <div className="flex items-center gap-2 px-4 py-1">
       {impersonating ? (
-        <div className="flex items-center justify-between gap-2">
+        <>
           <span className="rounded-full bg-brand-orange px-2.5 py-0.5 text-xs font-medium text-brand-navy truncate">
             {currentName || 'Ukjent bruker'}
           </span>
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 shrink-0 text-xs"
+            className="h-6 px-2 text-xs"
             onClick={handleStop}
             disabled={switching}
           >
             Avslutt
           </Button>
-        </div>
+        </>
       ) : (
         <>
           <Select value="" onValueChange={(val) => val && handleSwitchUser(val)}>
-            <SelectTrigger className="h-auto w-full justify-start gap-1 border-0 bg-transparent p-0 text-muted-foreground hover:bg-transparent hover:text-foreground dark:bg-transparent dark:hover:bg-transparent [&_span]:text-[12px]">
+            <SelectTrigger className="h-auto w-auto justify-start gap-1 border-0 bg-transparent p-0 text-muted-foreground hover:bg-transparent hover:text-foreground dark:bg-transparent dark:hover:bg-transparent [&_span]:text-[12px]">
               <SelectValue placeholder={switching ? 'Bytter...' : 'Velg person'} />
             </SelectTrigger>
             <SelectContent>

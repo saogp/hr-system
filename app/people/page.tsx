@@ -306,7 +306,7 @@ export default function PeoplePage() {
               placeholder="Finn person..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8"
+              className="pl-8 rounded-full"
             />
           </div>
           {isAdmin && (
@@ -350,13 +350,14 @@ export default function PeoplePage() {
         {isAdmin && (
           <div className="flex items-center gap-2 shrink-0">
             <Button
+              size="lg"
               variant={showInactive ? 'default' : 'outline'}
               className={showInactive ? 'bg-brand-navy text-white hover:bg-brand-navy/90' : ''}
               onClick={() => setShowInactive((v) => !v)}
             >
               {showInactive ? 'Aktive ansatte' : 'Inaktive ansatte'}
             </Button>
-            <Button onClick={() => setAddOpen(true)} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
+            <Button size="lg" onClick={() => setAddOpen(true)} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
               Legg til ansatt
             </Button>
           </div>
@@ -387,7 +388,7 @@ export default function PeoplePage() {
                   <DropdownMenu>
                     <DropdownMenuTrigger
                       render={
-                        <Button variant="ghost" size="icon-sm">
+                        <Button variant="ghost" size="icon">
                           <MoreHorizontal />
                           <span className="sr-only">Handlinger</span>
                         </Button>

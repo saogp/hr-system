@@ -17,7 +17,7 @@ export function FilterButton({
     <Popover>
       <PopoverTrigger
         render={
-          <Button variant="outline" className="relative shrink-0">
+          <Button variant="outline" size="lg" className="relative shrink-0 rounded-full">
             <Filter className="size-4" />
             Filter
             {activeCount > 0 && (

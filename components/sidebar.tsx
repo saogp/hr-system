@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, LogOut, FileText, Users, Settings, MessageSquare, ShieldAlert, ClipboardList, Package, SprayCan, Sun, Moon, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, LogOut, FileText, Users, Settings, MessageSquare, ShieldAlert, ClipboardList, Package, SprayCan, ChevronRight } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getStoredTheme, applyTheme, type Theme } from '@/lib/theme'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
@@ -233,7 +233,9 @@ export function Sidebar() {
           </SidebarMenuItem>
         </SidebarMenu>
 
-        <TestRoleSwitcher />
+        <div className="md:hidden">
+          <TestRoleSwitcher />
+        </div>
       </SidebarFooter>
 
       <SidebarRail />

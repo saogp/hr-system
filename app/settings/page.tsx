@@ -665,7 +665,7 @@ export default function SettingsPage() {
                   <DropdownMenu>
                     <DropdownMenuTrigger
                       render={
-                        <Button variant="ghost" size="icon-sm" className="shrink-0">
+                        <Button variant="ghost" size="icon" className="shrink-0">
                           <MoreHorizontal />
                           <span className="sr-only">Handlinger</span>
                         </Button>
@@ -883,7 +883,7 @@ export default function SettingsPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           render={
-                            <Button variant="ghost" size="icon-sm">
+                            <Button variant="ghost" size="icon">
                               <MoreHorizontal />
                               <span className="sr-only">Handlinger</span>
                             </Button>
@@ -923,7 +923,7 @@ export default function SettingsPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           render={
-                            <Button variant="ghost" size="icon-sm">
+                            <Button variant="ghost" size="icon">
                               <MoreHorizontal />
                               <span className="sr-only">Handlinger</span>
                             </Button>
@@ -963,7 +963,7 @@ export default function SettingsPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           render={
-                            <Button variant="ghost" size="icon-sm">
+                            <Button variant="ghost" size="icon">
                               <MoreHorizontal />
                               <span className="sr-only">Handlinger</span>
                             </Button>
@@ -1003,7 +1003,7 @@ export default function SettingsPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           render={
-                            <Button variant="ghost" size="icon-sm">
+                            <Button variant="ghost" size="icon">
                               <MoreHorizontal />
                               <span className="sr-only">Handlinger</span>
                             </Button>
@@ -1038,7 +1038,7 @@ export default function SettingsPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           render={
-                            <Button variant="ghost" size="icon-sm">
+                            <Button variant="ghost" size="icon">
                               <MoreHorizontal />
                               <span className="sr-only">Handlinger</span>
                             </Button>

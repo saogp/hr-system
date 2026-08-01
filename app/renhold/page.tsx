@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { SprayCan, Printer, ChevronDown, ChevronUp, ImageIcon } from 'lucide-react'
+import { SprayCan, Printer, ChevronDown, ChevronUp, ImageIcon, Search } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { todayIsoDate, normalizeCleaningQuestions, type CleaningRoom, type CleaningRoomGroup, type CleaningCheck } from '@/lib/cleaning'
@@ -40,6 +40,7 @@ export default function RenholdPage() {
   const [historyPage, setHistoryPage] = useState(1)
   const [expandedCheckId, setExpandedCheckId] = useState<string | null>(null)
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
+  const [historySearch, setHistorySearch] = useState('')
   const [roomFilter, setRoomFilter] = useState('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -108,7 +109,7 @@ export default function RenholdPage() {
 
   useEffect(() => {
     setHistoryPage(1)
-  }, [roomFilter, dateFrom, dateTo])
+  }, [historySearch, roomFilter, dateFrom, dateTo])
 
   const handleToggleExpand = async (check: CheckWithRoom) => {
     if (expandedCheckId === check.id) {
@@ -139,6 +140,12 @@ export default function RenholdPage() {
 
   const checkedRoomIds = new Set(todaysChecks.map((c) => c.room_id))
   const filteredHistory = recentChecks.filter((c) => {
+    if (historySearch) {
+      const roomName = (c.cleaning_rooms?.name || '').toLowerCase()
+      const checkedBy = (c.checked_by_name || '').toLowerCase()
+      const q = historySearch.toLowerCase()
+      if (!roomName.includes(q) && !checkedBy.includes(q)) return false
+    }
     if (roomFilter !== 'all' && c.room_id !== roomFilter) return false
     if (dateFrom && c.check_date < dateFrom) return false
     if (dateTo && c.check_date > dateTo) return false
@@ -211,38 +218,49 @@ export default function RenholdPage() {
         })}
       </div>
 
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <h2 className="text-lg font-semibold">Historikk</h2>
+      <h2 className="text-lg font-semibold mb-3">Historikk</h2>
+      <div className="mb-3">
         {recentChecks.length > 0 && (
-          <FilterButton activeCount={historyFilterCount}>
-            <FilterField label="Rom">
-              <FilterChips
-                value={roomFilter}
-                onChange={setRoomFilter}
-                options={[
-                  { value: 'all', label: 'Alle rom' },
-                  ...rooms.map((r) => ({ value: r.id, label: r.name })),
-                ]}
+          <div className="flex flex-row items-center gap-3">
+            <div className="relative sm:max-w-xs w-full">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                placeholder="Søk etter rom eller navn..."
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                className="pl-8 rounded-full"
               />
-            </FilterField>
-            <FilterField label="Fra dato">
-              <DateInput value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full" />
-            </FilterField>
-            <FilterField label="Til dato">
-              <DateInput value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full" />
-            </FilterField>
-            {historyFilterCount > 0 && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="w-fit self-start -mt-1"
-                onClick={() => { setRoomFilter('all'); setDateFrom(''); setDateTo('') }}
-              >
-                Nullstill filter
-              </Button>
-            )}
-          </FilterButton>
+            </div>
+            <FilterButton activeCount={historyFilterCount}>
+              <FilterField label="Rom">
+                <FilterChips
+                  value={roomFilter}
+                  onChange={setRoomFilter}
+                  options={[
+                    { value: 'all', label: 'Alle rom' },
+                    ...rooms.map((r) => ({ value: r.id, label: r.name })),
+                  ]}
+                />
+              </FilterField>
+              <FilterField label="Fra dato">
+                <DateInput value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full" />
+              </FilterField>
+              <FilterField label="Til dato">
+                <DateInput value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full" />
+              </FilterField>
+              {historyFilterCount > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-fit self-start -mt-1"
+                  onClick={() => { setRoomFilter('all'); setDateFrom(''); setDateTo('') }}
+                >
+                  Nullstill filter
+                </Button>
+              )}
+            </FilterButton>
+          </div>
         )}
       </div>
       {filteredHistory.length === 0 ? (

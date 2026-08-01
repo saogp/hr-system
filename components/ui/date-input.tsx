@@ -1,44 +1,162 @@
 import * as React from "react"
-import { Input as InputPrimitive } from "@base-ui/react/input"
-import { CalendarDays } from "lucide-react"
-
+import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 
-const DateInput = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
-  ({ className, ...props }, forwardedRef) => {
-    const innerRef = React.useRef<HTMLInputElement>(null)
+const MONTHS_NO = [
+  "Januar", "Februar", "Mars", "April", "Mai", "Juni",
+  "Juli", "August", "September", "Oktober", "November", "Desember",
+]
+const WEEKDAYS_NO = ["Ma", "Ti", "On", "To", "Fr", "Lø", "Sø"]
 
-    React.useImperativeHandle(forwardedRef, () => innerRef.current as HTMLInputElement)
+function parseDateValue(value: string): { year: number; month: number; day: number } | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null
+  const [year, month, day] = value.split("-").map(Number)
+  return { year, month: month - 1, day }
+}
+
+function formatDateValue(year: number, month: number, day: number): string {
+  const mm = String(month + 1).padStart(2, "0")
+  const dd = String(day).padStart(2, "0")
+  return `${year}-${mm}-${dd}`
+}
+
+function daysInMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate()
+}
+
+// JS getDay(): 0=Sun..6=Sat. Convert to Monday-first: 0=Mon..6=Sun.
+function mondayFirstWeekday(year: number, month: number, day: number): number {
+  return (new Date(year, month, day).getDay() + 6) % 7
+}
+
+type DateInputProps = {
+  id?: string
+  value: string
+  onChange: (e: { target: { value: string } }) => void
+  required?: boolean
+  className?: string
+  placeholder?: string
+}
+
+const DateInput = React.forwardRef<HTMLButtonElement, DateInputProps>(
+  ({ id, value, onChange, required, className, placeholder = "Velg dato" }, forwardedRef) => {
+    const [open, setOpen] = React.useState(false)
+    const parsed = parseDateValue(value)
+    const [viewYear, setViewYear] = React.useState(parsed?.year ?? new Date().getFullYear())
+    const [viewMonth, setViewMonth] = React.useState(parsed?.month ?? new Date().getMonth())
+
+    React.useEffect(() => {
+      if (parsed) {
+        setViewYear(parsed.year)
+        setViewMonth(parsed.month)
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value])
+
+    const label = parsed
+      ? `${String(parsed.day).padStart(2, "0")}.${String(parsed.month + 1).padStart(2, "0")}.${parsed.year}`
+      : placeholder
+
+    const handleSelectDay = (day: number) => {
+      onChange({ target: { value: formatDateValue(viewYear, viewMonth, day) } })
+      setOpen(false)
+    }
+
+    const goPrevMonth = () => {
+      if (viewMonth === 0) {
+        setViewMonth(11)
+        setViewYear((y) => y - 1)
+      } else {
+        setViewMonth((m) => m - 1)
+      }
+    }
+    const goNextMonth = () => {
+      if (viewMonth === 11) {
+        setViewMonth(0)
+        setViewYear((y) => y + 1)
+      } else {
+        setViewMonth((m) => m + 1)
+      }
+    }
+
+    const totalDays = daysInMonth(viewYear, viewMonth)
+    const leadingBlanks = mondayFirstWeekday(viewYear, viewMonth, 1)
 
     return (
-      <div className="relative">
-        <InputPrimitive
-          ref={innerRef}
-          type="date"
-          data-slot="input"
-          className={cn(
-            "h-10 w-full min-w-0 rounded-lg border border-input bg-transparent px-3 py-1 pr-9 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 md:text-sm dark:bg-input/30 dark:disabled:bg-input/80 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&::-webkit-calendar-picker-indicator]:opacity-0",
-            className
-          )}
-          {...props}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          render={
+            <button
+              ref={forwardedRef}
+              id={id}
+              type="button"
+              aria-required={required}
+              className={cn(
+                "flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                className
+              )}
+            >
+              <span className={cn("truncate", !parsed && "text-muted-foreground")}>{label}</span>
+              <CalendarDays className="size-4 shrink-0 text-muted-foreground" />
+            </button>
+          }
         />
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={() => {
-            const el = innerRef.current
-            if (!el) return
-            if (typeof el.showPicker === "function") {
-              el.showPicker()
-            } else {
-              el.focus()
-            }
-          }}
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        <PopoverContent
+          align="start"
+          collisionAvoidance={{ side: "flip", align: "none" }}
+          className="w-64"
         >
-          <CalendarDays className="h-4 w-4" />
-        </button>
-      </div>
+          <div className="flex items-center justify-between mb-3">
+            <button
+              type="button"
+              onClick={goPrevMonth}
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <span className="text-sm font-semibold text-brand-navy dark:text-white">
+              {MONTHS_NO[viewMonth]} {viewYear}
+            </span>
+            <button
+              type="button"
+              onClick={goNextMonth}
+              className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-7 gap-1 mb-1">
+            {WEEKDAYS_NO.map((d) => (
+              <div key={d} className="text-center text-[10px] font-medium text-muted-foreground">
+                {d}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {Array.from({ length: leadingBlanks }).map((_, i) => (
+              <div key={`blank-${i}`} />
+            ))}
+            {Array.from({ length: totalDays }).map((_, i) => {
+              const day = i + 1
+              const selected = parsed?.year === viewYear && parsed?.month === viewMonth && parsed?.day === day
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => handleSelectDay(day)}
+                  className={cn(
+                    "aspect-square rounded-full text-xs font-medium transition-colors",
+                    selected ? "bg-brand-orange text-brand-navy" : "text-foreground hover:bg-muted"
+                  )}
+                >
+                  {day}
+                </button>
+              )
+            })}
+          </div>
+        </PopoverContent>
+      </Popover>
     )
   }
 )
