@@ -175,7 +175,7 @@ export default function RenholdPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
         {groups.map((group) => {
           const companyName = companies.find((c) => c.id === group.company_id)?.name
           const groupRooms = rooms.filter((r) => r.group_id === group.id)
@@ -219,7 +219,7 @@ export default function RenholdPage() {
       </div>
 
       <h2 className="text-lg font-semibold mb-3">Historikk</h2>
-      <div className="mb-3">
+      <div className="mb-4">
         {recentChecks.length > 0 && (
           <div className="flex flex-row items-center gap-3">
             <div className="relative sm:max-w-xs w-full">

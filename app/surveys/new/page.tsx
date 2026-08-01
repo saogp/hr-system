@@ -293,15 +293,16 @@ function NewSurveyPageInner() {
                   </SelectContent>
                 </Select>
               )}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => removeQuestion(i)}
-                disabled={questions.length === 1}
-              >
-                Fjern
-              </Button>
+              {questions.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeQuestion(i)}
+                >
+                  Fjern
+                </Button>
+              )}
             </div>
           ))}
           <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => addQuestion('text')}>

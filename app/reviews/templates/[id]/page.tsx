@@ -205,17 +205,18 @@ export default function ReviewTemplateEditorPage() {
               placeholder={q.type === 'heading' ? 'Skriv en overskrift...' : 'Skriv et spørsmål...'}
               className={q.type === 'heading' ? 'font-semibold' : ''}
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="shrink-0"
-              onClick={() => removeQuestion(i)}
-              disabled={questions.length === 1}
-            >
-              <X className="size-4" />
-              <span className="sr-only">Fjern</span>
-            </Button>
+            {questions.length > 1 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="shrink-0"
+                onClick={() => removeQuestion(i)}
+              >
+                <X className="size-4" />
+                <span className="sr-only">Fjern</span>
+              </Button>
+            )}
           </div>
         ))}
         <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => addQuestion('question')}>

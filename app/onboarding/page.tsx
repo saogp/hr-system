@@ -91,14 +91,14 @@ export default function OnboardingPage() {
         </CardHeader>
 
         <form onSubmit={handleSubmit}>
-          <CardContent className="grid gap-4">
+          <CardContent className="flex flex-col gap-4">
             {errorMsg && (
               <Alert variant="destructive">
                 <AlertDescription>{errorMsg}</AlertDescription>
               </Alert>
             )}
 
-            <div className="grid gap-2">
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="password">Nytt passord</Label>
               <Input
                 id="password"
@@ -109,7 +109,7 @@ export default function OnboardingPage() {
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="confirm-password">Bekreft passord</Label>
               <Input
                 id="confirm-password"
@@ -120,7 +120,7 @@ export default function OnboardingPage() {
               />
             </div>
 
-            <div className="grid gap-2">
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="birth-date">Bursdag</Label>
               <DateInput
                 id="birth-date"

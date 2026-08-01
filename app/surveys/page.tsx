@@ -195,7 +195,7 @@ export default function SurveysPage() {
       <OrganicBlob className="pointer-events-none absolute right-10 bottom-0 -z-10 h-48 w-48 opacity-40 -rotate-12" />
 
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-brand-navy dark:text-white mb-1 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
           <IconBadge icon={<ClipboardList className="size-4" />} />
           Undersøkelser
         </h1>

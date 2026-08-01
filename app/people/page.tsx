@@ -372,7 +372,7 @@ export default function PeoplePage() {
             <Link
               key={p.id}
               href={`/people/${p.id}`}
-              className={`group flex items-center gap-3 rounded-2xl border border-border bg-white dark:bg-white/5 p-3 transition-colors hover:bg-brand-cream/60 dark:hover:bg-white/10 ${!p.is_active ? 'opacity-60' : ''}`}
+              className={`group flex items-center gap-3 rounded-xl border border-border bg-white dark:bg-white/5 p-4 transition-colors hover:bg-brand-cream/60 dark:hover:bg-white/10 ${!p.is_active ? 'opacity-60' : ''}`}
             >
               <Avatar className="size-11 ring-2 ring-transparent transition-all group-hover:ring-brand-orange/40">
                 {p.avatar_url && <AvatarImage src={p.avatar_url} alt={p.full_name ?? ''} />}

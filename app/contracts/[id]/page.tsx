@@ -329,7 +329,7 @@ export default function ContractDetailPage() {
   if (!contract.template_id) {
     return (
       <div className="p-6 max-w-[1440px] space-y-6">
-        <div className="grid gap-8 lg:grid-cols-[1fr_320px] items-start">
+        <div className="grid gap-6 lg:grid-cols-[1fr_320px] items-start">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold">Historisk kontrakt</h1>
@@ -472,7 +472,7 @@ export default function ContractDetailPage() {
 
   return (
     <div className="p-6 max-w-[1440px] space-y-6">
-      <div className="grid gap-8 lg:grid-cols-[1fr_320px] items-start">
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px] items-start">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">{template.name}</h1>
@@ -555,7 +555,7 @@ export default function ContractDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_320px] items-start">
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px] items-start">
       <div className="space-y-6 min-w-0">
         {isEmployeeOwner && !contract.employee_signed_at && editableFields.length > 0 && (
           <div className="rounded-md border border-input p-4 space-y-4">
