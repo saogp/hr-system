@@ -352,7 +352,7 @@ export default function PeoplePage() {
             <Button
               size="lg"
               variant={showInactive ? 'default' : 'outline'}
-              className={showInactive ? 'bg-brand-navy text-white hover:bg-brand-navy/90' : ''}
+              className={showInactive ? 'bg-brand-navy text-white hover:bg-brand-navy/90' : 'border-brand-orange'}
               onClick={() => setShowInactive((v) => !v)}
             >
               {showInactive ? 'Aktive ansatte' : 'Inaktive ansatte'}

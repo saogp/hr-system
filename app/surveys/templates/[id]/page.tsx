@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus, X } from 'lucide-react'
+import { ArrowLeft, Plus, X, GripVertical } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { SURVEY_CATEGORIES, type SurveyCategory } from '@/lib/survey-categories'
@@ -92,6 +92,16 @@ export default function SurveyTemplateEditorPage() {
 
   const removeQuestion = (index: number) => {
     setQuestions(prev => prev.filter((_, i) => i !== index))
+  }
+
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const moveQuestion = (from: number, to: number) => {
+    setQuestions(prev => {
+      const next = [...prev]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      return next
+    })
   }
 
   const updateQuestion = (index: number, text: string) => {
@@ -195,7 +205,21 @@ export default function SurveyTemplateEditorPage() {
       <div className="flex flex-col gap-3 mb-4">
         <Label>Spørsmål</Label>
         {questions.map((q, i) => (
-          <div key={q.id} className="flex items-center gap-2 flex-wrap">
+          <div
+            key={q.id}
+            draggable={questions.length > 1}
+            onDragStart={() => setDraggedIndex(i)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => {
+              if (draggedIndex !== null && draggedIndex !== i) moveQuestion(draggedIndex, i)
+              setDraggedIndex(null)
+            }}
+            onDragEnd={() => setDraggedIndex(null)}
+            className={`flex items-center gap-2 flex-wrap ${draggedIndex === i ? 'opacity-50' : ''}`}
+          >
+            {questions.length > 1 && (
+              <GripVertical className="size-4 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
+            )}
             <Input
               value={q.text}
               onChange={(e) => updateQuestion(i, e.target.value)}

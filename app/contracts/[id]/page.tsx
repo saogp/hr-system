@@ -17,6 +17,7 @@ import { SignaturePad } from '@/components/signature-pad'
 import { PhoneInput } from '@/components/phone-input'
 import { useToastManager } from '@/components/ui/toast'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+import { sendNotification } from '@/lib/notifications'
 import { DetailPageSkeleton } from '@/components/ui/loading-skeletons'
 
 function formatBankAccount(raw: string): string {
@@ -220,6 +221,15 @@ export default function ContractDetailPage() {
     if (!error) {
       setContract(prev => prev ? { ...prev, employee_signed_at: nowIso, employee_signature: signatureDataUrl } : prev)
       toastManager.add({ title: 'Kontrakt signert', description: 'Signaturen din er registrert.' })
+      if (contract.created_by) {
+        sendNotification({
+          recipientId: contract.created_by,
+          type: 'contract_signed',
+          title: 'Kontrakt signert',
+          body: `${profile?.full_name || 'Ansatt'} signerte "${contract.contract_templates?.name || 'Kontrakt'}"`,
+          link: `/contracts/${contract.id}`,
+        })
+      }
     }
     setSigning(false)
   }

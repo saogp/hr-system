@@ -9,6 +9,8 @@ import type { CleaningRecipient } from '@/lib/cleaning'
 import { Card, CardContent } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+import { NOTIFICATION_TYPES, type NotificationType, type NotificationPrefs } from '@/lib/notifications'
+import { Switch } from '@/components/ui/switch'
 import { SURVEY_TEMPLATES } from '@/lib/survey-templates'
 import { PageHeaderSkeleton, CardGridSkeleton } from '@/components/ui/loading-skeletons'
 
@@ -159,6 +161,9 @@ export default function SettingsPage() {
   const [broadcastTitles, setBroadcastTitles] = useState<string[]>([])
   const [broadcastRecipientIds, setBroadcastRecipientIds] = useState<string[]>([])
 
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPrefs>({})
+
 
   const loadBroadcastHistory = async () => {
     const { data: broadcastData } = await supabase
@@ -178,7 +183,7 @@ export default function SettingsPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, notification_prefs')
         .eq('id', user.id)
         .single()
 
@@ -186,6 +191,8 @@ export default function SettingsPage() {
       const admin = isAdminLike(viewerRole)
       setIsAdmin(admin)
       setIsRealAdmin(viewerRole === 'admin')
+      setCurrentUserId(user.id)
+      setNotificationPrefs((profile?.notification_prefs as NotificationPrefs) ?? {})
 
       if (admin) {
         const { data: companiesData } = await supabase
@@ -239,6 +246,16 @@ export default function SettingsPage() {
 
     checkAccessAndLoad()
   }, [router])
+
+  const handleToggleNotificationPref = async (type: NotificationType, channel: 'email' | 'push', enabled: boolean) => {
+    if (!currentUserId) return
+    const next: NotificationPrefs = {
+      ...notificationPrefs,
+      [type]: { ...notificationPrefs[type], [channel]: enabled },
+    }
+    setNotificationPrefs(next)
+    await supabase.from('profiles').update({ notification_prefs: next }).eq('id', currentUserId)
+  }
 
   const handleAddCompany = async () => {
     const { data, error } = await supabase
@@ -574,76 +591,102 @@ export default function SettingsPage() {
           <TabsTrigger value="varsler">Varsler</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="varsler" className="pt-4 max-w-md">
+        <TabsContent value="varsler" className="pt-4 max-w-lg">
           <p className="text-sm text-muted-foreground mb-3">
-            Varsler sendes på e-post. Under er de ulike varslingskategoriene.
+            Varsler sendes på e-post og i bjellen øverst på siden. Gjøremål på dashbordet kan ikke slås av.
           </p>
 
-          {isAdmin && (
-            <div>
-              <h3 className="text-base font-semibold mb-3">Renhold – daglig oppsummering</h3>
-              <div className="rounded-xl border border-border bg-white dark:bg-white/5 p-4">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-orange/15">
-                    <SprayCan className="size-4 text-brand-navy dark:text-brand-orange" />
+          <div className="rounded-xl border border-border bg-white dark:bg-white/5 overflow-hidden">
+            <div className="grid grid-cols-[1fr_4.5rem_4.5rem] items-center gap-2 px-4 py-2 bg-muted/50">
+              <span className="text-xs font-medium text-muted-foreground">Hendelse</span>
+              <span className="text-xs font-medium text-muted-foreground text-center">E-post</span>
+              <span className="text-xs font-medium text-muted-foreground text-center">Bjelle</span>
+            </div>
+            <div className="divide-y divide-border">
+              {(Object.keys(NOTIFICATION_TYPES) as NotificationType[]).map((type) => (
+                <div key={type} className="grid grid-cols-[1fr_4.5rem_4.5rem] items-center gap-2 px-4 py-2.5">
+                  <span className="text-sm truncate">{NOTIFICATION_TYPES[type]}</span>
+                  <div className="flex justify-center">
+                    <Switch
+                      checked={notificationPrefs[type]?.email !== false}
+                      onCheckedChange={(val) => handleToggleNotificationPref(type, 'email', val)}
+                    />
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">Mottakere av oppsummeringen</p>
+                  <div className="flex justify-center">
+                    <Switch
+                      checked={notificationPrefs[type]?.push !== false}
+                      onCheckedChange={(val) => handleToggleNotificationPref(type, 'push', val)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {isAdmin && (
+              <>
+                <div className="flex items-center gap-3 px-4 py-2.5 border-t border-border bg-muted/50">
+                  <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-orange/15">
+                    <SprayCan className="size-3.5 text-brand-navy dark:text-brand-orange" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Renhold – daglig oppsummering</p>
                     <p className="text-xs text-muted-foreground">
-                      Får e-post om hvilke rom som ikke er rengjort i dag.
+                      E-post om hvilke rom som ikke er rengjort i dag, til valgte mottakere.
                     </p>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-2 mb-4">
-                  {cleaningRecipients.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Ingen mottakere lagt til enda.</p>
-                  ) : (
-                    cleaningRecipients.map((r) => (
-                      <div key={r.id} className="flex items-center justify-between gap-2 rounded-md border border-input p-2">
-                        <span className="text-sm truncate">{r.email}</span>
-                        <Button variant="ghost" size="icon-sm" onClick={() => handleRemoveCleaningRecipient(r.id)}>
-                          <X />
-                          <span className="sr-only">Fjern</span>
-                        </Button>
-                      </div>
-                    ))
-                  )}
-                </div>
+                <div className="p-4 space-y-3">
+                  <div className="flex flex-col gap-2">
+                    {cleaningRecipients.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Ingen mottakere lagt til enda.</p>
+                    ) : (
+                      cleaningRecipients.map((r) => (
+                        <div key={r.id} className="flex items-center justify-between gap-2 rounded-md border border-input p-2">
+                          <span className="text-sm truncate">{r.email}</span>
+                          <Button variant="ghost" size="icon-sm" onClick={() => handleRemoveCleaningRecipient(r.id)}>
+                            <X />
+                            <span className="sr-only">Fjern</span>
+                          </Button>
+                        </div>
+                      ))
+                    )}
+                  </div>
 
-                <div className="flex items-center gap-2 mb-4">
-                  <Input
-                    type="email"
-                    placeholder="navn@firma.no"
-                    value={newCleaningRecipientEmail}
-                    onChange={(e) => setNewCleaningRecipientEmail(e.target.value)}
-                  />
-                  <Button variant="outline" onClick={handleAddCleaningRecipient} className="shrink-0">
-                    <Plus />
-                    Legg til
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="email"
+                      placeholder="navn@firma.no"
+                      value={newCleaningRecipientEmail}
+                      onChange={(e) => setNewCleaningRecipientEmail(e.target.value)}
+                    />
+                    <Button variant="outline" onClick={handleAddCleaningRecipient} className="shrink-0">
+                      <Plus />
+                      Legg til
+                    </Button>
+                  </div>
+
+                  {cleaningSummaryMessage && <p className="text-sm text-muted-foreground">{cleaningSummaryMessage}</p>}
+                  <Button
+                    onClick={handleSendCleaningSummaryNow}
+                    disabled={sendingCleaningSummary || cleaningRecipients.length === 0}
+                    variant="outline"
+                  >
+                    {sendingCleaningSummary ? 'Sender...' : 'Send oppsummering nå'}
                   </Button>
                 </div>
-
-                {cleaningSummaryMessage && <p className="text-sm text-muted-foreground mb-2">{cleaningSummaryMessage}</p>}
-                <Button
-                  onClick={handleSendCleaningSummaryNow}
-                  disabled={sendingCleaningSummary || cleaningRecipients.length === 0}
-                  variant="outline"
-                >
-                  {sendingCleaningSummary ? 'Sender...' : 'Send oppsummering nå'}
-                </Button>
-              </div>
-            </div>
-          )}
+              </>
+            )}
+          </div>
         </TabsContent>
 
         {isAdmin && (
         <TabsContent value="bedrifter" className="pt-4">
-          <div className="flex flex-row items-center justify-between mb-4">
+          <div className="flex flex-col gap-3 mb-4">
             <p className="text-muted-foreground text-sm">
               Bedriftsinformasjon fylles automatisk inn i kontrakter som bruker firma-felt.
             </p>
-            <Button onClick={handleAddCompany} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
+            <Button onClick={handleAddCompany} className="w-fit bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
               Ny bedrift
             </Button>
           </div>
@@ -849,13 +892,13 @@ export default function SettingsPage() {
 
         {isAdmin && (
         <TabsContent value="maler" className="pt-4">
-          <div className="flex flex-row items-center justify-between mb-4">
+          <div className="flex flex-col gap-3 mb-4">
             <p className="text-muted-foreground text-sm">
               Gjenbrukbare maler for kontrakter, samtaler, undersøkelser og renhold.
             </p>
             <Button
               onClick={() => { setNewMalType('kontrakt'); setNewMalBasis('blank'); setNewMalOpen(true) }}
-              className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
+              className="w-fit bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium"
             >
               Ny mal
             </Button>

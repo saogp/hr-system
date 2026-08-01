@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { SignaturePad } from '@/components/signature-pad'
 import { useToastManager } from '@/components/ui/toast'
 import { DetailPageSkeleton } from '@/components/ui/loading-skeletons'
+import { sendNotification } from '@/lib/notifications'
 
 type PersonInfo = { full_name: string | null; email: string | null }
 
@@ -81,6 +82,15 @@ export default function UniformIssuancePage() {
     if (!error) {
       setIssuance(prev => prev ? { ...prev, employee_signed_at: nowIso, employee_signature: signatureDataUrl } : prev)
       toastManager.add({ title: 'Mottak bekreftet', description: 'Signaturen din er registrert.' })
+      if (issuance.created_by) {
+        sendNotification({
+          recipientId: issuance.created_by,
+          type: 'uniform_confirmed',
+          title: 'Personalutstyr bekreftet',
+          body: `${employee?.full_name || 'Ansatt'} bekreftet mottak av personalutstyr.`,
+          link: `/uniformer/${issuance.id}`,
+        })
+      }
     }
     setSigning(false)
   }

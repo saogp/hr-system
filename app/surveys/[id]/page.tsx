@@ -13,6 +13,7 @@ import { OrganicBlob } from '@/components/decorative/organic-blobs'
 import { ScaleInput } from '@/components/survey-scale-input'
 import { useToastManager } from '@/components/ui/toast'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
+import { sendNotification } from '@/lib/notifications'
 import { computeResponseScore } from '@/lib/survey-score'
 import { DetailPageSkeleton } from '@/components/ui/loading-skeletons'
 import type { SurveyCategory } from '@/lib/survey-categories'
@@ -118,6 +119,24 @@ export default function SurveyDetailPage() {
     if (!error) {
       setMySubmittedAt(nowIso)
       toastManager.add({ title: 'Skjema innsendt', description: 'Svarene dine er registrert.' })
+
+      let responderName = 'Noen'
+      if (survey && !survey.anonymous) {
+        const { data: { user } } = await supabase.auth.getUser()
+        const { data: me } = user
+          ? await supabase.from('profiles').select('full_name').eq('id', user.id).single()
+          : { data: null }
+        responderName = me?.full_name || 'En ansatt'
+      }
+      sendNotification({
+        recipientRole: 'admin',
+        type: 'survey_answered',
+        title: 'Undersøkelse besvart',
+        body: survey?.anonymous
+          ? `Noen svarte på "${survey.title}"`
+          : `${responderName} svarte på "${survey?.title}"`,
+        link: `/surveys/${id}`,
+      })
     }
     setSubmitting(false)
   }

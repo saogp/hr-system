@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { sendPushNotification } from '@/lib/push-client'
+import { sendNotification } from '@/lib/notifications'
 import { applyRoleOverride } from '@/lib/role-override'
 import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
 
@@ -108,6 +109,13 @@ export default function SiFraPage() {
       setMessage('')
       setSent(true)
       sendPushNotification(recipientId, 'Ny melding i Si fra', 'Du har mottatt en anonym melding.', '/si-fra')
+      sendNotification({
+        recipientId,
+        type: 'si_fra_submitted',
+        title: 'Ny si fra-melding',
+        body: 'Du har mottatt en anonym si fra-melding.',
+        link: '/si-fra',
+      })
       if (isAdmin && data) {
         setInbox((prev) => [data as unknown as ReceivedMessage, ...prev])
         setSendOpen(false)

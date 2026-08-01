@@ -31,7 +31,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ScaleInput } from '@/components/survey-scale-input'
 import { useToastManager } from '@/components/ui/toast'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, GripVertical } from 'lucide-react'
 import { FormPageSkeleton } from '@/components/ui/loading-skeletons'
 
 type Person = { id: string; full_name: string | null; email: string | null }
@@ -157,6 +157,16 @@ function NewSurveyPageInner() {
     setQuestions(prev => prev.filter((_, i) => i !== index))
   }
 
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const moveQuestion = (from: number, to: number) => {
+    setQuestions(prev => {
+      const next = [...prev]
+      const [moved] = next.splice(from, 1)
+      next.splice(to, 0, moved)
+      return next
+    })
+  }
+
   const toggleRecipient = (id: string, checked: boolean) => {
     setSelectedRecipients(prev => (checked ? [...prev, id] : prev.filter(r => r !== id)))
   }
@@ -263,7 +273,21 @@ function NewSurveyPageInner() {
         <div className="flex flex-col gap-2">
           <Label>Spørsmål</Label>
           {questions.map((q, i) => (
-            <div key={q.id} className="flex items-center gap-2 flex-wrap">
+            <div
+              key={q.id}
+              draggable={questions.length > 1}
+              onDragStart={() => setDraggedIndex(i)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => {
+                if (draggedIndex !== null && draggedIndex !== i) moveQuestion(draggedIndex, i)
+                setDraggedIndex(null)
+              }}
+              onDragEnd={() => setDraggedIndex(null)}
+              className={`flex items-center gap-2 flex-wrap ${draggedIndex === i ? 'opacity-50' : ''}`}
+            >
+              {questions.length > 1 && (
+                <GripVertical className="size-4 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />
+              )}
               <Input
                 value={q.text}
                 onChange={(e) => updateQuestion(i, e.target.value)}

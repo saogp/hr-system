@@ -336,6 +336,7 @@ export default function ContractsPage() {
               <Button
                 size="lg"
                 variant="outline"
+                className="border-brand-orange"
                 onClick={() => router.push('/contracts/upload')}
               >
                 Last opp PDF

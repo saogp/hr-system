@@ -3,6 +3,7 @@ import './globals.css'
 import { Sidebar } from '@/components/sidebar'
 import { MobileSidebarTrigger } from '@/components/mobile-sidebar-trigger'
 import { TestRoleSwitcher } from '@/components/test-role-switcher'
+import { NotificationBell } from '@/components/notification-bell'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { ToastProvider, Toaster } from '@/components/ui/toast'
 
@@ -35,11 +36,14 @@ export default function RootLayout({
           <SidebarProvider>
             <Sidebar />
             <SidebarInset>
-              <div className="sticky top-0 z-30 bg-background md:static">
-                <div className="hidden md:block">
-                  <TestRoleSwitcher />
+              <div className="sticky top-0 z-30 flex items-center justify-between bg-sidebar px-6 py-3 text-sidebar-foreground">
+                <div className="flex items-center">
+                  <MobileSidebarTrigger />
+                  <div className="hidden md:block">
+                    <TestRoleSwitcher />
+                  </div>
                 </div>
-                <MobileSidebarTrigger />
+                <NotificationBell />
               </div>
               <main className="thin-scrollbar flex-1 overflow-y-auto">{children}</main>
             </SidebarInset>

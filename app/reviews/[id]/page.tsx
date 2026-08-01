@@ -7,6 +7,7 @@ import { ArrowLeft, CalendarPlus, Plus, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { generateReviewIcs, downloadIcs } from '@/lib/ics'
 import { sendPushNotification } from '@/lib/push-client'
+import { sendNotification } from '@/lib/notifications'
 import { useToastManager } from '@/components/ui/toast'
 import { DetailPageSkeleton } from '@/components/ui/loading-skeletons'
 
@@ -208,6 +209,17 @@ export default function ReviewDetailPage() {
         .eq('id', review.employee_id)
 
       toastManager.add({ title: 'Medarbeidersamtale fullført', description: 'Neste samtale er automatisk satt om 6 måneder.' })
+
+      const otherParticipantId = currentUserId === review.employee_id ? review.leader_id : review.employee_id
+      if (otherParticipantId) {
+        sendNotification({
+          recipientId: otherParticipantId,
+          type: 'review_completed',
+          title: 'Medarbeidersamtale fullført',
+          body: 'En medarbeidersamtale ble markert som fullført.',
+          link: `/reviews/${review.id}`,
+        })
+      }
     }
     setCompleting(false)
   }

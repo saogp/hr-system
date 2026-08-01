@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Combobox, COMBOBOX_SEARCH_THRESHOLD } from '@/components/ui/combobox'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DateInput } from '@/components/ui/date-input'
@@ -179,18 +180,27 @@ function NewContractPageInner() {
       <form onSubmit={handleSendContract} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <Label>Navn på ansatt</Label>
-          <Select value={selectedEmployeeId} onValueChange={(val) => val && setSelectedEmployeeId(val)}>
-            <SelectTrigger className="w-full h-9">
-              <SelectValue placeholder="Velg ansatt" />
-            </SelectTrigger>
-            <SelectContent>
-              {employees.map((emp) => (
-                <SelectItem key={emp.id} value={emp.id}>
-                  {emp.full_name || emp.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {employees.length > COMBOBOX_SEARCH_THRESHOLD ? (
+            <Combobox
+              value={selectedEmployeeId}
+              onValueChange={setSelectedEmployeeId}
+              placeholder="Velg ansatt"
+              options={employees.map((emp) => ({ value: emp.id, label: emp.full_name || emp.email || '' }))}
+            />
+          ) : (
+            <Select value={selectedEmployeeId} onValueChange={(val) => val && setSelectedEmployeeId(val)}>
+              <SelectTrigger className="w-full h-9">
+                <SelectValue placeholder="Velg ansatt" />
+              </SelectTrigger>
+              <SelectContent>
+                {employees.map((emp) => (
+                  <SelectItem key={emp.id} value={emp.id}>
+                    {emp.full_name || emp.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">

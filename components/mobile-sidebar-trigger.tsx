@@ -15,7 +15,7 @@ export function MobileSidebarTrigger() {
     <Button
       variant="ghost"
       size="icon"
-      className="m-2 size-11 md:hidden"
+      className="size-11 md:hidden"
       onClick={toggleSidebar}
     >
       <Menu className="size-8" />

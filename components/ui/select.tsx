@@ -117,6 +117,7 @@ function SelectContent({
         align={align}
         alignOffset={alignOffset}
         alignItemWithTrigger={alignItemWithTrigger}
+        collisionAvoidance={{ side: 'flip', align: 'shift' }}
         className="isolate z-50"
       >
         <SelectPrimitive.Popup

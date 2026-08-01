@@ -57,7 +57,7 @@ export function MonthPicker({
       />
       <PopoverContent
         align="start"
-        collisionAvoidance={{ side: 'flip', align: 'none' }}
+        collisionAvoidance={{ side: 'flip', align: 'shift' }}
         className="w-64"
       >
         <div className="flex items-center justify-between mb-3">

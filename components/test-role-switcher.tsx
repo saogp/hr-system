@@ -69,7 +69,7 @@ export function TestRoleSwitcher() {
   }
 
   return (
-    <div className="flex items-center gap-2 px-4 py-1">
+    <div className="flex items-center gap-2">
       {impersonating ? (
         <>
           <span className="rounded-full bg-brand-orange px-2.5 py-0.5 text-xs font-medium text-brand-navy truncate">
