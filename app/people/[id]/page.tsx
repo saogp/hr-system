@@ -460,7 +460,7 @@ function PersonDetailPageInner() {
   const canEditSomething = isAdmin || isSelf
 
   return (
-    <div className="py-6 px-4 max-w-[1440px]">
+    <div className="p-6 max-w-[1440px]">
       <div className="flex items-center justify-between mb-6">
         <Link
           href="/people"
