@@ -13,6 +13,7 @@ import { AUDIT_ACTIONS, AUDIT_FIELD_LABELS, type AuditAction } from '@/lib/audit
 import { Switch } from '@/components/ui/switch'
 import { SURVEY_TEMPLATES } from '@/lib/survey-templates'
 import { PageHeaderSkeleton, CardGridSkeleton } from '@/components/ui/loading-skeletons'
+import { formatDate, formatDateTime } from '@/lib/format-date'
 
 import {
   Dialog,
@@ -587,12 +588,6 @@ export default function SettingsPage() {
 
     setSendingBroadcast(false)
   }
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
-
-  const formatDateTime = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   const formatAuditAction = (entry: AuditLogRow) => {
     const d = entry.details ?? {}
