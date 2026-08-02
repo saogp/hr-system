@@ -36,7 +36,7 @@ export default function RootLayout({
           <SidebarProvider>
             <Sidebar />
             <SidebarInset>
-              <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-sidebar px-6 py-3 text-sidebar-foreground">
+              <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-sidebar px-6 py-1 text-sidebar-foreground">
                 <div className="flex items-center">
                   <MobileSidebarTrigger />
                   <div className="hidden md:block">
