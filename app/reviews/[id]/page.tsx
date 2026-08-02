@@ -88,11 +88,11 @@ export default function ReviewDetailPage() {
       }
       setCurrentUserId(user.id)
 
-      const { data: reviewData } = await supabase
-        .from('reviews')
-        .select('*')
-        .eq('id', id)
-        .single()
+      const [{ data: reviewData }, { data: peopleData }, { data: tasksData }] = await Promise.all([
+        supabase.from('reviews').select('*').eq('id', id).single(),
+        supabase.from('profiles').select('id, full_name, email').order('full_name'),
+        supabase.from('review_tasks').select('*').eq('review_id', id).order('created_at'),
+      ])
 
       if (!reviewData) {
         router.replace('/reviews')
@@ -100,35 +100,17 @@ export default function ReviewDetailPage() {
       }
       setReview(reviewData)
       setAnswers(reviewData.answers ?? {})
-
-      const { data: employeeData } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .eq('id', reviewData.employee_id)
-        .single()
-      if (employeeData) setEmployeeInfo(employeeData)
-
-      if (reviewData.leader_id) {
-        const { data: leaderData } = await supabase
-          .from('profiles')
-          .select('id, full_name, email')
-          .eq('id', reviewData.leader_id)
-          .single()
-        if (leaderData) setLeaderInfo(leaderData)
-      }
-
-      const { data: peopleData } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .order('full_name')
       if (peopleData) setPeople(peopleData)
-
-      const { data: tasksData } = await supabase
-        .from('review_tasks')
-        .select('*')
-        .eq('review_id', id)
-        .order('created_at')
       if (tasksData) setTasks(tasksData)
+
+      const [{ data: employeeData }, { data: leaderData }] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, email').eq('id', reviewData.employee_id).single(),
+        reviewData.leader_id
+          ? supabase.from('profiles').select('id, full_name, email').eq('id', reviewData.leader_id).single()
+          : Promise.resolve({ data: null }),
+      ])
+      if (employeeData) setEmployeeInfo(employeeData)
+      if (leaderData) setLeaderInfo(leaderData)
 
       setLoading(false)
     }

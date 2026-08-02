@@ -204,11 +204,120 @@ export default function DashboardPage() {
       }
       setAnniversaryLabel(getAnniversaryLabel(profile?.start_date ?? null))
 
+      const companyActiveCountsPromise = admin
+        ? (async () => {
+            const { data: myCompanyLinks } = await supabase
+              .from('profile_companies')
+              .select('company_id, companies(name)')
+              .eq('profile_id', user.id)
+            if (!myCompanyLinks || myCompanyLinks.length === 0) return null
+
+            const companyIds = myCompanyLinks.map((c) => c.company_id)
+            const { data: allLinks } = await supabase
+              .from('profile_companies')
+              .select('company_id, profiles(is_active)')
+              .in('company_id', companyIds)
+
+            const counts = new Map<string, number>()
+            for (const link of (allLinks ?? []) as unknown as { company_id: string; profiles: { is_active: boolean } | null }[]) {
+              if (link.profiles?.is_active) {
+                counts.set(link.company_id, (counts.get(link.company_id) ?? 0) + 1)
+              }
+            }
+            return (myCompanyLinks as unknown as { company_id: string; companies: { name: string } | null }[]).map((c) => ({
+              name: c.companies?.name ?? '—',
+              count: counts.get(c.company_id) ?? 0,
+            }))
+          })()
+        : Promise.resolve(null)
+
+      const nullData = Promise.resolve({ data: null })
+
+      const [
+        birthdaysResult,
+        companyActiveCounts,
+        { data: cleaningGroupsData },
+        { data: cleaningRoomsData },
+        { data: cleaningChecksData },
+        { data: unsignedData },
+        { data: activeProfilesData },
+        { data: allContractsData },
+        { data: arbeidProfilesData },
+        { data: allCompanyLinksData },
+        { data: unreadData },
+        { data: allSurveysData },
+        { data: submittedData },
+        { data: contractsData },
+        { data: reviewsData },
+        { data: myFullSurveysData },
+        { data: myUniformData },
+        { data: tasksData },
+      ] = await Promise.all([
+        admin
+          ? supabase.from('profiles').select('full_name, birth_date').neq('id', user.id)
+          : supabase.rpc('get_people_directory'),
+        companyActiveCountsPromise,
+        admin
+          ? supabase.from('cleaning_room_groups').select('id, name, sort_order').order('sort_order')
+          : nullData,
+        admin ? supabase.from('cleaning_rooms').select('id, group_id') : nullData,
+        admin
+          ? supabase.from('cleaning_checks').select('room_id').eq('check_date', new Date().toISOString().slice(0, 10))
+          : nullData,
+        admin
+          ? supabase
+              .from('contracts')
+              .select('id, sent_at, employee_signed_at, admin_signed_at, profiles!contracts_profile_id_fkey(full_name, email)')
+              .not('template_id', 'is', null)
+              .or('employee_signed_at.is.null,admin_signed_at.is.null')
+              .order('sent_at', { ascending: false })
+          : nullData,
+        admin ? supabase.from('profiles').select('id, full_name, email').eq('is_active', true) : nullData,
+        admin ? supabase.from('contracts').select('profile_id') : nullData,
+        admin
+          ? supabase
+              .from('profiles')
+              .select('id, full_name, email, title, employment_type, position_percentage, start_date')
+              .eq('is_active', true)
+          : nullData,
+        admin ? supabase.from('profile_companies').select('profile_id') : nullData,
+        admin
+          ? supabase
+              .from('concern_reports')
+              .select('id, created_at, profiles!concern_reports_recipient_id_fkey(full_name, email)')
+              .eq('read', false)
+              .order('created_at', { ascending: false })
+          : nullData,
+        admin ? supabase.from('surveys').select('id, questions') : nullData,
+        admin
+          ? supabase.from('survey_recipients').select('survey_id, responses').not('submitted_at', 'is', null)
+          : nullData,
+        supabase
+          .from('contracts')
+          .select('id, sent_at, employee_signed_at, template_id, contract_templates!contracts_template_id_fkey(name)')
+          .eq('profile_id', user.id)
+          .order('sent_at', { ascending: false }),
+        supabase
+          .from('reviews')
+          .select('id, scheduled_date, status')
+          .or(`employee_id.eq.${user.id},leader_id.eq.${user.id}`)
+          .order('scheduled_date', { ascending: false }),
+        supabase
+          .from('survey_recipients')
+          .select('id, survey_id, submitted_at, responses, surveys!survey_recipients_survey_id_fkey(title, questions)')
+          .eq('profile_id', user.id)
+          .order('id'),
+        supabase.from('uniform_issuances').select('id, items').eq('profile_id', user.id).is('employee_signed_at', null),
+        supabase
+          .from('review_tasks')
+          .select('id, description, completed, review_id, reviews!review_tasks_review_id_fkey(employee_id, profiles!reviews_employee_id_fkey(full_name, email))')
+          .eq('assigned_to', user.id)
+          .eq('completed', false)
+          .order('created_at'),
+      ])
+
       if (admin) {
-        const { data: allBirthdays } = await supabase
-          .from('profiles')
-          .select('full_name, birth_date')
-          .neq('id', user.id)
+        const allBirthdays = birthdaysResult.data as { full_name: string | null; birth_date: string | null }[] | null
         if (allBirthdays) {
           const names = allBirthdays
             .filter((p) => p.birth_date && p.birth_date.slice(5, 10) === todayMonthDay)
@@ -216,57 +325,20 @@ export default function DashboardPage() {
           setBirthdaysToday(names)
         }
       } else {
-        const { data: directoryData } = await supabase.rpc('get_people_directory')
+        const directoryData = birthdaysResult.data as { id: string; full_name: string | null; is_birthday_today: boolean }[] | null
         if (directoryData) {
-          const names = (directoryData as { id: string; full_name: string | null; is_birthday_today: boolean }[])
+          const names = directoryData
             .filter((p) => p.is_birthday_today && p.id !== user.id)
             .map((p) => p.full_name || 'Ukjent')
           setBirthdaysToday(names)
         }
       }
 
+      if (companyActiveCounts) setCompanyActiveCounts(companyActiveCounts)
+
       if (admin) {
-        const { data: myCompanyLinks } = await supabase
-          .from('profile_companies')
-          .select('company_id, companies(name)')
-          .eq('profile_id', user.id)
-
-        if (myCompanyLinks && myCompanyLinks.length > 0) {
-          const companyIds = myCompanyLinks.map((c) => c.company_id)
-          const { data: allLinks } = await supabase
-            .from('profile_companies')
-            .select('company_id, profiles(is_active)')
-            .in('company_id', companyIds)
-
-          const counts = new Map<string, number>()
-          for (const link of (allLinks ?? []) as unknown as { company_id: string; profiles: { is_active: boolean } | null }[]) {
-            if (link.profiles?.is_active) {
-              counts.set(link.company_id, (counts.get(link.company_id) ?? 0) + 1)
-            }
-          }
-
-          setCompanyActiveCounts(
-            (myCompanyLinks as unknown as { company_id: string; companies: { name: string } | null }[]).map((c) => ({
-              name: c.companies?.name ?? '—',
-              count: counts.get(c.company_id) ?? 0,
-            }))
-          )
-        }
-
-        const { data: cleaningGroupsData } = await supabase
-          .from('cleaning_room_groups')
-          .select('id, name, sort_order')
-          .order('sort_order')
-        const { data: cleaningRoomsData } = await supabase
-          .from('cleaning_rooms')
-          .select('id, group_id')
-        const { data: cleaningChecksData } = await supabase
-          .from('cleaning_checks')
-          .select('room_id')
-          .eq('check_date', new Date().toISOString().slice(0, 10))
-
         if (cleaningGroupsData && cleaningRoomsData) {
-          const doneRoomIds = new Set((cleaningChecksData ?? []).map((c) => c.room_id))
+          const doneRoomIds = new Set((cleaningChecksData ?? []).map((c: { room_id: string }) => c.room_id))
           setCleaningStatus(
             cleaningGroupsData.map((g) => {
               const groupRooms = cleaningRoomsData.filter((r) => r.group_id === g.id)
@@ -276,54 +348,21 @@ export default function DashboardPage() {
           )
         }
 
-        const { data: unsignedData } = await supabase
-          .from('contracts')
-          .select('id, sent_at, employee_signed_at, admin_signed_at, profiles!contracts_profile_id_fkey(full_name, email)')
-          .not('template_id', 'is', null)
-          .or('employee_signed_at.is.null,admin_signed_at.is.null')
-          .order('sent_at', { ascending: false })
         if (unsignedData) setUnsignedContracts(unsignedData as unknown as UnsignedContract[])
 
-        const { data: activeProfilesData } = await supabase
-          .from('profiles')
-          .select('id, full_name, email')
-          .eq('is_active', true)
-        const { data: allContractsData } = await supabase
-          .from('contracts')
-          .select('profile_id')
         if (activeProfilesData) {
-          const withContract = new Set((allContractsData ?? []).map((c) => c.profile_id))
+          const withContract = new Set((allContractsData ?? []).map((c: { profile_id: string }) => c.profile_id))
           setMissingContractPeople(activeProfilesData.filter((p) => !withContract.has(p.id)))
         }
 
-        const { data: arbeidProfilesData } = await supabase
-          .from('profiles')
-          .select('id, full_name, email, title, employment_type, position_percentage, start_date')
-          .eq('is_active', true)
-        const { data: allCompanyLinksData } = await supabase
-          .from('profile_companies')
-          .select('profile_id')
         if (arbeidProfilesData) {
-          const withCompany = new Set((allCompanyLinksData ?? []).map((c) => c.profile_id))
+          const withCompany = new Set((allCompanyLinksData ?? []).map((c: { profile_id: string }) => c.profile_id))
           setMissingArbeidPeople(
             arbeidProfilesData.filter((p) => !computeArbeidCompletion(p, withCompany.has(p.id)).complete)
           )
         }
 
-        const { data: unreadData } = await supabase
-          .from('concern_reports')
-          .select('id, created_at, profiles!concern_reports_recipient_id_fkey(full_name, email)')
-          .eq('read', false)
-          .order('created_at', { ascending: false })
         if (unreadData) setUnreadReports(unreadData as unknown as UnreadReport[])
-
-        const { data: allSurveysData } = await supabase
-          .from('surveys')
-          .select('id, questions')
-        const { data: submittedData } = await supabase
-          .from('survey_recipients')
-          .select('survey_id, responses')
-          .not('submitted_at', 'is', null)
 
         if (allSurveysData && submittedData) {
           const surveyById = new Map(allSurveysData.map((s) => [s.id, s.questions]))
@@ -336,45 +375,10 @@ export default function DashboardPage() {
         }
       }
 
-      const { data: contractsData } = await supabase
-        .from('contracts')
-        .select('id, sent_at, employee_signed_at, template_id, contract_templates!contracts_template_id_fkey(name)')
-        .eq('profile_id', user.id)
-        .order('sent_at', { ascending: false })
-
       if (contractsData) setMyContracts(contractsData as unknown as MyContract[])
-
-      const { data: reviewsData } = await supabase
-        .from('reviews')
-        .select('id, scheduled_date, status')
-        .or(`employee_id.eq.${user.id},leader_id.eq.${user.id}`)
-        .order('scheduled_date', { ascending: false })
-
       if (reviewsData) setMyReviews(reviewsData)
-
-      const { data: myFullSurveysData } = await supabase
-        .from('survey_recipients')
-        .select('id, survey_id, submitted_at, responses, surveys!survey_recipients_survey_id_fkey(title, questions)')
-        .eq('profile_id', user.id)
-        .order('id')
-
       if (myFullSurveysData) setMySurveys(myFullSurveysData as unknown as MySurvey[])
-
-      const { data: myUniformData } = await supabase
-        .from('uniform_issuances')
-        .select('id, items')
-        .eq('profile_id', user.id)
-        .is('employee_signed_at', null)
-
       if (myUniformData) setMyUniformIssuances(myUniformData as unknown as MyUniformIssuance[])
-
-      const { data: tasksData } = await supabase
-        .from('review_tasks')
-        .select('id, description, completed, review_id, reviews!review_tasks_review_id_fkey(employee_id, profiles!reviews_employee_id_fkey(full_name, email))')
-        .eq('assigned_to', user.id)
-        .eq('completed', false)
-        .order('created_at')
-
       if (tasksData) setMyTasks(tasksData as unknown as MyTask[])
 
       setLoading(false)

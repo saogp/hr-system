@@ -81,10 +81,11 @@ export default function UniformerPage() {
       }
       setIsRealAdmin(viewerRole === 'admin')
 
-      const { data: myCompanyLinks } = await supabase
-        .from('profile_companies')
-        .select('company_id, companies(id, name)')
-        .eq('profile_id', user.id)
+      const [{ data: myCompanyLinks }, { data: allCompanyLinks }] = await Promise.all([
+        supabase.from('profile_companies').select('company_id, companies(id, name)').eq('profile_id', user.id),
+        supabase.from('profile_companies').select('profile_id, company_id'),
+        loadIssuances(),
+      ])
       if (myCompanyLinks) {
         setMyCompanies(
           (myCompanyLinks as unknown as { companies: { id: string; name: string } | null }[])
@@ -93,8 +94,6 @@ export default function UniformerPage() {
             .sort((a, b) => a.name.localeCompare(b.name))
         )
       }
-
-      const { data: allCompanyLinks } = await supabase.from('profile_companies').select('profile_id, company_id')
       if (allCompanyLinks) {
         const map: Record<string, string[]> = {}
         for (const row of allCompanyLinks) {
@@ -103,7 +102,6 @@ export default function UniformerPage() {
         setProfileCompanyMap(map)
       }
 
-      await loadIssuances()
       setLoading(false)
     }
 

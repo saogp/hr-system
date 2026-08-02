@@ -64,16 +64,13 @@ export default function NewUniformIssuancePage() {
         return
       }
 
-      const { data: peopleData } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .order('full_name')
+      const [{ data: peopleData }, { data: companiesData }, { data: pcData }] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, email').order('full_name'),
+        supabase.from('companies').select('id, name').order('name'),
+        supabase.from('profile_companies').select('profile_id, company_id'),
+      ])
       if (peopleData) setPeople(peopleData)
-
-      const { data: companiesData } = await supabase.from('companies').select('id, name').order('name')
       if (companiesData) setCompanies(companiesData)
-
-      const { data: pcData } = await supabase.from('profile_companies').select('profile_id, company_id')
       if (pcData) {
         const map: Record<string, string[]> = {}
         for (const row of pcData) {

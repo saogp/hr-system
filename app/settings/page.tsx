@@ -203,11 +203,15 @@ export default function SettingsPage() {
         return
       }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, notification_prefs, email_digest_mode')
-        .eq('id', user.id)
-        .single()
+      const [{ data: profile }, { data: notificationHistoryData }] = await Promise.all([
+        supabase.from('profiles').select('role, notification_prefs, email_digest_mode').eq('id', user.id).single(),
+        supabase
+          .from('notifications')
+          .select('id, type, title, body, link, read_at, created_at')
+          .eq('recipient_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(100),
+      ])
 
       const viewerRole = applyRoleOverride(profile?.role ?? 'employee')
       const admin = isAdminLike(viewerRole)
@@ -216,74 +220,73 @@ export default function SettingsPage() {
       setCurrentUserId(user.id)
       setNotificationPrefs((profile?.notification_prefs as NotificationPrefs) ?? {})
       setEmailDigestMode(profile?.email_digest_mode === 'immediate' ? 'immediate' : 'daily')
-
-      const { data: notificationHistoryData } = await supabase
-        .from('notifications')
-        .select('id, type, title, body, link, read_at, created_at')
-        .eq('recipient_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(100)
       if (notificationHistoryData) setNotificationHistory(notificationHistoryData)
 
-      if (viewerRole === 'admin') {
-        const { data: auditData } = await supabase
-          .from('audit_log')
-          .select('id, actor_id, action, target_profile_id, details, created_at')
-          .order('created_at', { ascending: false })
-          .limit(100)
-        if (auditData) {
-          setAuditLog(auditData as AuditLogRow[])
-          const actorIds = [...new Set(auditData.map((a) => a.actor_id))]
-          if (actorIds.length > 0) {
-            const { data: actorProfiles } = await supabase
-              .from('profiles')
-              .select('id, full_name, email')
-              .in('id', actorIds)
-            const map: Record<string, string> = {}
-            for (const p of actorProfiles ?? []) map[p.id] = p.full_name || p.email || '—'
-            setAuditActors(map)
-          }
+      const nullData = Promise.resolve({ data: null })
+
+      const [
+        { data: auditData },
+        { data: companiesData },
+        { data: templatesData },
+        { data: reviewTemplatesData },
+        { data: surveyTemplatesData },
+        { data: broadcastData },
+        { data: employeesData },
+        { data: cleaningGroupsData },
+      ] = await Promise.all([
+        viewerRole === 'admin'
+          ? supabase
+              .from('audit_log')
+              .select('id, actor_id, action, target_profile_id, details, created_at')
+              .order('created_at', { ascending: false })
+              .limit(100)
+          : nullData,
+        admin ? supabase.from('companies').select('*').order('name') : nullData,
+        admin
+          ? supabase.from('contract_templates').select('id, name, created_at').order('created_at', { ascending: false })
+          : nullData,
+        admin
+          ? supabase.from('review_templates').select('id, name, created_at').order('created_at', { ascending: false })
+          : nullData,
+        admin
+          ? supabase
+              .from('survey_templates')
+              .select('id, name, questions, anonymous, created_at')
+              .order('created_at', { ascending: false })
+          : nullData,
+        admin
+          ? supabase
+              .from('broadcast_messages')
+              .select('id, subject, message, recipient_count, pdf_url, pdf_filename, created_at, profiles!broadcast_messages_sender_id_fkey(full_name, email)')
+              .order('created_at', { ascending: false })
+          : nullData,
+        admin
+          ? supabase.from('profiles').select('id, full_name, email, title').neq('id', user.id).order('full_name')
+          : nullData,
+        admin ? supabase.from('cleaning_room_groups').select('id, name, questions').order('sort_order') : nullData,
+      ])
+
+      if (auditData) {
+        setAuditLog(auditData as AuditLogRow[])
+        const actorIds = [...new Set(auditData.map((a) => a.actor_id))]
+        if (actorIds.length > 0) {
+          const { data: actorProfiles } = await supabase
+            .from('profiles')
+            .select('id, full_name, email')
+            .in('id', actorIds)
+          const map: Record<string, string> = {}
+          for (const p of actorProfiles ?? []) map[p.id] = p.full_name || p.email || '—'
+          setAuditActors(map)
         }
       }
 
       if (admin) {
-        const { data: companiesData } = await supabase
-          .from('companies')
-          .select('*')
-          .order('name')
         if (companiesData) setCompanies(companiesData)
-
-        const { data: templatesData } = await supabase
-          .from('contract_templates')
-          .select('id, name, created_at')
-          .order('created_at', { ascending: false })
         if (templatesData) setTemplates(templatesData)
-
-        const { data: reviewTemplatesData } = await supabase
-          .from('review_templates')
-          .select('id, name, created_at')
-          .order('created_at', { ascending: false })
         if (reviewTemplatesData) setReviewTemplates(reviewTemplatesData)
-
-        const { data: surveyTemplatesData } = await supabase
-          .from('survey_templates')
-          .select('id, name, questions, anonymous, created_at')
-          .order('created_at', { ascending: false })
         if (surveyTemplatesData) setSurveyTemplates(surveyTemplatesData)
-
-        await loadBroadcastHistory()
-
-        const { data: employeesData } = await supabase
-          .from('profiles')
-          .select('id, full_name, email, title')
-          .neq('id', user.id)
-          .order('full_name')
+        if (broadcastData) setBroadcastHistory(broadcastData as unknown as BroadcastMessage[])
         if (employeesData) setBroadcastEmployees(employeesData)
-
-        const { data: cleaningGroupsData } = await supabase
-          .from('cleaning_room_groups')
-          .select('id, name, questions')
-          .order('sort_order')
         if (cleaningGroupsData) setCleaningGroups(cleaningGroupsData)
       }
 

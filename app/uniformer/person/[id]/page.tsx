@@ -62,19 +62,16 @@ export default function PersonUniformHistoryPage() {
       }
       setIsRealAdmin(viewerRole === 'admin')
 
-      const { data: personData } = await supabase
-        .from('profiles')
-        .select('full_name, email')
-        .eq('id', id)
-        .single()
+      const [{ data: personData }, { data: issuanceData }] = await Promise.all([
+        supabase.from('profiles').select('full_name, email').eq('id', id).single(),
+        supabase
+          .from('uniform_issuances')
+          .select('*')
+          .eq('profile_id', id)
+          .not('employee_signed_at', 'is', null)
+          .order('employee_signed_at', { ascending: false }),
+      ])
       if (personData) setPerson(personData)
-
-      const { data: issuanceData } = await supabase
-        .from('uniform_issuances')
-        .select('*')
-        .eq('profile_id', id)
-        .not('employee_signed_at', 'is', null)
-        .order('employee_signed_at', { ascending: false })
       if (issuanceData) setIssuances(issuanceData as unknown as UniformIssuance[])
 
       setLoading(false)

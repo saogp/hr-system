@@ -100,27 +100,20 @@ export default function SurveysPage() {
     setIsRealAdmin(viewerRole === 'admin')
 
     if (admin) {
-      const { data: peopleData } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .order('full_name')
+      const [
+        { data: peopleData },
+        { data: companiesData },
+        { data: surveysData },
+        { data: recipientsData },
+      ] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, email').order('full_name'),
+        supabase.from('companies').select('id, name').order('name'),
+        supabase.from('surveys').select('id, title, created_at, company_id, anonymous').order('created_at', { ascending: false }),
+        supabase.from('survey_recipients').select('survey_id, submitted_at, profiles!survey_recipients_profile_id_fkey(full_name, email)'),
+      ])
       if (peopleData) setPeople(peopleData)
-
-      const { data: companiesData } = await supabase
-        .from('companies')
-        .select('id, name')
-        .order('name')
       if (companiesData) setCompanies(companiesData)
-
-      const { data: surveysData } = await supabase
-        .from('surveys')
-        .select('id, title, created_at, company_id, anonymous')
-        .order('created_at', { ascending: false })
       if (surveysData) setSurveys(surveysData)
-
-      const { data: recipientsData } = await supabase
-        .from('survey_recipients')
-        .select('survey_id, submitted_at, profiles!survey_recipients_profile_id_fkey(full_name, email)')
 
       if (recipientsData) {
         const respondents: Record<string, string[]> = {}

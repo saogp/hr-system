@@ -672,23 +672,7 @@ export default function ContractDetailPage() {
         {isAdmin && !contract.admin_signed_at && (
           <div className="space-y-2">
             <h2 className="font-medium text-sm">Signer som ansvarlig</h2>
-            {missingFields.length > 0 ? (
-              <p className="text-sm text-destructive">
-                Ansatt mangler å fylle ut: {missingFields.join(', ')}.
-              </p>
-            ) : bankAccountInvalid ? (
-              <p className="text-sm text-destructive">
-                Kontonummer skal ha 11 siffer (har {bankAccountDigits.length}).
-              </p>
-            ) : personnummerMissing || personnummerInvalid ? (
-              <p className="text-sm text-destructive">
-                {personnummerMissing
-                  ? 'Ansatt mangler å fylle ut personnummer.'
-                  : `Personnummer skal ha 11 siffer (har ${personnummerDigits.length}).`}
-              </p>
-            ) : (
-              <SignaturePad onSave={handleAdminSign} saving={signing} />
-            )}
+            <SignaturePad onSave={handleAdminSign} saving={signing} />
           </div>
         )}
       </div>

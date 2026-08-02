@@ -90,10 +90,18 @@ function NewContractPageInner() {
 
       setCurrentUserId(user.id)
 
-      const { data: templatesData } = await supabase
-        .from('contract_templates')
-        .select('*')
-        .order('created_at', { ascending: false })
+      const [
+        { data: templatesData },
+        { data: employeesData },
+        { data: companiesData },
+        { data: pcData },
+      ] = await Promise.all([
+        supabase.from('contract_templates').select('*').order('created_at', { ascending: false }),
+        supabase.from('profiles').select('id, full_name, email').order('full_name'),
+        supabase.from('companies').select('*').order('name'),
+        supabase.from('profile_companies').select('profile_id, company_id'),
+      ])
+
       if (templatesData) {
         setTemplates(templatesData)
         const templateParam = searchParams.get('template')
@@ -108,19 +116,8 @@ function NewContractPageInner() {
         }
       }
 
-      const { data: employeesData } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .order('full_name')
       if (employeesData) setEmployees(employeesData)
-
-      const { data: companiesData } = await supabase
-        .from('companies')
-        .select('*')
-        .order('name')
       if (companiesData) setCompanies(companiesData)
-
-      const { data: pcData } = await supabase.from('profile_companies').select('profile_id, company_id')
       if (pcData) {
         const map: Record<string, string[]> = {}
         for (const row of pcData) {

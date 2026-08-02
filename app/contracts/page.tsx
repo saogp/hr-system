@@ -108,22 +108,16 @@ export default function ContractsPage() {
       setRole(currentRole)
 
       if (isAdminLike(currentRole)) {
-        const { data: templatesData } = await supabase
-          .from('contract_templates')
-          .select('*')
-          .order('created_at', { ascending: false })
+        const [{ data: templatesData }, { data: companiesData }, { data: contractsData }] = await Promise.all([
+          supabase.from('contract_templates').select('*').order('created_at', { ascending: false }),
+          supabase.from('companies').select('*').order('name'),
+          supabase
+            .from('contracts')
+            .select('id, sent_at, employee_signed_at, admin_signed_at, admin_fields, template_id, profile_id, company_id, sent_to_accountant_at, pdf_path, contract_templates!contracts_template_id_fkey(name), profiles!contracts_profile_id_fkey(full_name, email)')
+            .order('sent_at', { ascending: false }),
+        ])
         if (templatesData) setTemplates(templatesData)
-
-        const { data: companiesData } = await supabase
-          .from('companies')
-          .select('*')
-          .order('name')
         if (companiesData) setCompanies(companiesData)
-
-        const { data: contractsData } = await supabase
-          .from('contracts')
-          .select('id, sent_at, employee_signed_at, admin_signed_at, admin_fields, template_id, profile_id, company_id, sent_to_accountant_at, pdf_path, contract_templates!contracts_template_id_fkey(name), profiles!contracts_profile_id_fkey(full_name, email)')
-          .order('sent_at', { ascending: false })
         if (contractsData) setContracts(contractsData as unknown as ContractRow[])
       } else {
         const { data: contractsData } = await supabase

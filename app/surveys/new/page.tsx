@@ -84,22 +84,13 @@ function NewSurveyPageInner() {
         return
       }
 
-      const { data: peopleData } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .order('full_name')
+      const [{ data: peopleData }, { data: companiesData }, { data: dbTemplatesData }] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, email').order('full_name'),
+        supabase.from('companies').select('id, name').order('name'),
+        supabase.from('survey_templates').select('id, name, questions, anonymous').order('name'),
+      ])
       if (peopleData) setPeople(peopleData)
-
-      const { data: companiesData } = await supabase
-        .from('companies')
-        .select('id, name')
-        .order('name')
       if (companiesData) setCompanies(companiesData)
-
-      const { data: dbTemplatesData } = await supabase
-        .from('survey_templates')
-        .select('id, name, questions, anonymous')
-        .order('name')
       if (dbTemplatesData) setDbTemplates(dbTemplatesData)
 
       setLoading(false)

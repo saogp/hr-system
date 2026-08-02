@@ -94,21 +94,22 @@ export default function ReviewsPage() {
     setRole(currentRole)
 
     if (isAdminLike(currentRole)) {
-      const { data: peopleData } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .order('full_name')
+      const [
+        { data: peopleData },
+        { data: companiesData },
+        { data: pcData },
+        { data: reviewsData },
+      ] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, email').order('full_name'),
+        supabase.from('companies').select('id, name').order('name'),
+        supabase.from('profile_companies').select('profile_id, company_id'),
+        supabase
+          .from('reviews')
+          .select('id, scheduled_date, status, employee_id, leader_id, profiles!reviews_employee_id_fkey(full_name, email)')
+          .order('scheduled_date', { ascending: false }),
+      ])
       if (peopleData) setPeople(peopleData)
-
-      const { data: companiesData } = await supabase
-        .from('companies')
-        .select('id, name')
-        .order('name')
       if (companiesData) setCompanies(companiesData)
-
-      const { data: pcData } = await supabase
-        .from('profile_companies')
-        .select('profile_id, company_id')
       if (pcData) {
         const map: Record<string, string[]> = {}
         for (const row of pcData) {
@@ -116,11 +117,6 @@ export default function ReviewsPage() {
         }
         setEmployeeCompanies(map)
       }
-
-      const { data: reviewsData } = await supabase
-        .from('reviews')
-        .select('id, scheduled_date, status, employee_id, leader_id, profiles!reviews_employee_id_fkey(full_name, email)')
-        .order('scheduled_date', { ascending: false })
       if (reviewsData) setReviews(reviewsData as unknown as ReviewRow[])
     } else {
       const { data: reviewsData } = await supabase
