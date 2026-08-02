@@ -13,6 +13,7 @@ import { SignaturePad } from '@/components/signature-pad'
 import { useToastManager } from '@/components/ui/toast'
 import { DetailPageSkeleton } from '@/components/ui/loading-skeletons'
 import { sendNotification } from '@/lib/notifications'
+import { formatDate } from '@/lib/format-date'
 
 type PersonInfo = { full_name: string | null; email: string | null }
 
@@ -94,9 +95,6 @@ export default function UniformIssuancePage() {
     }
     setSigning(false)
   }
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
   if (loading || !issuance) {
     return <DetailPageSkeleton />

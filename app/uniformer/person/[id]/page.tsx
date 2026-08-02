@@ -11,6 +11,7 @@ import { IconBadge } from '@/components/ui/icon-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DetailPageSkeleton } from '@/components/ui/loading-skeletons'
+import { formatDate } from '@/lib/format-date'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,9 +92,6 @@ export default function PersonUniformHistoryPage() {
     }
     setDeleting(false)
   }
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
   if (loading) {
     return <DetailPageSkeleton />

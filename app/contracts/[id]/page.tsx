@@ -19,6 +19,7 @@ import { useToastManager } from '@/components/ui/toast'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { sendNotification } from '@/lib/notifications'
 import { DetailPageSkeleton } from '@/components/ui/loading-skeletons'
+import { formatDate, formatDateTime } from '@/lib/format-date'
 
 function formatBankAccount(raw: string): string {
   const digits = raw.replace(/\D/g, '').slice(0, 11)
@@ -103,6 +104,11 @@ export default function ContractDetailPage() {
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [bankAccount, setBankAccount] = useState('')
+  const [birthDate, setBirthDate] = useState('')
+  const [postalCode, setPostalCode] = useState('')
+  const [postalPlace, setPostalPlace] = useState('')
+  const [emergencyContactName, setEmergencyContactName] = useState('')
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState('')
   const [personnummer, setPersonnummer] = useState('')
   const [showPersonnummer, setShowPersonnummer] = useState(false)
   const [legacyPdfUrl, setLegacyPdfUrl] = useState<string | null>(null)
@@ -154,15 +160,20 @@ export default function ContractDetailPage() {
 
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('full_name, email, birth_date, address, phone, bank_account, title, avatar_url')
+        .select('full_name, email, birth_date, address, phone, bank_account, title, avatar_url, postal_code, postal_place, emergency_contact_name, emergency_contact_phone')
         .eq('id', contractData.profile_id)
         .single()
 
       if (profileData) {
-        setProfile(profileData)
+        setProfile({ ...profileData, personnummer: null })
         setPhone(profileData.phone ?? '')
         setAddress(profileData.address ?? '')
         setBankAccount(profileData.bank_account ?? '')
+        setBirthDate(profileData.birth_date ?? '')
+        setPostalCode(profileData.postal_code ?? '')
+        setPostalPlace(profileData.postal_place ?? '')
+        setEmergencyContactName(profileData.emergency_contact_name ?? '')
+        setEmergencyContactPhone(profileData.emergency_contact_phone ?? '')
         setEmployeeInfo({
           id: contractData.profile_id,
           full_name: profileData.full_name,
@@ -210,9 +221,24 @@ export default function ContractDetailPage() {
     if (!contract) return
     await supabase
       .from('profiles')
-      .update({ phone, address, bank_account: bankAccount })
+      .update({
+        phone,
+        address,
+        bank_account: bankAccount,
+        birth_date: birthDate || null,
+        postal_code: postalCode || null,
+        postal_place: postalPlace || null,
+        emergency_contact_name: emergencyContactName || null,
+        emergency_contact_phone: emergencyContactPhone || null,
+      })
       .eq('id', contract.profile_id)
-    setProfile(prev => prev ? { ...prev, phone, address, bank_account: bankAccount } : prev)
+    setProfile(prev => prev ? {
+      ...prev,
+      phone,
+      address,
+      bank_account: bankAccount,
+      birth_date: birthDate || null,
+    } : prev)
   }
 
   const handleEmployeeSign = async (signatureDataUrl: string) => {
@@ -332,14 +358,6 @@ export default function ContractDetailPage() {
     }
     setSendingToAccountant(false)
   }
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
-
-  const formatDateTime = (dateStr: string) =>
-    new Date(dateStr).toLocaleString('no-NO', {
-      day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-    })
 
   if (loading || !contract || !profile) {
     return <DetailPageSkeleton />
@@ -475,7 +493,7 @@ export default function ContractDetailPage() {
     { token: 'kontonummer', label: 'Kontonummer', value: bankAccount, setValue: setBankAccount },
   ].filter(f => usedTokens.includes(f.token))
 
-  const effectiveProfile: ProfileFields = { ...profile, phone, address, bank_account: bankAccount }
+  const effectiveProfile: ProfileFields = { ...profile, phone, address, bank_account: bankAccount, birth_date: birthDate, personnummer }
   const missingFields = getMissingProfileFields(template.content, effectiveProfile)
   const bankAccountDigits = bankAccount.replace(/\D/g, '')
   const bankAccountInvalid = usedTokens.includes('kontonummer') && bankAccountDigits.length > 0 && bankAccountDigits.length !== 11
@@ -483,6 +501,13 @@ export default function ContractDetailPage() {
   const personnummerMissing = personnummerDigits.length === 0
   const personnummerInvalid = !personnummerMissing && personnummerDigits.length !== 11
   const renderedText = renderContract(template.content, effectiveProfile, contract.admin_fields, company)
+
+  const generalInfoMissing = [
+    !birthDate && 'fødselsdato',
+    (!postalCode || !postalPlace) && 'postnummer/poststed',
+    (!emergencyContactName || !emergencyContactPhone) && 'nærmeste pårørende',
+  ].filter((v): v is string => !!v)
+  const allMissingFields = [...missingFields, ...generalInfoMissing]
 
   const signedCount = [contract.employee_signed_at, contract.admin_signed_at].filter(Boolean).length
   const allSigned = signedCount === 2
@@ -609,6 +634,45 @@ export default function ContractDetailPage() {
                 )}
                 <p className="text-[11px] text-muted-foreground">Brukes kun for denne kontrakten, vises ikke andre steder.</p>
               </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="birthDate">Fødselsdato</Label>
+                <Input
+                  id="birthDate"
+                  type="date"
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="postalCode">Postnummer</Label>
+                <Input
+                  id="postalCode"
+                  value={postalCode}
+                  onChange={(e) => setPostalCode(e.target.value)}
+                  placeholder="0000"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="postalPlace">Poststed</Label>
+                <Input
+                  id="postalPlace"
+                  value={postalPlace}
+                  onChange={(e) => setPostalPlace(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="emergencyContactName">Nærmeste pårørende</Label>
+                <Input
+                  id="emergencyContactName"
+                  value={emergencyContactName}
+                  onChange={(e) => setEmergencyContactName(e.target.value)}
+                  placeholder="Navn"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="emergencyContactPhone">Telefon til pårørende</Label>
+                <PhoneInput value={emergencyContactPhone || null} onCommit={(val) => setEmergencyContactPhone(val ?? '')} />
+              </div>
               {editableFields.map((f) => {
                 const bankAccountDigits = f.token === 'kontonummer' ? f.value.replace(/\D/g, '') : ''
                 const bankAccountError =
@@ -649,9 +713,9 @@ export default function ContractDetailPage() {
         {isEmployeeOwner && !contract.employee_signed_at && (
           <div className="space-y-2">
             <h2 className="font-medium text-sm">Din signatur</h2>
-            {missingFields.length > 0 ? (
+            {allMissingFields.length > 0 ? (
               <p className="text-sm text-destructive">
-                Fyll ut følgende før du kan signere: {missingFields.join(', ')}.
+                Fyll ut følgende før du kan signere: {allMissingFields.join(', ')}.
               </p>
             ) : bankAccountInvalid ? (
               <p className="text-sm text-destructive">

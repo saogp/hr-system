@@ -17,6 +17,7 @@ import { sendNotification } from '@/lib/notifications'
 import { computeResponseScore } from '@/lib/survey-score'
 import { DetailPageSkeleton } from '@/components/ui/loading-skeletons'
 import type { SurveyCategory } from '@/lib/survey-categories'
+import { formatDate } from '@/lib/format-date'
 
 type Question = { id: string; text: string; type?: 'text' | 'scale' | 'heading'; category?: SurveyCategory }
 
@@ -140,9 +141,6 @@ export default function SurveyDetailPage() {
     }
     setSubmitting(false)
   }
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
   const shuffled = <T,>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5)
 

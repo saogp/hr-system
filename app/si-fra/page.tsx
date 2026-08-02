@@ -7,6 +7,7 @@ import { sendPushNotification } from '@/lib/push-client'
 import { sendNotification } from '@/lib/notifications'
 import { applyRoleOverride } from '@/lib/role-override'
 import { ListPageSkeleton } from '@/components/ui/loading-skeletons'
+import { formatDate } from '@/lib/format-date'
 
 import {
   Select,
@@ -143,9 +144,6 @@ export default function SiFraPage() {
       setInbox(prev => prev.map(m => (m.id === id ? { ...m, read: true } : m)))
     }
   }
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
   if (loading) {
     return <ListPageSkeleton />

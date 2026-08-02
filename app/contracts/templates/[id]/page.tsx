@@ -32,6 +32,7 @@ const PREVIEW_PROFILE: ProfileFields = {
   phone: '123 45 678',
   bank_account: '1234.56.78903',
   title: 'Servitør',
+  personnummer: '010190 12345',
 }
 
 const PREVIEW_COMPANY: CompanyFields = {

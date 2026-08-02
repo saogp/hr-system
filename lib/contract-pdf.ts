@@ -59,13 +59,14 @@ type ContractForPdf = {
   admin_fields: Record<string, string> | null
   profile_id: string
   company_id: string | null
+  personnummer: string | null
   contract_templates: { name: string; content: string } | null
 }
 
 export async function fetchAndDownloadContractPdf(contractId: string) {
   const { data: contract } = await supabase
     .from('contracts')
-    .select('sent_at, admin_fields, profile_id, company_id, contract_templates!contracts_template_id_fkey(name, content)')
+    .select('sent_at, admin_fields, profile_id, company_id, personnummer, contract_templates!contracts_template_id_fkey(name, content)')
     .eq('id', contractId)
     .single()
 
@@ -78,7 +79,7 @@ export async function fetchAndDownloadContractPdf(contractId: string) {
     .eq('id', typedContract.profile_id)
     .single()
 
-  const profile: ProfileFields = profileData ?? {
+  const profile: ProfileFields = {
     full_name: null,
     email: null,
     birth_date: null,
@@ -86,6 +87,8 @@ export async function fetchAndDownloadContractPdf(contractId: string) {
     phone: null,
     bank_account: null,
     title: null,
+    ...profileData,
+    personnummer: typedContract.personnummer,
   }
 
   let company: CompanyFields | null = null
