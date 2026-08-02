@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminRequest } from '@/lib/verify-admin'
+import { callerSharesCompanyWith } from '@/lib/company-access'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminRequest(request)
@@ -11,6 +12,10 @@ export async function POST(request: Request) {
   const { targetUserId } = await request.json()
   if (!targetUserId) {
     return NextResponse.json({ error: 'Mangler bruker.' }, { status: 400 })
+  }
+
+  if (!(await callerSharesCompanyWith(verified.user.id, targetUserId))) {
+    return NextResponse.json({ error: 'Du har ikke tilgang til denne brukeren.' }, { status: 403 })
   }
 
   const { data: targetUser, error: userError } = await supabaseAdmin.auth.admin.getUserById(targetUserId)

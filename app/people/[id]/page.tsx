@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Combobox, COMBOBOX_SEARCH_THRESHOLD } from '@/components/ui/combobox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   DropdownMenu,
@@ -70,7 +71,6 @@ type PersonProfile = {
   postal_place: string | null
   emergency_contact_name: string | null
   emergency_contact_phone: string | null
-  employee_number: number | null
   employment_type: 'fast' | 'tilkalling' | null
   position_percentage: number | null
   start_date: string | null
@@ -86,7 +86,6 @@ type DirectoryProfile = {
   role: string
   email: string | null
   phone: string | null
-  employee_number: number | null
   avatar_url: string | null
 }
 
@@ -745,24 +744,33 @@ function PersonDetailPageInner() {
               <div className="py-3">
                 <p className="text-xs text-muted-foreground mb-1">Nærmeste leder</p>
                 {editing && isAdmin ? (
-                  <Select
-                    value={person.manager_id ?? 'none'}
-                    onValueChange={(val) => val && handleFieldChange('manager_id', val === 'none' ? null : val)}
-                  >
-                    <SelectTrigger className="w-full h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Ingen</SelectItem>
-                      {allProfiles
-                        .filter((p) => p.id !== id && (p.role === 'admin' || p.role === 'manager'))
-                        .map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.full_name || p.email}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                  (() => {
+                    const managerOptions = allProfiles.filter((p) => p.id !== id && (p.role === 'admin' || p.role === 'manager'))
+                    return managerOptions.length > COMBOBOX_SEARCH_THRESHOLD ? (
+                      <Combobox
+                        value={person.manager_id ?? 'none'}
+                        onValueChange={(val) => handleFieldChange('manager_id', val === 'none' ? null : val)}
+                        options={[{ value: 'none', label: 'Ingen' }, ...managerOptions.map((p) => ({ value: p.id, label: p.full_name || p.email || '' }))]}
+                      />
+                    ) : (
+                      <Select
+                        value={person.manager_id ?? 'none'}
+                        onValueChange={(val) => val && handleFieldChange('manager_id', val === 'none' ? null : val)}
+                      >
+                        <SelectTrigger className="w-full h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Ingen</SelectItem>
+                          {managerOptions.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.full_name || p.email}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )
+                  })()
                 ) : (
                   <p className="text-base md:text-sm">
                     {allProfiles.find((p) => p.id === person.manager_id)?.full_name || 'Ingen'}

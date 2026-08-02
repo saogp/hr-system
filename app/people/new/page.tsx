@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Combobox, COMBOBOX_SEARCH_THRESHOLD } from '@/components/ui/combobox'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -305,16 +306,25 @@ export default function NewEmployeePage() {
 
           <div className="flex flex-col gap-1.5">
             <Label>Nærmeste leder</Label>
-            <Select value={managerId} onValueChange={(val) => val && setManagerId(val)}>
-              <SelectTrigger className="w-full h-9">
-                <SelectValue placeholder="Velg leder" />
-              </SelectTrigger>
-              <SelectContent>
-                {managerOptions.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.full_name || m.email}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {managerOptions.length > COMBOBOX_SEARCH_THRESHOLD ? (
+              <Combobox
+                value={managerId}
+                onValueChange={setManagerId}
+                placeholder="Velg leder"
+                options={managerOptions.map((m) => ({ value: m.id, label: m.full_name || m.email || '' }))}
+              />
+            ) : (
+              <Select value={managerId} onValueChange={(val) => val && setManagerId(val)}>
+                <SelectTrigger className="w-full h-9">
+                  <SelectValue placeholder="Velg leder" />
+                </SelectTrigger>
+                <SelectContent>
+                  {managerOptions.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.full_name || m.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">

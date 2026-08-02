@@ -21,7 +21,6 @@ export const AUDIT_FIELD_LABELS: Record<string, string> = {
   birth_date: 'bursdag',
   emergency_contact_name: 'nærmeste pårørende',
   emergency_contact_phone: 'pårørendes telefon',
-  employee_number: 'ansattnummer',
   title: 'stilling',
   role: 'rolle',
   manager_id: 'nærmeste leder',

@@ -11,7 +11,7 @@ export type ComboboxOption = { value: string; label: string }
 // Below this item count a plain Select reads better; at or above it, typing to
 // filter is worth the extra interaction. Kept in one place so every call site
 // that needs to decide "select vs. searchable combobox" agrees.
-export const COMBOBOX_SEARCH_THRESHOLD = 6
+export const COMBOBOX_SEARCH_THRESHOLD = 5
 
 function Combobox({
   options,
@@ -33,6 +33,7 @@ function Combobox({
       items={items}
       value={value || null}
       onValueChange={(val) => onValueChange((val as string | null) ?? "")}
+      itemToStringLabel={(val) => items.find((o) => o.value === val)?.label ?? String(val ?? "")}
     >
       <ComboboxPrimitive.InputGroup
         className={cn(

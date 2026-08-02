@@ -213,7 +213,7 @@ function NewSurveyPageInner() {
   const cameFromTemplate = !!searchParams.get('template')
 
   return (
-    <div className="p-6 max-w-[1440px]">
+    <div className="p-6 max-w-2xl">
       <Link
         href={cameFromTemplate ? '/settings' : '/surveys'}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"

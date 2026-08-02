@@ -122,13 +122,13 @@ export default function ContractsPage() {
 
         const { data: contractsData } = await supabase
           .from('contracts')
-          .select('*, contract_templates!contracts_template_id_fkey(name), profiles!contracts_profile_id_fkey(full_name, email)')
+          .select('id, sent_at, employee_signed_at, admin_signed_at, admin_fields, template_id, profile_id, company_id, sent_to_accountant_at, pdf_path, contract_templates!contracts_template_id_fkey(name), profiles!contracts_profile_id_fkey(full_name, email)')
           .order('sent_at', { ascending: false })
         if (contractsData) setContracts(contractsData as unknown as ContractRow[])
       } else {
         const { data: contractsData } = await supabase
           .from('contracts')
-          .select('*, contract_templates!contracts_template_id_fkey(name)')
+          .select('id, sent_at, employee_signed_at, admin_signed_at, admin_fields, template_id, profile_id, company_id, sent_to_accountant_at, pdf_path, contract_templates!contracts_template_id_fkey(name)')
           .eq('profile_id', user.id)
           .order('sent_at', { ascending: false })
         if (contractsData) setContracts(contractsData as unknown as ContractRow[])

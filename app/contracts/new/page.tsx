@@ -61,6 +61,7 @@ function NewContractPageInner() {
   const [templates, setTemplates] = useState<Template[]>([])
   const [employees, setEmployees] = useState<EmployeeOption[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
+  const [profileCompanyMap, setProfileCompanyMap] = useState<Record<string, string[]>>({})
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
@@ -119,11 +120,27 @@ function NewContractPageInner() {
         .order('name')
       if (companiesData) setCompanies(companiesData)
 
+      const { data: pcData } = await supabase.from('profile_companies').select('profile_id, company_id')
+      if (pcData) {
+        const map: Record<string, string[]> = {}
+        for (const row of pcData) {
+          map[row.profile_id] = [...(map[row.profile_id] ?? []), row.company_id]
+        }
+        setProfileCompanyMap(map)
+      }
+
       setLoading(false)
     }
 
     load()
   }, [router])
+
+  const employeeCompanies = companies.filter((c) => (profileCompanyMap[selectedEmployeeId] ?? []).includes(c.id))
+
+  useEffect(() => {
+    setSelectedCompanyId(employeeCompanies.length === 1 ? employeeCompanies[0].id : '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEmployeeId])
 
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId) ?? null
   const adminTokens = selectedTemplate ? getAdminTokens(selectedTemplate.content) : []
@@ -163,7 +180,7 @@ function NewContractPageInner() {
   const cameFromTemplate = !!searchParams.get('template')
 
   return (
-    <div className="p-6 max-w-[1440px]">
+    <div className="p-6 max-w-2xl">
       <Link
         href={cameFromTemplate ? '/settings' : '/contracts'}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
@@ -242,7 +259,7 @@ function NewContractPageInner() {
                 <SelectValue placeholder="Velg bedrift" />
               </SelectTrigger>
               <SelectContent>
-                {companies.map((c) => (
+                {employeeCompanies.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
                   </SelectItem>

@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Combobox, COMBOBOX_SEARCH_THRESHOLD } from '@/components/ui/combobox'
 import { Button } from '@/components/ui/button'
 import { DateInput } from '@/components/ui/date-input'
 import { Label } from '@/components/ui/label'
@@ -134,18 +135,27 @@ export default function UploadContractPage() {
       <form onSubmit={handleUpload} className="flex flex-col gap-4 max-w-md">
         <div className="flex flex-col gap-1.5">
           <Label>Navn på ansatt</Label>
-          <Select value={selectedEmployeeId} onValueChange={(val) => val && setSelectedEmployeeId(val)}>
-            <SelectTrigger className="w-full h-9">
-              <SelectValue placeholder="Velg ansatt" />
-            </SelectTrigger>
-            <SelectContent>
-              {employees.map((emp) => (
-                <SelectItem key={emp.id} value={emp.id}>
-                  {emp.full_name || emp.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {employees.length > COMBOBOX_SEARCH_THRESHOLD ? (
+            <Combobox
+              value={selectedEmployeeId}
+              onValueChange={setSelectedEmployeeId}
+              placeholder="Velg ansatt"
+              options={employees.map((emp) => ({ value: emp.id, label: emp.full_name || emp.email || '' }))}
+            />
+          ) : (
+            <Select value={selectedEmployeeId} onValueChange={(val) => val && setSelectedEmployeeId(val)}>
+              <SelectTrigger className="w-full h-9">
+                <SelectValue placeholder="Velg ansatt" />
+              </SelectTrigger>
+              <SelectContent>
+                {employees.map((emp) => (
+                  <SelectItem key={emp.id} value={emp.id}>
+                    {emp.full_name || emp.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">

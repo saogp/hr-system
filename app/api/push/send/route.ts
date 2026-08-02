@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import webpush from 'web-push'
 import { supabaseAdmin } from '@/lib/supabase-admin'
+import { callerSharesCompanyWith } from '@/lib/company-access'
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization')
@@ -28,6 +29,10 @@ export async function POST(request: Request) {
   const { profileId, title, body, url } = await request.json()
   if (!profileId || !title) {
     return NextResponse.json({ error: 'profileId og title er påkrevd.' }, { status: 400 })
+  }
+
+  if (!(await callerSharesCompanyWith(user.id, profileId))) {
+    return NextResponse.json({ error: 'Du har ikke tilgang til denne brukeren.' }, { status: 403 })
   }
 
   const { data: subscriptions } = await supabaseAdmin

@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Combobox, COMBOBOX_SEARCH_THRESHOLD } from '@/components/ui/combobox'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DateInput } from '@/components/ui/date-input'
@@ -26,6 +27,7 @@ type PersonOption = {
   id: string
   full_name: string | null
   email: string | null
+  role: string
 }
 
 type ReviewTemplate = {
@@ -77,7 +79,7 @@ function NewReviewPageInner() {
 
       const { data: peopleData } = await supabase
         .from('profiles')
-        .select('id, full_name, email')
+        .select('id, full_name, email, role')
         .order('full_name')
       if (peopleData) setPeople(peopleData)
 
@@ -134,10 +136,12 @@ function NewReviewPageInner() {
     return <FormPageSkeleton />
   }
 
+  const leaderOptions = people.filter((p) => p.role === 'admin' || p.role === 'manager')
+
   const cameFromTemplate = !!searchParams.get('template')
 
   return (
-    <div className="p-6 max-w-[1440px]">
+    <div className="p-6 max-w-2xl">
       <Link
         href={cameFromTemplate ? '/settings' : '/reviews'}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
@@ -152,34 +156,52 @@ function NewReviewPageInner() {
       <form onSubmit={handleSchedule} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <Label>Ansatt</Label>
-          <Select value={selectedEmployeeId} onValueChange={(val) => val && setSelectedEmployeeId(val)}>
-            <SelectTrigger className="w-full h-9">
-              <SelectValue placeholder="Velg ansatt" />
-            </SelectTrigger>
-            <SelectContent>
-              {people.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.full_name || p.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {people.length > COMBOBOX_SEARCH_THRESHOLD ? (
+            <Combobox
+              value={selectedEmployeeId}
+              onValueChange={setSelectedEmployeeId}
+              placeholder="Velg ansatt"
+              options={people.map((p) => ({ value: p.id, label: p.full_name || p.email || '' }))}
+            />
+          ) : (
+            <Select value={selectedEmployeeId} onValueChange={(val) => val && setSelectedEmployeeId(val)}>
+              <SelectTrigger className="w-full h-9">
+                <SelectValue placeholder="Velg ansatt" />
+              </SelectTrigger>
+              <SelectContent>
+                {people.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.full_name || p.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">
           <Label>Leder (vert)</Label>
-          <Select value={selectedLeaderId} onValueChange={(val) => val && setSelectedLeaderId(val)}>
-            <SelectTrigger className="w-full h-9">
-              <SelectValue placeholder="Velg leder" />
-            </SelectTrigger>
-            <SelectContent>
-              {people.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.full_name || p.email}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {leaderOptions.length > COMBOBOX_SEARCH_THRESHOLD ? (
+            <Combobox
+              value={selectedLeaderId}
+              onValueChange={setSelectedLeaderId}
+              placeholder="Velg leder"
+              options={leaderOptions.map((p) => ({ value: p.id, label: p.full_name || p.email || '' }))}
+            />
+          ) : (
+            <Select value={selectedLeaderId} onValueChange={(val) => val && setSelectedLeaderId(val)}>
+              <SelectTrigger className="w-full h-9">
+                <SelectValue placeholder="Velg leder" />
+              </SelectTrigger>
+              <SelectContent>
+                {leaderOptions.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.full_name || p.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">

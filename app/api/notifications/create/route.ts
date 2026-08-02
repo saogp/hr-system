@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { NOTIFICATION_TYPES, type NotificationType, type NotificationPrefs } from '@/lib/notifications'
 import { renderEmailHtml, getEmailFrom, getPlainTextFooter } from '@/lib/email-template'
+import { callerSharesCompanyWith } from '@/lib/company-access'
 
 async function sendNotificationEmail(recipient: { full_name: string | null; email: string }, title: string, body?: string, fullLink?: string) {
   const firstName = (recipient.full_name || '').split(' ')[0] || 'der'
@@ -124,8 +125,14 @@ export async function POST(request: Request) {
       .select('id')
       .eq('role', recipientRole)
       .neq('id', user.id)
-    recipientIds = (roleProfiles ?? []).map((p) => p.id)
+    const shareChecks = await Promise.all(
+      (roleProfiles ?? []).map(async (p) => ((await callerSharesCompanyWith(user.id, p.id)) ? p.id : null))
+    )
+    recipientIds = shareChecks.filter((id): id is string => !!id)
   } else {
+    if (!(await callerSharesCompanyWith(user.id, recipientId))) {
+      return NextResponse.json({ error: 'Du har ikke tilgang til denne brukeren.' }, { status: 403 })
+    }
     recipientIds = [recipientId]
   }
 

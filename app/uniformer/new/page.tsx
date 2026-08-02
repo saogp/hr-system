@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Combobox, COMBOBOX_SEARCH_THRESHOLD } from '@/components/ui/combobox'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -173,7 +174,7 @@ export default function NewUniformIssuancePage() {
   }
 
   return (
-    <div className="p-6 max-w-[1440px]">
+    <div className="p-6 max-w-2xl">
       <Link
         href="/uniformer"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
@@ -187,16 +188,25 @@ export default function NewUniformIssuancePage() {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <Label>Ansatt</Label>
-          <Select value={selectedEmployeeId} onValueChange={(val) => val && setSelectedEmployeeId(val)}>
-            <SelectTrigger className="w-full h-9">
-              <SelectValue placeholder="Velg ansatt" />
-            </SelectTrigger>
-            <SelectContent>
-              {people.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {people.length > COMBOBOX_SEARCH_THRESHOLD ? (
+            <Combobox
+              value={selectedEmployeeId}
+              onValueChange={setSelectedEmployeeId}
+              placeholder="Velg ansatt"
+              options={people.map((p) => ({ value: p.id, label: p.full_name || p.email || '' }))}
+            />
+          ) : (
+            <Select value={selectedEmployeeId} onValueChange={(val) => val && setSelectedEmployeeId(val)}>
+              <SelectTrigger className="w-full h-9">
+                <SelectValue placeholder="Velg ansatt" />
+              </SelectTrigger>
+              <SelectContent>
+                {people.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.full_name || p.email}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {employeeCompanies.length > 1 && (

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { CheckCircle2, MoreHorizontal, Download, Send, Trash2 } from 'lucide-react'
+import { CheckCircle2, MoreHorizontal, Download, Send, Trash2, Eye, EyeOff } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import {
   extractTokens,
@@ -23,6 +23,11 @@ import { DetailPageSkeleton } from '@/components/ui/loading-skeletons'
 function formatBankAccount(raw: string): string {
   const digits = raw.replace(/\D/g, '').slice(0, 11)
   return [digits.slice(0, 4), digits.slice(4, 6), digits.slice(6, 11)].filter(Boolean).join('.')
+}
+
+function formatPersonnummer(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 11)
+  return [digits.slice(0, 6), digits.slice(6, 11)].filter(Boolean).join(' ')
 }
 
 import { Button } from '@/components/ui/button'
@@ -62,6 +67,7 @@ type Contract = {
   created_by: string | null
   template_id: string | null
   pdf_path: string | null
+  personnummer: string | null
   contract_templates: { name: string; content: string } | null
 }
 
@@ -97,6 +103,8 @@ export default function ContractDetailPage() {
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [bankAccount, setBankAccount] = useState('')
+  const [personnummer, setPersonnummer] = useState('')
+  const [showPersonnummer, setShowPersonnummer] = useState(false)
   const [legacyPdfUrl, setLegacyPdfUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -129,6 +137,7 @@ export default function ContractDetailPage() {
       }
       const typedContract = contractData as unknown as Contract
       setContract(typedContract)
+      setPersonnummer(typedContract.personnummer ?? '')
 
       if (!typedContract.template_id && typedContract.pdf_path) {
         const { data: { session } } = await supabase.auth.getSession()
@@ -215,11 +224,11 @@ export default function ContractDetailPage() {
     const nowIso = new Date().toISOString()
     const { error } = await supabase
       .from('contracts')
-      .update({ employee_signed_at: nowIso, employee_signature: signatureDataUrl })
+      .update({ employee_signed_at: nowIso, employee_signature: signatureDataUrl, personnummer })
       .eq('id', contract.id)
 
     if (!error) {
-      setContract(prev => prev ? { ...prev, employee_signed_at: nowIso, employee_signature: signatureDataUrl } : prev)
+      setContract(prev => prev ? { ...prev, employee_signed_at: nowIso, employee_signature: signatureDataUrl, personnummer } : prev)
       toastManager.add({ title: 'Kontrakt signert', description: 'Signaturen din er registrert.' })
       if (contract.created_by) {
         sendNotification({
@@ -470,6 +479,9 @@ export default function ContractDetailPage() {
   const missingFields = getMissingProfileFields(template.content, effectiveProfile)
   const bankAccountDigits = bankAccount.replace(/\D/g, '')
   const bankAccountInvalid = usedTokens.includes('kontonummer') && bankAccountDigits.length > 0 && bankAccountDigits.length !== 11
+  const personnummerDigits = personnummer.replace(/\D/g, '')
+  const personnummerMissing = personnummerDigits.length === 0
+  const personnummerInvalid = !personnummerMissing && personnummerDigits.length !== 11
   const renderedText = renderContract(template.content, effectiveProfile, contract.admin_fields, company)
 
   const signedCount = [contract.employee_signed_at, contract.admin_signed_at].filter(Boolean).length
@@ -567,10 +579,36 @@ export default function ContractDetailPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px] items-start">
       <div className="space-y-6 min-w-0">
-        {isEmployeeOwner && !contract.employee_signed_at && editableFields.length > 0 && (
+        {isEmployeeOwner && !contract.employee_signed_at && (
           <div className="rounded-md border border-input p-4 space-y-4">
             <h2 className="font-medium">Fyll ut din informasjon</h2>
             <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="personnummer">Personnummer</Label>
+                <div className="relative">
+                  <Input
+                    id="personnummer"
+                    type={showPersonnummer ? 'text' : 'password'}
+                    value={personnummer}
+                    onChange={(e) => setPersonnummer(formatPersonnummer(e.target.value))}
+                    placeholder="DDMMÅÅ NNNNN"
+                    className="pr-9"
+                    aria-invalid={personnummerInvalid}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPersonnummer((v) => !v)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPersonnummer ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    <span className="sr-only">{showPersonnummer ? 'Skjul' : 'Vis'} personnummer</span>
+                  </button>
+                </div>
+                {personnummerInvalid && (
+                  <p className="text-xs text-destructive">Personnummer skal ha 11 siffer (har {personnummerDigits.length}).</p>
+                )}
+                <p className="text-[11px] text-muted-foreground">Brukes kun for denne kontrakten, vises ikke andre steder.</p>
+              </div>
               {editableFields.map((f) => {
                 const bankAccountDigits = f.token === 'kontonummer' ? f.value.replace(/\D/g, '') : ''
                 const bankAccountError =
@@ -619,6 +657,12 @@ export default function ContractDetailPage() {
               <p className="text-sm text-destructive">
                 Kontonummer skal ha 11 siffer (har {bankAccountDigits.length}).
               </p>
+            ) : personnummerMissing || personnummerInvalid ? (
+              <p className="text-sm text-destructive">
+                {personnummerMissing
+                  ? 'Fyll ut personnummer før du kan signere.'
+                  : `Personnummer skal ha 11 siffer (har ${personnummerDigits.length}).`}
+              </p>
             ) : (
               <SignaturePad onSave={handleEmployeeSign} saving={signing} />
             )}
@@ -628,7 +672,23 @@ export default function ContractDetailPage() {
         {isAdmin && !contract.admin_signed_at && (
           <div className="space-y-2">
             <h2 className="font-medium text-sm">Signer som ansvarlig</h2>
-            <SignaturePad onSave={handleAdminSign} saving={signing} />
+            {missingFields.length > 0 ? (
+              <p className="text-sm text-destructive">
+                Ansatt mangler å fylle ut: {missingFields.join(', ')}.
+              </p>
+            ) : bankAccountInvalid ? (
+              <p className="text-sm text-destructive">
+                Kontonummer skal ha 11 siffer (har {bankAccountDigits.length}).
+              </p>
+            ) : personnummerMissing || personnummerInvalid ? (
+              <p className="text-sm text-destructive">
+                {personnummerMissing
+                  ? 'Ansatt mangler å fylle ut personnummer.'
+                  : `Personnummer skal ha 11 siffer (har ${personnummerDigits.length}).`}
+              </p>
+            ) : (
+              <SignaturePad onSave={handleAdminSign} saving={signing} />
+            )}
           </div>
         )}
       </div>

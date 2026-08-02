@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Combobox, COMBOBOX_SEARCH_THRESHOLD } from '@/components/ui/combobox'
 import {
   Dialog,
   DialogContent,
@@ -31,7 +32,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { ShieldAlert } from 'lucide-react'
 
-type PersonOption = { id: string; full_name: string | null; email: string | null }
+type PersonOption = { id: string; full_name: string | null; email: string | null; role: string }
 type ReceivedMessage = {
   id: string
   message: string
@@ -150,6 +151,8 @@ export default function SiFraPage() {
     return <ListPageSkeleton />
   }
 
+  const leaderOptions = people.filter((p) => p.role === 'admin' || p.role === 'manager')
+
   const sendForm = (
     <form id="si-fra-form" onSubmit={handleSend} className="flex flex-col gap-4">
       {sent && (
@@ -160,18 +163,27 @@ export default function SiFraPage() {
 
       <div className="flex flex-col gap-1.5">
         <Label>Send til</Label>
-        <Select value={recipientId} onValueChange={(val) => val && setRecipientId(val)}>
-          <SelectTrigger className="w-full h-9">
-            <SelectValue placeholder="Velg mottaker" />
-          </SelectTrigger>
-          <SelectContent>
-            {people.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.full_name || p.email}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {leaderOptions.length > COMBOBOX_SEARCH_THRESHOLD ? (
+          <Combobox
+            value={recipientId}
+            onValueChange={setRecipientId}
+            placeholder="Velg mottaker"
+            options={leaderOptions.map((p) => ({ value: p.id, label: p.full_name || p.email || '' }))}
+          />
+        ) : (
+          <Select value={recipientId} onValueChange={(val) => val && setRecipientId(val)}>
+            <SelectTrigger className="w-full h-9">
+              <SelectValue placeholder="Velg mottaker" />
+            </SelectTrigger>
+            <SelectContent>
+              {leaderOptions.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.full_name || p.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5">
