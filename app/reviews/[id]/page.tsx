@@ -10,6 +10,7 @@ import { sendPushNotification } from '@/lib/push-client'
 import { sendNotification } from '@/lib/notifications'
 import { useToastManager } from '@/components/ui/toast'
 import { DetailPageSkeleton } from '@/components/ui/loading-skeletons'
+import { formatDate } from '@/lib/format-date'
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -210,9 +211,6 @@ export default function ReviewDetailPage() {
     if (!personId) return null
     return people.find(p => p.id === personId)?.full_name || people.find(p => p.id === personId)?.email
   }
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
   const handleAddToCalendar = () => {
     if (!review) return

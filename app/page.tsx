@@ -18,6 +18,7 @@ import { computeCategoryScores, computeResponseScore, type ScoredQuestion } from
 import type { SurveyCategory } from '@/lib/survey-categories'
 import { computeProfileCompletion } from '@/lib/profile-completion'
 import { computeArbeidCompletion } from '@/lib/arbeid-completion'
+import { formatDate } from '@/lib/format-date'
 import { DashboardSkeleton } from '@/components/ui/loading-skeletons'
 
 function getTimeOfDayGreeting() {
@@ -473,7 +474,7 @@ export default function DashboardPage() {
       label: daysUntilReview! < 0
         ? 'Det er på tide med medarbeidersamtalen din'
         : 'Det er snart tid for medarbeidersamtalen din',
-      sublabel: new Date(nextReviewDate).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' }),
+      sublabel: formatDate(nextReviewDate),
       href: '/reviews',
     })
   }
@@ -737,7 +738,7 @@ export default function DashboardPage() {
                   <div className="min-w-0">
                     <p className="font-medium text-base md:text-sm truncate">{c.contract_templates?.name || '—'}</p>
                     <p className="text-xs text-muted-foreground">
-                      Sendt {new Date(c.sent_at).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      Sendt {formatDate(c.sent_at)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -772,7 +773,7 @@ export default function DashboardPage() {
                   className="flex items-center justify-between gap-2 border-b border-border pb-3 last:border-0 last:pb-0"
                 >
                   <p className="text-xs text-muted-foreground">
-                    {new Date(r.scheduled_date).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    {formatDate(r.scheduled_date)}
                   </p>
                   <div className="flex items-center gap-2 shrink-0">
                     {r.status === 'completed' ? (

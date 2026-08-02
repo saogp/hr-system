@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { todayIsoDate, normalizeCleaningQuestions, type CleaningRoom, type CleaningRoomGroup, type CleaningCheck } from '@/lib/cleaning'
 import { printGroupQrCode } from '@/lib/cleaning-qr'
+import { formatDateTime } from '@/lib/format-date'
 
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Badge } from '@/components/ui/badge'
@@ -131,9 +132,6 @@ export default function RenholdPage() {
       if (res.ok) setPhotoUrls((prev) => ({ ...prev, ...result.urls }))
     }
   }
-
-  const formatDateTime = (dateStr: string) =>
-    new Date(dateStr).toLocaleString('no-NO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   if (loading) {
     return <RenholdPageSkeleton />

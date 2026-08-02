@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
+import { formatDate as formatDateShared } from '@/lib/format-date'
 
 type Room = { id: string; name: string }
 type GroupInfo = {
@@ -89,8 +90,7 @@ export default function GroupCheckinPage() {
     setSubmitting(false)
   }
 
-  const formatDate = () =>
-    new Date().toLocaleDateString('no-NO', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const formatDate = () => formatDateShared(new Date())
 
   if (loading) {
     return <CenteredCardSkeleton />

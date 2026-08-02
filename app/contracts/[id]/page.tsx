@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { CheckCircle2, MoreHorizontal, Download, Send, Trash2, Eye, EyeOff } from 'lucide-react'
+import { CheckCircle2, MoreHorizontal, Download, Send, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import {
   extractTokens,
@@ -104,13 +104,11 @@ export default function ContractDetailPage() {
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [bankAccount, setBankAccount] = useState('')
-  const [birthDate, setBirthDate] = useState('')
   const [postalCode, setPostalCode] = useState('')
   const [postalPlace, setPostalPlace] = useState('')
   const [emergencyContactName, setEmergencyContactName] = useState('')
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('')
   const [personnummer, setPersonnummer] = useState('')
-  const [showPersonnummer, setShowPersonnummer] = useState(false)
   const [legacyPdfUrl, setLegacyPdfUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -169,7 +167,6 @@ export default function ContractDetailPage() {
         setPhone(profileData.phone ?? '')
         setAddress(profileData.address ?? '')
         setBankAccount(profileData.bank_account ?? '')
-        setBirthDate(profileData.birth_date ?? '')
         setPostalCode(profileData.postal_code ?? '')
         setPostalPlace(profileData.postal_place ?? '')
         setEmergencyContactName(profileData.emergency_contact_name ?? '')
@@ -225,7 +222,6 @@ export default function ContractDetailPage() {
         phone,
         address,
         bank_account: bankAccount,
-        birth_date: birthDate || null,
         postal_code: postalCode || null,
         postal_place: postalPlace || null,
         emergency_contact_name: emergencyContactName || null,
@@ -237,7 +233,6 @@ export default function ContractDetailPage() {
       phone,
       address,
       bank_account: bankAccount,
-      birth_date: birthDate || null,
     } : prev)
   }
 
@@ -365,7 +360,7 @@ export default function ContractDetailPage() {
 
   if (!contract.template_id) {
     return (
-      <div className="p-6 max-w-[1440px] space-y-6">
+      <div className="p-6 max-w-[1080px] space-y-6">
         <div className="grid gap-6 lg:grid-cols-[1fr_320px] items-start">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -493,7 +488,7 @@ export default function ContractDetailPage() {
     { token: 'kontonummer', label: 'Kontonummer', value: bankAccount, setValue: setBankAccount },
   ].filter(f => usedTokens.includes(f.token))
 
-  const effectiveProfile: ProfileFields = { ...profile, phone, address, bank_account: bankAccount, birth_date: birthDate, personnummer }
+  const effectiveProfile: ProfileFields = { ...profile, phone, address, bank_account: bankAccount, birth_date: formatDate(profile.birth_date) || null, personnummer }
   const missingFields = getMissingProfileFields(template.content, effectiveProfile)
   const bankAccountDigits = bankAccount.replace(/\D/g, '')
   const bankAccountInvalid = usedTokens.includes('kontonummer') && bankAccountDigits.length > 0 && bankAccountDigits.length !== 11
@@ -503,7 +498,6 @@ export default function ContractDetailPage() {
   const renderedText = renderContract(template.content, effectiveProfile, contract.admin_fields, company)
 
   const generalInfoMissing = [
-    !birthDate && 'fødselsdato',
     (!postalCode || !postalPlace) && 'postnummer/poststed',
     (!emergencyContactName || !emergencyContactPhone) && 'nærmeste pårørende',
   ].filter((v): v is string => !!v)
@@ -518,8 +512,8 @@ export default function ContractDetailPage() {
   }
 
   return (
-    <div className="p-6 max-w-[1440px] space-y-6">
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px] items-start">
+    <div className="p-6 max-w-[1080px] space-y-6">
+      <div className="grid gap-6 lg:grid-cols-[auto_320px] items-start">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">{template.name}</h1>
@@ -564,146 +558,131 @@ export default function ContractDetailPage() {
         </div>
 
         <div className="rounded-md border border-input p-4 space-y-4">
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">Ansatt</p>
-            <div className="flex items-center gap-2">
-              <Avatar className="size-8">
-                {employeeInfo?.avatar_url && <AvatarImage src={employeeInfo.avatar_url} alt={employeeInfo.full_name ?? ''} />}
-                <AvatarFallback className="text-xs">{getInitials(employeeInfo?.full_name || '?')}</AvatarFallback>
-              </Avatar>
-              <div className="min-w-0">
-                <p className="text-sm font-medium truncate">{employeeInfo?.full_name || '—'}</p>
-                <p className="text-xs text-muted-foreground truncate">{employeeInfo?.email}</p>
-              </div>
-            </div>
-          </div>
-
-          {creatorInfo && (
             <div>
-              <p className="text-xs text-muted-foreground mb-1">Ansvarlig</p>
+              <p className="text-xs text-muted-foreground mb-1">Ansatt</p>
               <div className="flex items-center gap-2">
                 <Avatar className="size-8">
-                  {creatorInfo.avatar_url && <AvatarImage src={creatorInfo.avatar_url} alt={creatorInfo.full_name ?? ''} />}
-                  <AvatarFallback className="text-xs">{getInitials(creatorInfo.full_name || '?')}</AvatarFallback>
+                  {employeeInfo?.avatar_url && <AvatarImage src={employeeInfo.avatar_url} alt={employeeInfo.full_name ?? ''} />}
+                  <AvatarFallback className="text-xs">{getInitials(employeeInfo?.full_name || '?')}</AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{creatorInfo.full_name || '—'}</p>
-                  <p className="text-xs text-muted-foreground truncate">{creatorInfo.email}</p>
+                  <p className="text-sm font-medium truncate">{employeeInfo?.full_name || '—'}</p>
+                  <p className="text-xs text-muted-foreground truncate">{employeeInfo?.email}</p>
                 </div>
               </div>
             </div>
-          )}
 
-          {isAdmin && contract.sent_to_accountant_at && (
-            <p className="text-xs text-muted-foreground pt-2 border-t border-border">
-              Sendt til regnskapsfører {formatDate(contract.sent_to_accountant_at)}
-            </p>
-          )}
+            {creatorInfo && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Ansvarlig</p>
+                <div className="flex items-center gap-2">
+                  <Avatar className="size-8">
+                    {creatorInfo.avatar_url && <AvatarImage src={creatorInfo.avatar_url} alt={creatorInfo.full_name ?? ''} />}
+                    <AvatarFallback className="text-xs">{getInitials(creatorInfo.full_name || '?')}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{creatorInfo.full_name || '—'}</p>
+                    <p className="text-xs text-muted-foreground truncate">{creatorInfo.email}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {isAdmin && contract.sent_to_accountant_at && (
+              <p className="text-xs text-muted-foreground pt-2 border-t border-border">
+                Sendt til regnskapsfører {formatDate(contract.sent_to_accountant_at)}
+              </p>
+            )}
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px] items-start">
-      <div className="space-y-6 min-w-0">
+      <div className="grid gap-6 lg:grid-cols-[auto_320px] items-start">
+      <div className="max-w-2xl space-y-6 min-w-0">
         {isEmployeeOwner && !contract.employee_signed_at && (
-          <div className="rounded-md border border-input p-4 space-y-4">
-            <h2 className="font-medium">Fyll ut din informasjon</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="personnummer">Personnummer</Label>
-                <div className="relative">
+            <div className="max-w-md rounded-md border border-input p-4">
+              <h2 className="font-medium mb-2">Fyll ut din informasjon</h2>
+              <div className="divide-y divide-border">
+                {editableFields.filter(f => f.token === 'telefon').map((f) => (
+                  <div key={f.token} className="py-3">
+                    <Label htmlFor={f.token} className="text-xs text-muted-foreground mb-1">{f.label}</Label>
+                    <PhoneInput value={f.value || null} onCommit={(val) => f.setValue(val ?? '')} />
+                  </div>
+                ))}
+
+                {editableFields.filter(f => f.token === 'adresse').map((f) => (
+                  <div key={f.token} className="py-3">
+                    <Label htmlFor={f.token} className="text-xs text-muted-foreground mb-1">{f.label}</Label>
+                    <Input id={f.token} value={f.value} onChange={(e) => f.setValue(e.target.value)} />
+                  </div>
+                ))}
+
+                <div className="py-3">
+                  <Label className="text-xs text-muted-foreground mb-1">Postnummer / poststed</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Postnr."
+                      className="w-24 shrink-0"
+                      value={postalCode}
+                      onChange={(e) => setPostalCode(e.target.value)}
+                    />
+                    <Input
+                      placeholder="Poststed"
+                      value={postalPlace}
+                      onChange={(e) => setPostalPlace(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="py-3">
+                  <p className="text-xs text-muted-foreground mb-1">Nærmeste pårørende</p>
+                  <div className="flex flex-col gap-2">
+                    <Input
+                      placeholder="Navn"
+                      value={emergencyContactName}
+                      onChange={(e) => setEmergencyContactName(e.target.value)}
+                    />
+                    <PhoneInput value={emergencyContactPhone || null} onCommit={(val) => setEmergencyContactPhone(val ?? '')} />
+                  </div>
+                </div>
+
+                {editableFields.filter(f => f.token === 'kontonummer').map((f) => {
+                  const bankAccountDigits = f.value.replace(/\D/g, '')
+                  const bankAccountError =
+                    bankAccountDigits.length > 0 && bankAccountDigits.length !== 11
+                      ? `Kontonummer skal ha 11 siffer (har ${bankAccountDigits.length}).`
+                      : null
+                  return (
+                    <div key={f.token} className="py-3">
+                      <Label htmlFor={f.token} className="text-xs text-muted-foreground mb-1">{f.label}</Label>
+                      <Input
+                        id={f.token}
+                        value={f.value}
+                        onChange={(e) => f.setValue(formatBankAccount(e.target.value))}
+                        placeholder="1234.56.78903"
+                        aria-invalid={!!bankAccountError}
+                      />
+                      {bankAccountError && <p className="text-xs text-destructive mt-1">{bankAccountError}</p>}
+                    </div>
+                  )
+                })}
+
+                <div className="py-3">
+                  <Label htmlFor="personnummer" className="text-xs text-muted-foreground mb-1">Personnummer</Label>
                   <Input
                     id="personnummer"
-                    type={showPersonnummer ? 'text' : 'password'}
+                    type="password"
                     value={personnummer}
                     onChange={(e) => setPersonnummer(formatPersonnummer(e.target.value))}
                     placeholder="DDMMÅÅ NNNNN"
-                    className="pr-9"
                     aria-invalid={personnummerInvalid}
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPersonnummer((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPersonnummer ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                    <span className="sr-only">{showPersonnummer ? 'Skjul' : 'Vis'} personnummer</span>
-                  </button>
+                  {personnummerInvalid && (
+                    <p className="text-xs text-destructive mt-1">Personnummer skal ha 11 siffer (har {personnummerDigits.length}).</p>
+                  )}
+                  <p className="text-[11px] text-muted-foreground mt-1">Brukes kun for denne kontrakten, vises ikke andre steder.</p>
                 </div>
-                {personnummerInvalid && (
-                  <p className="text-xs text-destructive">Personnummer skal ha 11 siffer (har {personnummerDigits.length}).</p>
-                )}
-                <p className="text-[11px] text-muted-foreground">Brukes kun for denne kontrakten, vises ikke andre steder.</p>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="birthDate">Fødselsdato</Label>
-                <Input
-                  id="birthDate"
-                  type="date"
-                  value={birthDate}
-                  onChange={(e) => setBirthDate(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="postalCode">Postnummer</Label>
-                <Input
-                  id="postalCode"
-                  value={postalCode}
-                  onChange={(e) => setPostalCode(e.target.value)}
-                  placeholder="0000"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="postalPlace">Poststed</Label>
-                <Input
-                  id="postalPlace"
-                  value={postalPlace}
-                  onChange={(e) => setPostalPlace(e.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="emergencyContactName">Nærmeste pårørende</Label>
-                <Input
-                  id="emergencyContactName"
-                  value={emergencyContactName}
-                  onChange={(e) => setEmergencyContactName(e.target.value)}
-                  placeholder="Navn"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="emergencyContactPhone">Telefon til pårørende</Label>
-                <PhoneInput value={emergencyContactPhone || null} onCommit={(val) => setEmergencyContactPhone(val ?? '')} />
-              </div>
-              {editableFields.map((f) => {
-                const bankAccountDigits = f.token === 'kontonummer' ? f.value.replace(/\D/g, '') : ''
-                const bankAccountError =
-                  f.token === 'kontonummer' && bankAccountDigits.length > 0 && bankAccountDigits.length !== 11
-                    ? `Kontonummer skal ha 11 siffer (har ${bankAccountDigits.length}).`
-                    : null
-
-                return (
-                  <div key={f.token} className="flex flex-col gap-1.5">
-                    <Label htmlFor={f.token}>{f.label}</Label>
-                    {f.token === 'telefon' ? (
-                      <PhoneInput value={f.value || null} onCommit={(val) => f.setValue(val ?? '')} />
-                    ) : f.token === 'kontonummer' ? (
-                      <>
-                        <Input
-                          id={f.token}
-                          value={f.value}
-                          onChange={(e) => f.setValue(formatBankAccount(e.target.value))}
-                          placeholder="1234.56.78903"
-                          aria-invalid={!!bankAccountError}
-                        />
-                        {bankAccountError && <p className="text-xs text-destructive">{bankAccountError}</p>}
-                      </>
-                    ) : (
-                      <Input id={f.token} value={f.value} onChange={(e) => f.setValue(e.target.value)} />
-                    )}
-                  </div>
-                )
-              })}
             </div>
-          </div>
         )}
 
         <div className="rounded-md border border-input p-4 text-base md:text-sm">

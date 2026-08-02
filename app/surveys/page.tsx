@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { computeResponseScore } from '@/lib/survey-score'
 import type { SurveyCategory } from '@/lib/survey-categories'
+import { formatDate } from '@/lib/format-date'
 
 import {
   Select,
@@ -156,9 +157,6 @@ export default function SurveysPage() {
     }
     setDeleting(false)
   }
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
   if (loading) {
     return <ListPageSkeleton />

@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { Pagination, PAGE_SIZE } from '@/components/ui/pagination'
 import { useToastManager } from '@/components/ui/toast'
+import { formatDate } from '@/lib/format-date'
 
 import {
   Select,
@@ -191,9 +192,6 @@ export default function ContractsPage() {
       setContracts(prev => prev.map(c => c.id === contractId ? { ...c, sent_to_accountant_at: nowIso } : c))
     }
   }
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
   const handleDownloadPdf = async (c: ContractRow) => {
     if (!c.template_id) {

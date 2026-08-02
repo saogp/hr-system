@@ -9,6 +9,7 @@ import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { useToastManager } from '@/components/ui/toast'
 import { ArrowLeft } from 'lucide-react'
 import { FormPageSkeleton } from '@/components/ui/loading-skeletons'
+import { formatDate } from '@/lib/format-date'
 
 import {
   Select,
@@ -115,7 +116,7 @@ function NewReviewPageInner() {
     }).select().single()
 
     if (!error && review) {
-      const dateLabel = new Date(scheduledDate).toLocaleDateString('no-NO', { day: 'numeric', month: 'long', year: 'numeric' })
+      const dateLabel = formatDate(scheduledDate)
       sendPushNotification(selectedEmployeeId, 'Medarbeidersamtale planlagt', `Du har fått en medarbeidersamtale ${dateLabel}.`, '/reviews')
 
       const { data: { session } } = await supabase.auth.getSession()

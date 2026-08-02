@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { formatDate } from '@/lib/format-date'
 
 import {
   Select,
@@ -149,9 +150,6 @@ export default function ReviewsPage() {
     }
     setDeleting(false)
   }
-
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
 
   if (loading) {
     return <ListPageSkeleton />

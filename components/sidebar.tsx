@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, LogOut, FileText, Users, Settings, MessageSquare, ShieldAlert, ClipboardList, Package, SprayCan, ChevronRight } from 'lucide-react'
+import { LayoutDashboard, LogOut, FileText, Users, Settings, MessageSquare, ShieldAlert, ClipboardList, Package, SprayCan, ChevronRight, UserCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getStoredTheme, applyTheme, type Theme } from '@/lib/theme'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
@@ -28,6 +28,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
@@ -66,7 +67,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const { isMobile, setOpenMobile } = useSidebar()
-  const [currentUser, setCurrentUser] = useState<{ name: string; email: string; role: string; avatarUrl: string | null } | null>(null)
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; email: string; role: string; avatarUrl: string | null } | null>(null)
   const [theme, setTheme] = useState<Theme>('light')
 
   const closeMobileSidebar = () => {
@@ -89,6 +90,7 @@ export function Sidebar() {
         .single()
 
       setCurrentUser({
+        id: user.id,
         name: profile?.full_name || user.email || 'Bruker',
         email: profile?.email || user.email || '',
         role: profile?.role ?? 'employee',
@@ -226,6 +228,13 @@ export function Sidebar() {
                 }
               />
               <DropdownMenuContent side="top" align="end" className="w-(--anchor-width)">
+                <DropdownMenuItem
+                  render={<Link href={currentUser ? `/people/${currentUser.id}` : '#'} onClick={closeMobileSidebar} />}
+                >
+                  <UserCircle />
+                  Profil
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} variant="destructive">
                   <LogOut />
                   Logg ut

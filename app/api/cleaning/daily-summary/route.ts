@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { verifyAdminOrManagerRequest } from '@/lib/verify-admin'
 import { deliverNotification } from '@/app/api/notifications/create/route'
+import { formatDate } from '@/lib/format-date'
 
 export async function POST(request: Request) {
   const verified = await verifyAdminOrManagerRequest(request)
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
   const checkedRoomIds = new Set((checks ?? []).map((c) => c.room_id))
   const missingRooms = rooms.filter((r) => !checkedRoomIds.has(r.id))
 
-  const dateLabel = new Date().toLocaleDateString('no-NO', { day: 'numeric', month: 'long', year: 'numeric' })
+  const dateLabel = formatDate(new Date())
   const title = `Renhold – status ${dateLabel}`
   const body = missingRooms.length === 0
     ? `Alle rom er rengjort i dag (${dateLabel}).`

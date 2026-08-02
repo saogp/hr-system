@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { AllDoneIllustration } from '@/components/decorative/all-done-illustration'
+import { formatDateTime } from '@/lib/format-date'
 
 type NotificationRow = {
   id: string
@@ -68,8 +69,7 @@ export function NotificationBell() {
 
   const unreadCount = notifications.length
 
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+  const formatDate = formatDateTime
 
   const handleOpenNotification = async (n: NotificationRow) => {
     setNotifications((prev) => prev.filter((x) => x.id !== n.id))

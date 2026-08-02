@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf'
 import { supabase } from '@/lib/supabase'
 import { renderContract, type ProfileFields, type CompanyFields } from '@/lib/contract-tokens'
+import { formatDate } from '@/lib/format-date'
 
 function slugify(name: string): string {
   return name
@@ -108,6 +109,6 @@ export async function fetchAndDownloadContractPdf(contractId: string) {
     company
   )
 
-  const sentLabel = `Sendt ${new Date(typedContract.sent_at).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })}`
+  const sentLabel = `Sendt ${formatDate(typedContract.sent_at)}`
   downloadContractPdf(typedContract.contract_templates.name, sentLabel, renderedText)
 }

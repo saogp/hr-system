@@ -309,13 +309,13 @@ export default function PeoplePage() {
           <div className="flex items-center gap-2 shrink-0">
             <Button
               size="lg"
-              variant={showInactive ? 'default' : 'outline'}
-              className={showInactive ? 'bg-brand-navy text-white hover:bg-brand-navy/90' : 'border-brand-orange'}
+              variant="outline"
+              className="border-brand-orange"
               onClick={() => setShowInactive((v) => !v)}
             >
               {showInactive ? 'Aktive ansatte' : 'Inaktive ansatte'}
             </Button>
-            <Button size="lg" render={<Link href="/people/new" />} className="bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium">
+            <Button size="lg" render={<Link href="/people/new" />}>
               Legg til ansatt
             </Button>
           </div>

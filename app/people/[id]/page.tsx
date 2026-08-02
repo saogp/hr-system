@@ -3,14 +3,14 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, MoreHorizontal, FileText } from 'lucide-react'
+import { ArrowLeft, MoreHorizontal } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ProfilePageSkeleton } from '@/components/ui/loading-skeletons'
-import { IconBadge } from '@/components/ui/icon-badge'
 import { applyRoleOverride, isAdminLike } from '@/lib/role-override'
 import { logAudit } from '@/lib/audit-log'
 import { POSITION_OPTIONS } from '@/lib/position-options'
+import { formatDate } from '@/lib/format-date'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -42,7 +42,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PhoneInput } from '@/components/phone-input'
 
 type Company = { id: string; name: string }
@@ -140,6 +141,7 @@ function PersonDetailPageInner() {
   const [loading, setLoading] = useState(true)
 
   const [editing, setEditing] = useState(false)
+  const [activeTab, setActiveTab] = useState('generell')
 
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -360,11 +362,6 @@ function PersonDetailPageInner() {
     setDeletingContract(false)
   }
 
-  const formatDate = (dateStr?: string | null) => {
-    if (!dateStr) return ''
-    return new Date(dateStr).toLocaleDateString('no-NO', { day: 'numeric', month: 'short', year: 'numeric' })
-  }
-
   const getRoleBadge = (role: string) => {
     switch (role) {
       case 'admin':
@@ -520,173 +517,107 @@ function PersonDetailPageInner() {
             <TooltipContent>Invitert {formatDate(inviteStatus?.invited_at)}</TooltipContent>
           </Tooltip>
         )}
-        {isAdmin && inviteStatus?.confirmed_at && (
-          <Tooltip>
-            <TooltipTrigger render={<Badge className="bg-green-600 hover:bg-green-700" />}>Aktiv</TooltipTrigger>
-            <TooltipContent>Godkjent {formatDate(inviteStatus.confirmed_at)}</TooltipContent>
-          </Tooltip>
-        )}
-      </div>
-
-      {canEditSomething && (
-        <div className="flex justify-end mb-2">
+        {canEditSomething && (
           <Button
             size="sm"
-            variant={editing ? 'default' : 'outline'}
-            className={editing ? 'bg-brand-orange hover:bg-brand-orange/90 text-brand-navy font-medium' : ''}
+            className="shrink-0"
             onClick={() => setEditing(v => !v)}
           >
             {editing ? 'Lagre' : 'Rediger'}
           </Button>
-        </div>
-      )}
+        )}
+      </div>
 
-      <div className={isAdmin ? 'grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 items-start' : 'flex flex-col gap-6'}>
-        <Card className="shadow-none border-border py-0 rounded-2xl lg:col-start-1 lg:row-start-1">
-          <CardHeader className="border-b border-border py-4">
-            <CardTitle className="text-sm font-semibold">Generell info</CardTitle>
-          </CardHeader>
+      <div className="max-w-xl">
+
+        <Tabs value={activeTab} onValueChange={(val) => val && setActiveTab(val)}>
+          <TabsList>
+            <TabsTrigger value="generell">Generell info</TabsTrigger>
+            <TabsTrigger value="arbeid">Arbeid</TabsTrigger>
+            {isAdmin && <TabsTrigger value="dokumenter">Dokumenter</TabsTrigger>}
+          </TabsList>
+
+          <TabsContent value="generell" className="pt-4">
+          <Card className="shadow-none border-border py-0 rounded-2xl">
           <CardContent className="px-4">
             <div className="divide-y divide-border">
               {renderRow('Navn', 'full_name', person.full_name, person.full_name || '—', 'text')}
-              {renderRow('E-post', 'email', person.email, person.email || '—', 'email')}
 
-              <div className="py-3">
-                <Label className="text-xs text-muted-foreground mb-1">Telefonnummer</Label>
-                {editing && canEditField('phone') ? (
-                  <PhoneInput
-                    value={person.phone}
-                    onCommit={(val) => handleFieldChange('phone', val)}
-                  />
-                ) : (
-                  <p className="text-base md:text-sm">{person.phone || '—'}</p>
-                )}
+              <div className="py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                {renderRow('E-post', 'email', person.email, person.email || '—', 'email', undefined, true)}
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1">Telefonnummer</Label>
+                  {editing && canEditField('phone') ? (
+                    <PhoneInput
+                      value={person.phone}
+                      onCommit={(val) => handleFieldChange('phone', val)}
+                    />
+                  ) : (
+                    <p className="text-base md:text-sm">{person.phone || '—'}</p>
+                  )}
+                </div>
               </div>
 
               {renderRow('Adresse', 'address', person.address, person.address || '—', 'text')}
 
-              <div className="py-3">
-                <Label className="text-xs text-muted-foreground mb-1">Postnummer / poststed</Label>
-                {editing && canEditField('postal_code') ? (
-                  <div className="flex gap-2">
+              <div className="py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1">Postnummer</Label>
+                  {editing && canEditField('postal_code') ? (
                     <Input
-                      placeholder="Postnr."
-                      className="w-24 shrink-0"
                       defaultValue={person.postal_code ?? ''}
                       onBlur={(e) => handleFieldChange('postal_code', e.target.value || null)}
                     />
+                  ) : (
+                    <p className="text-base md:text-sm">{person.postal_code || '—'}</p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1">Poststed</Label>
+                  {editing && canEditField('postal_place') ? (
                     <Input
-                      placeholder="Poststed"
                       defaultValue={person.postal_place ?? ''}
                       onBlur={(e) => handleFieldChange('postal_place', e.target.value || null)}
                     />
-                  </div>
-                ) : (
-                  <p className="text-base md:text-sm">
-                    {person.postal_code || person.postal_place
-                      ? `${person.postal_code || ''} ${person.postal_place || ''}`.trim()
-                      : '—'}
-                  </p>
-                )}
+                  ) : (
+                    <p className="text-base md:text-sm">{person.postal_place || '—'}</p>
+                  )}
+                </div>
               </div>
 
               {renderRow('Bursdag', 'birth_date', person.birth_date, person.birth_date ? formatDate(person.birth_date) : '—', 'date')}
 
-              <div className="py-3">
-                <p className="text-xs text-muted-foreground mb-1">Nærmeste pårørende</p>
-                {editing && canEditField('emergency_contact_name') ? (
-                  <div className="flex flex-col gap-2">
+              <div className="py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1">Nærmeste pårørende</Label>
+                  {editing && canEditField('emergency_contact_name') ? (
                     <Input
-                      placeholder="Navn"
                       defaultValue={person.emergency_contact_name ?? ''}
                       onBlur={(e) => handleFieldChange('emergency_contact_name', e.target.value || null)}
                     />
+                  ) : (
+                    <p className="text-base md:text-sm">{person.emergency_contact_name || '—'}</p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground mb-1">Telefon til pårørende</Label>
+                  {editing && canEditField('emergency_contact_phone') ? (
                     <PhoneInput
                       value={person.emergency_contact_phone}
                       onCommit={(val) => handleFieldChange('emergency_contact_phone', val)}
                     />
-                  </div>
-                ) : (
-                  <p className="text-base md:text-sm">
-                    {person.emergency_contact_name || person.emergency_contact_phone
-                      ? `${person.emergency_contact_name || '—'}${person.emergency_contact_phone ? ' · ' + person.emergency_contact_phone : ''}`
-                      : '—'}
-                  </p>
-                )}
+                  ) : (
+                    <p className="text-base md:text-sm">{person.emergency_contact_phone || '—'}</p>
+                  )}
+                </div>
               </div>
             </div>
           </CardContent>
-        </Card>
-
-        {isAdmin && (
-          <Card className="shadow-none border-border py-0 rounded-2xl lg:col-start-2 lg:row-start-1 lg:row-span-2">
-            <CardHeader className="border-b border-border py-4 flex-row items-center justify-between">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <IconBadge icon={<FileText className="size-4" />} />
-                Dokumenter
-              </CardTitle>
-              <Button size="sm" variant="outline" render={<Link href="/contracts" />}>
-                Send kontrakt
-              </Button>
-            </CardHeader>
-            <CardContent className="px-4">
-              {contracts.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-3">Ingen kontrakter enda.</p>
-              ) : (
-                <div className="flex flex-col divide-y divide-border">
-                  {contracts.map((c) => {
-                    const signedCount = [c.employee_signed_at, c.admin_signed_at].filter(Boolean).length
-                    const isUnsigned = signedCount === 0
-                    return (
-                      <div key={c.id} className="flex items-center justify-between gap-2 py-1">
-                        <Link
-                          href={`/contracts/${c.id}`}
-                          className="min-w-0 flex-1 py-2 rounded-md hover:bg-muted/50"
-                        >
-                          <p className="text-base md:text-sm font-medium truncate">
-                            {c.template_id ? (c.contract_templates?.name || '—') : 'Opplastet arbeidsavtale'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">Sendt {formatDate(c.sent_at)}</p>
-                        </Link>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {c.template_id && (
-                            signedCount === 2 ? (
-                              <Badge className="bg-green-600 hover:bg-green-700">2 av 2 signert</Badge>
-                            ) : (
-                              <Badge variant="secondary">{signedCount} av 2 signert</Badge>
-                            )
-                          )}
-                          {isUnsigned && isRealAdmin && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger
-                                render={
-                                  <Button variant="ghost" size="icon">
-                                    <MoreHorizontal />
-                                    <span className="sr-only">Handlinger</span>
-                                  </Button>
-                                }
-                              />
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem variant="destructive" onClick={() => setContractDeleteId(c.id)}>
-                                  Slett
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </CardContent>
           </Card>
-        )}
+          </TabsContent>
 
-        <Card className="shadow-none border-border py-0 rounded-2xl lg:col-start-1 lg:row-start-2">
-          <CardHeader className="border-b border-border py-4">
-            <CardTitle className="text-sm font-semibold">Arbeid</CardTitle>
-          </CardHeader>
+          <TabsContent value="arbeid" className="pt-4">
+          <Card className="shadow-none border-border py-0 rounded-2xl">
           <CardContent className="px-4">
             <div className="divide-y divide-border">
               <div className="py-3">
@@ -813,7 +744,7 @@ function PersonDetailPageInner() {
                 'number',
                 { min: 0, max: 100 }
               )}
-              <div className="py-3 grid grid-cols-2 gap-4">
+              <div className="py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
                 {renderRow('Tiltredelse', 'start_date', person.start_date, person.start_date ? formatDate(person.start_date) : '—', 'date', undefined, true)}
                 {renderRow('Sluttdato', 'end_date', person.end_date, person.end_date ? formatDate(person.end_date) : '—', 'date', undefined, true)}
               </div>
@@ -868,7 +799,72 @@ function PersonDetailPageInner() {
               </div>
             </div>
           </CardContent>
-        </Card>
+          </Card>
+          </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="dokumenter" className="pt-4">
+          <Card className="shadow-none border-border py-0 rounded-2xl">
+            <CardHeader className="border-b border-border py-4 flex-row items-center justify-end">
+              <Button size="sm" variant="outline" render={<Link href="/contracts" />}>
+                Send kontrakt
+              </Button>
+            </CardHeader>
+            <CardContent className="px-4">
+              {contracts.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-3">Ingen kontrakter enda.</p>
+              ) : (
+                <div className="flex flex-col divide-y divide-border">
+                  {contracts.map((c) => {
+                    const signedCount = [c.employee_signed_at, c.admin_signed_at].filter(Boolean).length
+                    const isUnsigned = signedCount === 0
+                    return (
+                      <div key={c.id} className="flex items-center justify-between gap-2 py-1">
+                        <Link
+                          href={`/contracts/${c.id}`}
+                          className="min-w-0 flex-1 py-2 rounded-md hover:bg-muted/50"
+                        >
+                          <p className="text-base md:text-sm font-medium truncate">
+                            {c.template_id ? (c.contract_templates?.name || '—') : 'Opplastet arbeidsavtale'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">Sendt {formatDate(c.sent_at)}</p>
+                        </Link>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {c.template_id && (
+                            signedCount === 2 ? (
+                              <Badge className="bg-green-600 hover:bg-green-700">2 av 2 signert</Badge>
+                            ) : (
+                              <Badge variant="secondary">{signedCount} av 2 signert</Badge>
+                            )
+                          )}
+                          {isUnsigned && isRealAdmin && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger
+                                render={
+                                  <Button variant="ghost" size="icon">
+                                    <MoreHorizontal />
+                                    <span className="sr-only">Handlinger</span>
+                                  </Button>
+                                }
+                              />
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem variant="destructive" onClick={() => setContractDeleteId(c.id)}>
+                                  Slett
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          </TabsContent>
+        )}
+        </Tabs>
       </div>
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
