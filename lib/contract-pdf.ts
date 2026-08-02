@@ -12,7 +12,18 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, '') || 'kontrakt'
 }
 
-export function downloadContractPdf(templateName: string, sentLabel: string, renderedText: string) {
+export type ContractSignature = {
+  name: string | null
+  signedAt: string | null
+  signatureDataUrl: string | null
+}
+
+export function downloadContractPdf(
+  templateName: string,
+  sentLabel: string,
+  renderedText: string,
+  signatures?: { employee?: ContractSignature | null; admin?: ContractSignature | null }
+) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const marginX = 48
   const maxWidth = doc.internal.pageSize.getWidth() - marginX * 2
@@ -52,6 +63,44 @@ export function downloadContractPdf(templateName: string, sentLabel: string, ren
     if (level > 0) y += 4
   }
 
+  const signers = [signatures?.employee, signatures?.admin].filter(
+    (s): s is ContractSignature => !!s?.signatureDataUrl
+  )
+
+  if (signers.length > 0) {
+    const sigWidth = 200
+    const sigHeight = 75
+
+    if (y > pageHeight - 48) {
+      doc.addPage()
+      y = 56
+    }
+    y += 20
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(13)
+    doc.text('Signaturer', marginX, y)
+    y += 20
+
+    for (const signer of signers) {
+      if (y + sigHeight + 40 > pageHeight - 48) {
+        doc.addPage()
+        y = 56
+      }
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(10)
+      doc.setTextColor(120)
+      doc.text(
+        `${signer.name || 'Ukjent'}${signer.signedAt ? ` · Signert ${formatDate(signer.signedAt)}` : ''}`,
+        marginX,
+        y
+      )
+      doc.setTextColor(20)
+      y += 8
+      doc.addImage(signer.signatureDataUrl!, 'PNG', marginX, y, sigWidth, sigHeight)
+      y += sigHeight + 24
+    }
+  }
+
   doc.save(`${slugify(templateName)}.pdf`)
 }
 
@@ -61,13 +110,18 @@ type ContractForPdf = {
   profile_id: string
   company_id: string | null
   personnummer: string | null
+  employee_signed_at: string | null
+  employee_signature: string | null
+  admin_signed_at: string | null
+  admin_signature: string | null
+  admin_signed_by: string | null
   contract_templates: { name: string; content: string } | null
 }
 
 export async function fetchAndDownloadContractPdf(contractId: string) {
   const { data: contract } = await supabase
     .from('contracts')
-    .select('sent_at, admin_fields, profile_id, company_id, personnummer, contract_templates!contracts_template_id_fkey(name, content)')
+    .select('sent_at, admin_fields, profile_id, company_id, personnummer, employee_signed_at, employee_signature, admin_signed_at, admin_signature, admin_signed_by, contract_templates!contracts_template_id_fkey(name, content)')
     .eq('id', contractId)
     .single()
 
@@ -79,6 +133,16 @@ export async function fetchAndDownloadContractPdf(contractId: string) {
     .select('full_name, email, birth_date, address, phone, bank_account, title')
     .eq('id', typedContract.profile_id)
     .single()
+
+  let adminName: string | null = null
+  if (typedContract.admin_signed_by) {
+    const { data: adminData } = await supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', typedContract.admin_signed_by)
+      .single()
+    adminName = adminData?.full_name || adminData?.email || null
+  }
 
   const profile: ProfileFields = {
     full_name: null,
@@ -110,5 +174,16 @@ export async function fetchAndDownloadContractPdf(contractId: string) {
   )
 
   const sentLabel = `Sendt ${formatDate(typedContract.sent_at)}`
-  downloadContractPdf(typedContract.contract_templates.name, sentLabel, renderedText)
+  downloadContractPdf(typedContract.contract_templates.name, sentLabel, renderedText, {
+    employee: {
+      name: profile.full_name,
+      signedAt: typedContract.employee_signed_at,
+      signatureDataUrl: typedContract.employee_signature,
+    },
+    admin: {
+      name: adminName,
+      signedAt: typedContract.admin_signed_at,
+      signatureDataUrl: typedContract.admin_signature,
+    },
+  })
 }

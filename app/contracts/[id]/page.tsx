@@ -508,7 +508,18 @@ export default function ContractDetailPage() {
 
   const handleDownloadPdf = () => {
     if (!contract) return
-    downloadContractPdf(template.name, `Sendt ${formatDate(contract.sent_at)}`, renderedText)
+    downloadContractPdf(template.name, `Sendt ${formatDate(contract.sent_at)}`, renderedText, {
+      employee: {
+        name: employeeInfo?.full_name ?? null,
+        signedAt: contract.employee_signed_at,
+        signatureDataUrl: contract.employee_signature,
+      },
+      admin: {
+        name: adminSignerInfo?.full_name || creatorInfo?.full_name || null,
+        signedAt: contract.admin_signed_at,
+        signatureDataUrl: contract.admin_signature,
+      },
+    })
   }
 
   return (
