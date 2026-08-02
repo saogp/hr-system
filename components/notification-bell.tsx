@@ -100,7 +100,7 @@ export function NotificationBell() {
           </Button>
         }
       />
-      <PopoverContent align="end" collisionAvoidance={{ side: 'flip', align: 'shift' }} className="w-80 p-0">
+      <PopoverContent align="end" collisionAvoidance={{ side: 'flip', align: 'shift' }} className="w-80 max-w-[calc(100vw-2rem)] p-0">
         <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border">
           <span className="text-sm font-semibold">Varsler</span>
           {unreadCount > 0 && (

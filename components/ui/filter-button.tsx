@@ -31,7 +31,7 @@ export function FilterButton({
       <PopoverContent
         align="start"
         collisionAvoidance={{ side: 'none', align: 'shift' }}
-        className="flex flex-col gap-4 w-96"
+        className="flex flex-col gap-4 w-96 max-w-[calc(100vw-2rem)]"
       >
         {children}
       </PopoverContent>

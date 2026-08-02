@@ -166,7 +166,7 @@ export default function RenholdPage() {
           </h1>
           <p className="text-muted-foreground text-sm">Status og historikk for renhold.</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
           {groups.map((group) => (
             <Button key={group.id} variant="outline" size="sm" onClick={() => handlePrintGroup(group)}>
               <Printer />

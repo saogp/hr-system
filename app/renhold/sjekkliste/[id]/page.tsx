@@ -136,7 +136,7 @@ export default function CleaningChecklistTemplatePage() {
         Tilbake til innstillinger
       </Link>
 
-      <div className="flex flex-row items-end justify-between gap-4 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4">
         <div className="flex flex-col gap-1.5 flex-1 max-w-sm">
           <Label htmlFor="template-name">Navn på mal</Label>
           <Input
@@ -146,7 +146,7 @@ export default function CleaningChecklistTemplatePage() {
             placeholder="Navn på mal"
           />
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3 flex-wrap shrink-0">
           {savedAt && (
             <span className="text-xs text-muted-foreground">
               Lagret {savedAt.toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit' })}
