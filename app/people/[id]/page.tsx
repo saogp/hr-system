@@ -42,7 +42,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PhoneInput } from '@/components/phone-input'
 
@@ -191,7 +191,7 @@ function PersonDetailPageInner() {
           supabase.from('profiles').select('id, full_name, email, role').order('full_name'),
           supabase.from('companies').select('*'),
           supabase.from('profile_companies').select('company_id, employee_number').eq('profile_id', id),
-          admin
+          admin || viewingSelf
             ? supabase
                 .from('contracts')
                 .select('id, sent_at, employee_signed_at, admin_signed_at, template_id, contract_templates!contracts_template_id_fkey(name)')
@@ -216,8 +216,8 @@ function PersonDetailPageInner() {
           }
           setCompanyEmployeeNumbers(numMap)
         }
+        if (contractsData) setContracts(contractsData as unknown as PersonContract[])
         if (admin) {
-          if (contractsData) setContracts(contractsData as unknown as PersonContract[])
           if (statusResult) setInviteStatus(statusResult.statuses?.[id as string] ?? null)
         }
       } else {
@@ -534,7 +534,7 @@ function PersonDetailPageInner() {
           <TabsList>
             <TabsTrigger value="generell">Generell info</TabsTrigger>
             <TabsTrigger value="arbeid">Arbeid</TabsTrigger>
-            {isAdmin && <TabsTrigger value="dokumenter">Dokumenter</TabsTrigger>}
+            {(isAdmin || isSelf) && <TabsTrigger value="dokumenter">Dokumenter</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="generell" className="pt-4">
@@ -650,27 +650,29 @@ function PersonDetailPageInner() {
                 )}
               </div>
 
-              <div className="py-3">
-                <p className="text-xs text-muted-foreground mb-1">Rolle</p>
-                {editing && isAdmin ? (
-                  <RadioGroup value={person.role} onValueChange={(val) => handleFieldChange('role', val)}>
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem value="admin" id="role-admin" />
-                      <Label htmlFor="role-admin" className="font-normal">Admin</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem value="manager" id="role-manager" />
-                      <Label htmlFor="role-manager" className="font-normal">Leder</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <RadioGroupItem value="employee" id="role-employee" />
-                      <Label htmlFor="role-employee" className="font-normal">Ansatt</Label>
-                    </div>
-                  </RadioGroup>
-                ) : (
-                  getRoleBadge(person.role)
-                )}
-              </div>
+              {!(isSelf && !isAdmin) && (
+                <div className="py-3">
+                  <p className="text-xs text-muted-foreground mb-1">Rolle</p>
+                  {editing && isAdmin ? (
+                    <RadioGroup value={person.role} onValueChange={(val) => handleFieldChange('role', val)}>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="admin" id="role-admin" />
+                        <Label htmlFor="role-admin" className="font-normal">Admin</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="manager" id="role-manager" />
+                        <Label htmlFor="role-manager" className="font-normal">Leder</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="employee" id="role-employee" />
+                        <Label htmlFor="role-employee" className="font-normal">Ansatt</Label>
+                      </div>
+                    </RadioGroup>
+                  ) : (
+                    getRoleBadge(person.role)
+                  )}
+                </div>
+              )}
 
               <div className="py-3">
                 <p className="text-xs text-muted-foreground mb-1">Nærmeste leder</p>
@@ -744,7 +746,7 @@ function PersonDetailPageInner() {
                 'number',
                 { min: 0, max: 100 }
               )}
-              <div className="py-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+              <div className="py-3 grid grid-cols-2 gap-4">
                 {renderRow('Tiltredelse', 'start_date', person.start_date, person.start_date ? formatDate(person.start_date) : '—', 'date', undefined, true)}
                 {renderRow('Sluttdato', 'end_date', person.end_date, person.end_date ? formatDate(person.end_date) : '—', 'date', undefined, true)}
               </div>
@@ -802,14 +804,9 @@ function PersonDetailPageInner() {
           </Card>
           </TabsContent>
 
-        {isAdmin && (
+        {(isAdmin || isSelf) && (
           <TabsContent value="dokumenter" className="pt-4">
           <Card className="shadow-none border-border py-0 rounded-2xl">
-            <CardHeader className="border-b border-border py-4 flex-row items-center justify-end">
-              <Button size="sm" variant="outline" render={<Link href="/contracts" />}>
-                Send kontrakt
-              </Button>
-            </CardHeader>
             <CardContent className="px-4">
               {contracts.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-3">Ingen kontrakter enda.</p>
